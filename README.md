@@ -1,1 +1,1 @@
-# PIpeline-Observability-Hex
+# Pipeline-Observability-Hex
