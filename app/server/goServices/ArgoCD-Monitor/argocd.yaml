@@ -1,0 +1,19 @@
+# to create the pipeline
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: node-alpine-app2
+  namespace: argocd 
+spec:
+  project: default  
+  source:
+    repoURL: https://github.com/madilkhan001/argo-cd-test
+    targetRevision: HEAD
+    path: dev2 # 2nd Pipeline --> path: dev
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true 
+      selfHeal: true
