@@ -1,0 +1,33 @@
+# argocd pipeline setup
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-alpine-app2 # 2nd Pipeline --->  name: node-alpine-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-alpine-app2 # 2nd Pipeline --->  app: node-alpine-app
+  template:
+    metadata:
+      labels:
+        app: node-alpine-app2  # 2nd Pipeline ---> app: node-alpine-app
+    spec:
+      containers:
+      - name: node-alpine-container2  # 2nd Pipeline ---> name: node-alpine-container
+        image: adildot68/node-argocd2:1.0  # 2nd Image Name :  adildot68/node-argocd:1.0
+        ports:
+        - containerPort: 8008
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-alpine-service2   # 2nd Pipeline ---> node-alpine-service
+spec:
+  selector:
+    app: node-alpine-app2 # 2nd Pipeline --->  app: node-alpine-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8008  # 2nd Pipeline --->  targetPort: 8007
+  type: NodePort
