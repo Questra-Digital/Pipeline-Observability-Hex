@@ -44,7 +44,7 @@ func DataPipelineState(c *gin.Context) {
 	email := "ranaadil571@gmail.com"
 
 	url := fmt.Sprintf("https://127.0.0.1:8081/api/v1/applications/%s/resource-tree", pipeline_name)
-	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJhZGlsMTphcGlLZXkiLCJuYmYiOjE2OTcyOTcwODEsImlhdCI6MTY5NzI5NzA4MSwianRpIjoiNDcyNDY3ZGEtN2Q3Yy00N2FhLWJkMTUtMjUyNzZmM2I1MjdmIn0.Yf1LfUDKQjrfG2boecd-6akAQP5bTNbzhL6o2F254HU" // Replace with your actual Bearer Token
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJmeXA6YXBpS2V5IiwibmJmIjoxNjk4MTY3MTQ1LCJpYXQiOjE2OTgxNjcxNDUsImp0aSI6InRlc3QifQ.vS6v1SYzm6q5VYctDLTfyx6g1oLwoEjq-30BfrkxOBs" // Replace with your actual Bearer Token
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
