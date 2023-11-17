@@ -38,7 +38,7 @@ func DataPipelineState(c *gin.Context) {
 		}
 	}
 	if !isPipelineAvailble {
-		c.JSON(http.StatusOK, gin.H{"message": "Pipeline is currently unavailable..."})
+		c.JSON(http.StatusNoContent, gin.H{"Error": "Pipeline is currently unavailable..."})
 		return
 	}
 	email := "ranaadil571@gmail.com"

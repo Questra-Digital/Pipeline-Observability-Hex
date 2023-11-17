@@ -18,7 +18,7 @@ func StoreToken(c *gin.Context, email, token string) {
 	// validate the token
 	isValidToken := TokenAuth(token)
 	if !isValidToken {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid Token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"Error": "Invalid Token"})
 		return
 	}
 
