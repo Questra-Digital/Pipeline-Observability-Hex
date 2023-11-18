@@ -27,7 +27,7 @@ func main() {
 	r.GET("/get_all_pipelines", func(c *gin.Context) {
 		availble_pipelines, err := controller.GetAllPipelineNames()
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "Token error"})
+			c.JSON(http.StatusUnauthorized, gin.H{"Error": "Token error"})
 			return
 		}
 		fmt.Println("Available Pipelines : ", availble_pipelines)
