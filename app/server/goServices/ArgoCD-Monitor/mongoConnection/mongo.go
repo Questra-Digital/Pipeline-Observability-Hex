@@ -12,7 +12,8 @@ import (
 func ConnectToMongoDB() (*mongo.Client, error) {
 	// adjust the url, I'm using docker container --> That's why I use 172.24.0.2:27017
 	// admin --> DB Name
-	url := "mongodb://mongouser:mongopassword@172.24.0.2:27017/admin"
+	// url := "mongodb://mongouser:mongopassword@172.24.0.2:27017/admin"
+	url := "mongodb://localhost:27017"
 	clientOptions := options.Client().ApplyURI(url)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {

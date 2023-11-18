@@ -52,10 +52,21 @@ func DataPipelineState(c *gin.Context) {
 		return
 	}
 
+<<<<<<< HEAD
 	// Initialize availble_pipeline map
 	availble_pipeline := make(map[string]int)
 	for _, pipeline := range all_pipeline {
 		availble_pipeline[string(pipeline)] = 1
+=======
+	url := fmt.Sprintf("https://127.0.0.1:8081/api/v1/applications/%s/resource-tree", pipeline_name)
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJmeXA6YXBpS2V5IiwibmJmIjoxNjk4MTY3MTQ1LCJpYXQiOjE2OTgxNjcxNDUsImp0aSI6InRlc3QifQ.vS6v1SYzm6q5VYctDLTfyx6g1oLwoEjq-30BfrkxOBs" // Replace with your actual Bearer Token
+	bearer := "Bearer " + token
+
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+>>>>>>> 708e8700a0d7f67b26ee9edba277710c357ddd29
 	}
 	go func() {
 		for {
