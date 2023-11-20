@@ -38,7 +38,7 @@ func PipelineHistory(c *gin.Context) {
 	}
 
 	if !isPipelineAvailable {
-		c.JSON(http.StatusOK, gin.H{"message": "Requested pipeline is not available"})
+		c.JSON(http.StatusNoContent, gin.H{"message": "Requested pipeline is not available"})
 		return
 	}
 
