@@ -1,0 +1,18 @@
+syntax = "proto3";
+option go_package = "./protos";
+package slack;
+
+service SlackService {
+  rpc SendMessage (SlackMessageRequest) returns (SlackMessageResponse);
+}
+
+message SlackMessageRequest {
+  string bot_token = 1;
+  string channel_id = 2;
+  string message_text = 3;
+}
+
+message SlackMessageResponse {
+  bool success = 1;
+  string error_message = 2;
+}

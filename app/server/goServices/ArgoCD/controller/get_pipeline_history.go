@@ -3,15 +3,23 @@ package controller
 import (
 	"context"
 	"net/http"
-
-	mongoconnection "test-app/mongoConnection"
+	"os"
+	"log"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/joho/godotenv"
 )
 
 func PipelineHistory(c *gin.Context) {
+	
+	err := godotenv.Load(".env")
+	if err != nil {
+	  log.Fatalf("Error loading .env file")
+	}
+
 	// Get the pipeline parameter from the query string
 	pipelineName := c.Query("pipeline")
 
@@ -43,7 +51,7 @@ func PipelineHistory(c *gin.Context) {
 	}
 
 	// Get the email from the authentication or wherever you have it
-	email := "ranaadil571@gmail.com"
+	email := os.Getenv("USER_EMAIL")
 
 	// MongoDB connection
 	mongoClient, err := mongoconnection.ConnectToMongoDB()

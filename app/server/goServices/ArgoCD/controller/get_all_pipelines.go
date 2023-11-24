@@ -7,14 +7,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"log"
+	"os"
+	"github.com/joho/godotenv"
 )
 
 // GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
 func GetAllPipelineNames() ([]string, error) {
 	var pipelineNames []string
 
-	url := "https://127.0.0.1:8081/api/v1/applications"
-	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJmeXA6YXBpS2V5IiwibmJmIjoxNjk4MTY3MTQ1LCJpYXQiOjE2OTgxNjcxNDUsImp0aSI6InRlc3QifQ.vS6v1SYzm6q5VYctDLTfyx6g1oLwoEjq-30BfrkxOBs" // Replace with your actual Bearer Token
+	err := godotenv.Load(".env")
+
+	if err != nil {
+	  log.Fatalf("Error loading .env file")
+	}
+
+	url := os.Getenv("ARGOCD_API")
+	token := os.Getenv("ARGOCD_TOKEN")
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
@@ -54,5 +63,6 @@ func GetAllPipelineNames() ([]string, error) {
 		fmt.Println("Name : ", metadata["name"].(string))
 		pipelineNames = append(pipelineNames, metadata["name"].(string))
 	}
+	fmt.Println("test-1")
 	return pipelineNames, nil
 }

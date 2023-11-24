@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	mongoconnection "test-app/mongoConnection"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 	"time"
-
+	"os"
+	"log"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson"
+	"github.com/joho/godotenv"
+
 )
 
 // Define a struct to store health statuses
@@ -37,6 +40,12 @@ var upgrader = websocket.Upgrader{
 
 func DataPipelineState(c *gin.Context) {
 
+	err := godotenv.Load(".env")
+
+	if err != nil {
+	  log.Fatalf("Error loading .env file")
+	}
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println(err)
@@ -57,17 +66,20 @@ func DataPipelineState(c *gin.Context) {
 	for _, pipeline := range all_pipeline {
 		availble_pipeline[string(pipeline)] = 1
 	}
-	
+	fmt.Println("Hello World!")
 	go func() {
+		//url := os.Getenv("ARGOCD_API") + "/" + pipeline_name + "resource-tree";
+		//url := os.Getenv("ARGOCD_API") + "/" + "fyp-demo-app" + "resource-tree";
 		for {
 			_, isPipelineAvailble := availble_pipeline[string(pipeline_name)]
 
 			if isPipelineAvailble {
-				email := "ranaadil571@gmail.com"
-				url := fmt.Sprintf("https://127.0.0.1:8081/api/v1/applications/%s/resource-tree", pipeline_name)
-				token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJhZGlsMTphcGlLZXkiLCJuYmYiOjE2OTcyOTcwODEsImlhdCI6MTY5NzI5NzA4MSwianRpIjoiNDcyNDY3ZGEtN2Q3Yy00N2FhLWJkMTUtMjUyNzZmM2I1MjdmIn0.Yf1LfUDKQjrfG2boecd-6akAQP5bTNbzhL6o2F254HU" // Replace with your actual Bearer Token
+				url := fmt.Sprintf("https://127.0.0.1:53417/api/v1/applications/%s/resource-tree", pipeline_name)
+				fmt.Printf("%v", url)
+				token := os.Getenv("ARGOCD_TOKEN")
+				email := os.Getenv("USER_EMAIL")
 				bearer := "Bearer " + token
-
+				
 				req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
 				if err != nil {
 					// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -115,7 +127,7 @@ func DataPipelineState(c *gin.Context) {
 					if kind == "EndpointSlice" || kind == "Endpoints" {
 						continue
 					}
-
+					
 					health, ok := nodeMap["health"].(map[string]interface{})
 					if kind == "Pod" {
 						name = nodeMap["networkingInfo"].(map[string]interface{})["labels"].(map[string]interface{})["app"].(string)
@@ -125,9 +137,10 @@ func DataPipelineState(c *gin.Context) {
 					if ok {
 						status := health["status"].(string)
 						fmt.Printf("%s health status: %s\n", kind, status)
-						if name != pipeline_name {
-							continue
-						}
+						// if name != pipeline_name {
+						// 	fmt.Printf("Name: %s\n PipelineName: %s\n", name, pipeline_name)
+						// 	continue
+						// }
 						switch kind {
 						case "Pod":
 							summary.Pod = status
