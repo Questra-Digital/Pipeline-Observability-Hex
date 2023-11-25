@@ -6,11 +6,20 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"net/http"
+	"log"
+	"os"
+	"github.com/joho/godotenv"
 )
 
 // GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
 func TokenAuth(token string) bool {
-	url := "https://127.0.0.1:8081/api/v1/applications"
+	err := godotenv.Load(".env")
+
+	if err != nil {
+	  log.Fatalf("Error loading .env file")
+	}
+
+	url := os.Getenv("ARGOCD_API")
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))

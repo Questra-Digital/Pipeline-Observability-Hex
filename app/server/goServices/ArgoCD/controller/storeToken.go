@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	mongoconnection "test-app/mongoConnection"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
