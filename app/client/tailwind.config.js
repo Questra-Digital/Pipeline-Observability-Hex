@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const defaultTheme = require('tailwindcss/defaultTheme');
+
 module.exports = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -7,6 +9,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      colors: {
+
+      },
+      fontFamily: {
+        Roboto: ['Roboto', ...defaultTheme.fontFamily.sans],
+        Ubuntu: ['Ubuntu', ...defaultTheme.fontFamily.sans],
+      },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':

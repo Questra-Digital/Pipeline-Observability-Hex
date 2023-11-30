@@ -74,7 +74,7 @@ func DataPipelineState(c *gin.Context) {
 			_, isPipelineAvailble := availble_pipeline[string(pipeline_name)]
 
 			if isPipelineAvailble {
-				url := fmt.Sprintf("https://127.0.0.1:53417/api/v1/applications/%s/resource-tree", pipeline_name)
+				url := fmt.Sprintf("https://127.0.0.1:51529/api/v1/applications/%s/resource-tree", pipeline_name)
 				fmt.Printf("%v", url)
 				token := os.Getenv("ARGOCD_TOKEN")
 				email := os.Getenv("USER_EMAIL")
