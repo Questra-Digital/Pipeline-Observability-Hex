@@ -1,37 +1,50 @@
-"use client";
-import axios from '../../axios';
+'use client'
 import { useEffect, useState } from 'react';
 
 function Page() {
-  const [pipelineData, setPipelineData] = useState(null);
+  // State to store Pipeline Data
+  const [pipelineData, setPipelineData] = useState([]);
+
+  // Getting Pipeline Names from localStorage
   const pipelineName = localStorage.getItem('pipeline');
 
   useEffect(() => {
-    async function fetchPipelineData() {
-      try {
-        const response = await axios.get('/pipeline_state', {
-          params: {
-            pipeline: `${pipelineName}`,
-          },
-        });
+    // Websocket Connection
+    const ws = new WebSocket('ws://localhost:8000/pipeline_state');
 
-        setPipelineData(response.data);
+    // Sending pipeline name as message
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+      ws.send(JSON.stringify({ Name: pipelineName }));
+    };
 
-        console.log(response.data);
-      } catch (error) {
-        console.error('Error fetching pipeline data:', error.message);
-      }
-    }
+    // Listening for Any message received from server
+    ws.onmessage = (event) => {
+      const receivedData = JSON.parse(event.data);
+      console.log(receivedData);
+      
+      // Update pipelineData
+      setPipelineData(prevData => [...prevData, receivedData]);
+    };
 
-    fetchPipelineData();
-  }, []);
+    // Handling Any error in websocket
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Closing connection while unmounting the courrent page.
+    return () => {
+      console.log('Closing WebSocket Connection!');
+      ws.close();
+    };
+  }, [pipelineName]);
 
   return (
     <div>
       <h1 className='text-center mt-5 font-semibold text-2xl text-red-600'>Pipeline State: {pipelineName}</h1>
-      {pipelineData && (
-        <pre>{JSON.stringify(pipelineData, null, 2)}</pre>
-      )}
+      {pipelineData.map((data, index) => (
+        <pre key={index}>{JSON.stringify(data, null, 2)}</pre>
+      ))}
     </div>
   );
 }
