@@ -6,9 +6,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
 	"os"
+
 	"github.com/joho/godotenv"
 )
 
@@ -19,7 +20,7 @@ func GetAllPipelineNames() ([]string, error) {
 	err := godotenv.Load(".env")
 
 	if err != nil {
-	  log.Fatalf("Error loading .env file")
+		log.Fatalf("Error loading .env file")
 	}
 
 	url := os.Getenv("ARGOCD_API")
@@ -63,6 +64,5 @@ func GetAllPipelineNames() ([]string, error) {
 		fmt.Println("Name : ", metadata["name"].(string))
 		pipelineNames = append(pipelineNames, metadata["name"].(string))
 	}
-	fmt.Println("test-1")
 	return pipelineNames, nil
 }
