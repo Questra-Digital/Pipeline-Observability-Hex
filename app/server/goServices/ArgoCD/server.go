@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"net/http"
+
 	"github.com/QuestraDigital/goServices/ArgoCD/controller"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
-	"github.com/QuestraDigital/goServices/ArgoCD/slackClient"
+	"github.com/gin-gonic/gin"
 )
 
 type ErrorResponse struct {
@@ -26,7 +26,6 @@ func main() {
 
 	// get all the pipelines
 	r.GET("/get_all_pipelines", func(c *gin.Context) {
-		slackClient.SendAlert()
 		availble_pipelines, err := controller.GetAllPipelineNames()
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"Error": "Token error"})
