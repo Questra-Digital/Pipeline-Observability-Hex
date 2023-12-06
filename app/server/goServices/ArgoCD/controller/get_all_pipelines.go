@@ -13,10 +13,32 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
-func GetAllPipelineNames() ([]string, error) {
+// this function parse the Json reponse and returns the availble pipelines
+func parseJSONResponse(resp *http.Response) ([]string, error) {
 	var pipelineNames []string
 
+	// Read and parse the JSON response
+	var responseData map[string]interface{}
+	err := json.NewDecoder(resp.Body).Decode(&responseData)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract pipeline names from the response
+	for _, pipeline := range responseData["items"].([]interface{}) {
+		pipelineData := pipeline.(map[string]interface{})
+		metadata := pipelineData["metadata"].(map[string]interface{})
+		name := metadata["name"].(string)
+
+		fmt.Println("Name : ", name)
+		pipelineNames = append(pipelineNames, name)
+	}
+
+	return pipelineNames, nil
+}
+
+// GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
+func GetAllPipelineNames() ([]string, error) {
 	err := godotenv.Load(".env")
 
 	if err != nil {
@@ -46,23 +68,6 @@ func GetAllPipelineNames() ([]string, error) {
 	}
 	defer resp.Body.Close()
 
-	// Check if the response status is not OK
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token error, status code: %d", resp.StatusCode)
-	}
-
-	// Read and parse the JSON response
-	var responseData map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&responseData)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pipeline := range responseData["items"].([]interface{}) {
-		pipelineData := pipeline.(map[string]interface{})
-		metadata := pipelineData["metadata"].(map[string]interface{})
-		fmt.Println("Name : ", metadata["name"].(string))
-		pipelineNames = append(pipelineNames, metadata["name"].(string))
-	}
-	return pipelineNames, nil
+	pipelineNames, err := parseJSONResponse(resp)
+	return pipelineNames, err
 }
