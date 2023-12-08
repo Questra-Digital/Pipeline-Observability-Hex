@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
 	"github.com/gin-gonic/gin"
-	"github.com/robfig/cron"
 )
 
 type ErrorResponse struct {
@@ -17,29 +16,12 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// Run Cron Job
-func runAllPipelinesStatusCronJob() {
-	// Create a new cron scheduler
-	c := cron.New()
-
-	// Define your cron job
-	job := cron.FuncJob(controller.AllPipelinesStatus)
-
-	// Add the cron job to the scheduler
-	c.AddJob("*/5 * * * * *", job) // This cron syntax means every 5 seconds
-
-	// Start the scheduler
-	c.Start()
-}
-
 func main() {
 	r := gin.Default()
 
 	// Add CORS middleware
 	r.Use(cors.Default())
 
-	// run cron job
-	runAllPipelinesStatusCronJob()
 	// Define your routes here
 	// get all the pipelines
 	r.GET("/get_all_pipelines", func(c *gin.Context) {
@@ -81,6 +63,4 @@ func main() {
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)
 	}
-	// Keep the program running to allow cron jobs to execute
-	select {}
 }
