@@ -118,9 +118,9 @@ func ReadMessageFromWebSocket(conn *websocket.Conn) (Message, error) {
 }
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
-func fetchPipelineData(pipelineName string) (map[string]interface{}, error) {
+func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("https://127.0.0.1:8081/api/v1/applications/%s/resource-tree", pipelineName)
-	fmt.Printf("%v", url)
+	// fmt.Printf("%v", url)
 
 	token := os.Getenv("ARGOCD_TOKEN")
 	bearer := "Bearer " + token
@@ -155,7 +155,7 @@ func fetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 }
 
 // ParsePipelineData parses the pipeline data and updates the HealthSummary.
-func parsePipelineData(data []interface{}) HealthSummary {
+func ParsePipelineData(data []interface{}) HealthSummary {
 	var summary HealthSummary
 
 	for _, node := range data {
@@ -224,12 +224,12 @@ func DataPipelineState(c *gin.Context) {
 
 			if isPipelineAvailble {
 				// get pipeline data
-				responseData, err := fetchPipelineData(pipeline_name)
+				responseData, err := FetchPipelineData(pipeline_name)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				summary := parsePipelineData(responseData["nodes"].([]interface{}))
+				summary := ParsePipelineData(responseData["nodes"].([]interface{}))
 				// insert in the db
 				err = InsertSummaryToMongoDB(email, pipeline_name, summary)
 				if err != nil {
