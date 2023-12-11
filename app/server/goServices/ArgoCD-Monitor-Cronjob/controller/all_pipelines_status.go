@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/notificationClient"
 )
 
 var (
@@ -138,9 +139,10 @@ func updateCounter(isPipelineHealthy bool, pipelineName string) {
 			fmt.Println("Error getting counter value:", err)
 		}
 
-		if val == 2 {
+		if val == 1 {
 			fmt.Println("Sending Slack Notification..........")
 			// Add your Slack notification logic here
+			notificationClient.TriggerNotificationService()
 		}
 	} else {
 		// Reset counter
