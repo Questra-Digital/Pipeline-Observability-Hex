@@ -2,16 +2,21 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/joho/godotenv"
 )
 
 var (
-	counter     map[string]int
+	redisClient *redis.Client
 	counterLock sync.Mutex
 )
 
@@ -21,6 +26,20 @@ type HealthSummary struct {
 	Service    string
 	Deployment string
 	ReplicaSet string
+}
+
+func init() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	REDIS_URL := os.Getenv("")
+	// Initialize Redis client
+	redisClient = redis.NewClient(&redis.Options{
+		Addr: REDIS_URL, // Update with your Redis server address
+		DB:   0,
+	})
 }
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
@@ -100,20 +119,37 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 }
 
 // update the counter and send notification to slack
-func updateCounter(isPipelineHealthy bool, pipeline_name string) {
+func updateCounter(isPipelineHealthy bool, pipelineName string) {
 	counterLock.Lock()
 	defer counterLock.Unlock()
 
+	key := fmt.Sprintf("pipeline:%s:counter", pipelineName)
+
 	if !isPipelineHealthy {
-		counter[pipeline_name]++
-		if counter[pipeline_name] == 2 {
+		// Increment counter
+		_, err := redisClient.Incr(context.Background(), key).Result()
+		if err != nil {
+			fmt.Println("Error incrementing counter:", err)
+		}
+
+		// Check if the counter is 2
+		val, err := redisClient.Get(context.Background(), key).Int()
+		if err != nil {
+			fmt.Println("Error getting counter value:", err)
+		}
+
+		if val == 2 {
 			fmt.Println("Sending Slack Notification..........")
+			// Add your Slack notification logic here
 		}
 	} else {
-		counter[pipeline_name] = 0
+		// Reset counter
+		err := redisClient.Set(context.Background(), key, 0, 0).Err()
+		if err != nil {
+			fmt.Println("Error resetting counter:", err)
+		}
 	}
 }
-
 func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -139,15 +175,9 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	checkHealth("ReplicaSet", summary.ReplicaSet)
 
 	updateCounter(isPipelineHealthy, pipeline_name)
-	fmt.Println(counter)
 }
 
 func AllPipelinesStatus() {
-	// Initializing the global map if it is nil
-	if counter == nil {
-		counter = make(map[string]int)
-	}
-
 	allpipelines, err := GetAllPipelineNames()
 	if err != nil {
 		fmt.Println(err)
