@@ -59,7 +59,7 @@ function page() {
             <div>
             <button className="rounded-full bg-sky-400 px-3 py-2 mx-2"
             onClick={() => handleStateClick(pipeline)}>
-              Explore
+              Dashboard
             </button>
             <button className="rounded-full bg-sky-400 px-3 py-2"
             onClick={() => handleHistoryClick(pipeline)}>
