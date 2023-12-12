@@ -260,11 +260,11 @@ func DataPipelineState(c *gin.Context) {
 			pipeline_name = receivedMsg.Name
 			fmt.Println("Pipeline Name:", pipeline_name)
 			// Echo the message back to the browser
-			err = conn.WriteMessage(websocket.TextMessage, []byte(pipeline_name))
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+			// err = conn.WriteMessage(websocket.TextMessage, []byte(pipeline_name))
+			// if err != nil {
+			// 	fmt.Println(err)
+			// 	return
+			// }
 		} else {
 			fmt.Println("Error: 'Name' field not present in the received message")
 			return
