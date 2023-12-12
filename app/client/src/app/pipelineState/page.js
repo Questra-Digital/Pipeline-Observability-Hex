@@ -20,7 +20,7 @@ function Page() {
 
     // Receving data from the server
     ws.onmessage = (event) => {
-      const receivedData = (event.data);
+      const receivedData = JSON.parse(event.data);
       console.log(receivedData);
 
       const updatedData = {
