@@ -23,8 +23,10 @@ func SendAlert() {
 	client := protos.NewSlackServiceClient(conn)
 
 	// Replace these values with your actual Slack bot token, channel ID, and message text
-	botToken := "xoxb-6246363538144-6208982571575-sQcKHW28meqt0bujxwe4SrSs"
-	channelID := "C0664RSD6KZ"
+	// botToken := "xoxb-6246363538144-6208982571575-J0IPSoWxKarprzqUO5ZQnXgL"	// Dawood
+	botToken := "xoxb-6023194862453-6331512516309-ENFoFHC8EYToBscsmzc6mk5O"
+	// channelID := "C0664RSD6KZ"	// Dawood
+	channelID := "C069UGGUT7V"
 	messageText := "ArgoCD Pipeline Got Out Of Sync!"
 
 	// Prepare the gRPC request
