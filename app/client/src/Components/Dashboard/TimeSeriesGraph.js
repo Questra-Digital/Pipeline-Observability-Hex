@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import Chart from "chart.js/auto";
 
 const TimeSeriesGraph = ({ data }) => {
+  console.log('data in graph : ',data);
   useEffect(() => {
     if (!data || data.length === 0) {
       // Handle the case where data is null, undefined, or empty
@@ -17,6 +18,7 @@ const TimeSeriesGraph = ({ data }) => {
         minute: "2-digit",
       });
     });
+
 
     const keys = ["Pod", "Service", "Deployment", "ReplicaSet"];
 

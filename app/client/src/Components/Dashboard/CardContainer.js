@@ -4,8 +4,7 @@ import Card from "./Card";
 function CardContainer({ data }) {
   // Check if data exists and is an object before extracting keys
   const keys = data && typeof data === "object" ? Object.keys(data) : [];
-  console.log(data);
-  console.log(keys);
+  console.log('Data in Container :  ',data);
 
   const colors = [
     { leftColor: "#8B2BE2", rightColor: "#5F15E2", betweenColor: "#6C17E1" },

@@ -6,9 +6,10 @@ import TimeSeriesGraph from '@/Components/Dashboard/TimeSeriesGraph';
 function Page() {
   const [pipelineData, setPipelineData] = useState([]);
   const [currentData, setCurrentData] = useState(null);
-  const pipelineName = localStorage.getItem('pipeline');
+  const [pipelineName, setPipelineName] = useState('');
 
   useEffect(() => {
+    setPipelineName(localStorage.getItem('pipeline'));
     // Web Socket Connection
     const ws = new WebSocket('ws://localhost:8000/pipeline_state');
 
@@ -20,7 +21,7 @@ function Page() {
 
     // Receving data from the server
     ws.onmessage = (event) => {
-      const receivedData = (event.data);
+      const receivedData = JSON.parse(event.data);
       console.log(receivedData);
 
       const updatedData = {
@@ -45,8 +46,8 @@ function Page() {
 
   return (
     <div>
-      <h1 className='pl-4 sm:pl-10 md:pl-20 font-semibold text-3xl my-6 mt-10'>
-        Dashboard |<span className='text-gray-400'>{pipelineName}</span>
+      <h1 className='pl-4 sm:pl-10 md:pl-20 font-semibold text-3xl my-10'>
+        Dashboard | <span className='text-gray-400'>{pipelineName}</span>
       </h1>
       <CardContainer data={currentData} />
       <div className='flex justify-center items-center my-7'>
