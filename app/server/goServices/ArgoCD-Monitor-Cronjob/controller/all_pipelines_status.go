@@ -10,15 +10,20 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/mongoConnection"
+	"github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/notificationClient"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
-	"github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/notificationClient"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var (
 	redisClient *redis.Client
 	counterLock sync.Mutex
+	mongoClient *mongo.Client
 )
 
 // Define a struct to store health statuses
@@ -34,13 +39,41 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-
 	REDIS_URL := os.Getenv("")
 	// Initialize Redis client
 	redisClient = redis.NewClient(&redis.Options{
 		Addr: REDIS_URL, // Update with your Redis server address
 		DB:   0,
 	})
+	// Initialize MongoDB client
+	mongoClient, err = mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		log.Fatalf("Error connecting to MongoDB: %v", err)
+	}
+	// defer mongoClient.Disconnect(context.TODO())
+
+}
+
+func InsertSummaryToMongoDB(email, pipelineName string, summary HealthSummary) error {
+	collection := mongoClient.Database("admin").Collection("argocd")
+	document := bson.M{
+		"email":         email,
+		"pipeline_name": pipelineName,
+		"time":          time.Now(),
+		"summary": bson.M{
+			"pod":        summary.Pod,
+			"service":    summary.Service,
+			"deployment": summary.Deployment,
+			"replicaSet": summary.ReplicaSet,
+		},
+	}
+
+	_, err := collection.InsertOne(context.TODO(), document)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Inserted in MongoDB....")
+	return nil
 }
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
@@ -120,15 +153,24 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 }
 
 // update the counter and send notification to slack
-func updateCounter(isPipelineHealthy bool, pipelineName string) {
+func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSummary) {
 	counterLock.Lock()
 	defer counterLock.Unlock()
 
 	key := fmt.Sprintf("pipeline:%s:counter", pipelineName)
 
 	if !isPipelineHealthy {
+		// insert the summary of pipeline in the db if the pipeline is not healthy
+		USER_EMAIL := os.Getenv("")
+		err := InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+		if err != nil {
+			// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Println(err)
+			return
+		}
+
 		// Increment counter
-		_, err := redisClient.Incr(context.Background(), key).Result()
+		_, err = redisClient.Incr(context.Background(), key).Result()
 		if err != nil {
 			fmt.Println("Error incrementing counter:", err)
 		}
@@ -139,14 +181,29 @@ func updateCounter(isPipelineHealthy bool, pipelineName string) {
 			fmt.Println("Error getting counter value:", err)
 		}
 
-		if val == 1 {
+		if val == 10 {
 			fmt.Println("Sending Slack Notification..........")
 			// Add your Slack notification logic here
 			notificationClient.TriggerNotificationService()
 		}
 	} else {
+		// Check if the counter is 10
+		val, err := redisClient.Get(context.Background(), key).Int()
+		if err != nil {
+			fmt.Println("Error getting counter value:", err)
+		}
+		if val > 0 {
+			// insert the summary of pipeline in the db if the pipeline is not healthy
+			USER_EMAIL := os.Getenv("")
+			err = InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+			if err != nil {
+				// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				fmt.Println(err)
+				return
+			}
+		}
 		// Reset counter
-		err := redisClient.Set(context.Background(), key, 0, 0).Err()
+		err = redisClient.Set(context.Background(), key, 0, 0).Err()
 		if err != nil {
 			fmt.Println("Error resetting counter:", err)
 		}
@@ -176,7 +233,7 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	checkHealth("Service", summary.Service)
 	checkHealth("ReplicaSet", summary.ReplicaSet)
 
-	updateCounter(isPipelineHealthy, pipeline_name)
+	updateCounter(isPipelineHealthy, pipeline_name, summary)
 }
 
 func AllPipelinesStatus() {
