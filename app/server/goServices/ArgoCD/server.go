@@ -36,7 +36,7 @@ func main() {
 		})
 	})
 
-	// store token in db
+	// store token in .env file
 	r.POST("/api/storetoken", func(c *gin.Context) {
 		// Parse request body to get the "token" value
 		var requestBody map[string]string
@@ -46,7 +46,20 @@ func main() {
 		}
 
 		token := requestBody["token"]
-		controller.StoreToken(c, "ranaadil571@gmail.com", token)
+		controller.StoreToken(c, token)
+	})
+
+	// store token in .env file
+	r.POST("/api/storeemail", func(c *gin.Context) {
+		// Parse request body to get the "token" value
+		var requestBody map[string]string
+		if err := c.BindJSON(&requestBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		email := requestBody["email"]
+		controller.StoreEmail(c, email)
 	})
 
 	// get current state of pipeline
