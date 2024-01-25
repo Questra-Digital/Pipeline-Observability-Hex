@@ -7,7 +7,7 @@ metadata:
 spec:
   project: default  
   source:
-    repoURL: https://github.com/madilkhan001/argo-cd-test
+    repoURL: https://github.com/madilkhan002/argocd-test-pipelines
     targetRevision: HEAD
     path: dev2 # 2nd Pipeline --> path: dev
   destination:

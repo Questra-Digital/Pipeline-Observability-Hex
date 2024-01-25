@@ -20,7 +20,7 @@ func IsPipelineAvailable(pipelineName string, c *gin.Context) bool {
 	// Get all available pipelines
 	availblePipelines, err := GetAllPipelineNames()
 	if err != nil {
-		fmt.Println("Token error")
+		fmt.Println("Token Error")
 		return false
 	}
 
