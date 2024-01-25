@@ -153,15 +153,24 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 }
 
 // update the counter and send notification to slack
-func updateCounter(isPipelineHealthy bool, pipelineName string) {
+func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSummary) {
 	counterLock.Lock()
 	defer counterLock.Unlock()
 
 	key := fmt.Sprintf("pipeline:%s:counter", pipelineName)
 
 	if !isPipelineHealthy {
+		// insert the summary of pipeline in the db if the pipeline is not healthy
+		USER_EMAIL := os.Getenv("")
+		err := InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+		if err != nil {
+			// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Println(err)
+			return
+		}
+
 		// Increment counter
-		_, err := redisClient.Incr(context.Background(), key).Result()
+		_, err = redisClient.Incr(context.Background(), key).Result()
 		if err != nil {
 			fmt.Println("Error incrementing counter:", err)
 		}
@@ -178,8 +187,23 @@ func updateCounter(isPipelineHealthy bool, pipelineName string) {
 			notificationClient.TriggerNotificationService()
 		}
 	} else {
+		// Check if the counter is 10
+		val, err := redisClient.Get(context.Background(), key).Int()
+		if err != nil {
+			fmt.Println("Error getting counter value:", err)
+		}
+		if val > 0 {
+			// insert the summary of pipeline in the db if the pipeline is not healthy
+			USER_EMAIL := os.Getenv("")
+			err = InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+			if err != nil {
+				// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				fmt.Println(err)
+				return
+			}
+		}
 		// Reset counter
-		err := redisClient.Set(context.Background(), key, 0, 0).Err()
+		err = redisClient.Set(context.Background(), key, 0, 0).Err()
 		if err != nil {
 			fmt.Println("Error resetting counter:", err)
 		}
@@ -209,18 +233,7 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	checkHealth("Service", summary.Service)
 	checkHealth("ReplicaSet", summary.ReplicaSet)
 
-	if !isPipelineHealthy {
-		// insert the summary of pipeline in the db if the pipeline is not healthy
-		USER_EMAIL := os.Getenv("")
-		err = InsertSummaryToMongoDB(USER_EMAIL, pipeline_name, summary)
-		if err != nil {
-			// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			fmt.Println(err)
-			return
-		}
-	}
-
-	updateCounter(isPipelineHealthy, pipeline_name)
+	updateCounter(isPipelineHealthy, pipeline_name, summary)
 }
 
 func AllPipelinesStatus() {
