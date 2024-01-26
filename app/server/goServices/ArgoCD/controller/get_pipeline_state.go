@@ -2,7 +2,6 @@ package controller
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -11,11 +10,9 @@ import (
 	"os"
 	"time"
 
-	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Define a struct to store health statuses
@@ -36,34 +33,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-}
-
-func InsertSummaryToMongoDB(email, pipelineName string, summary HealthSummary) error {
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return err
-	}
-	defer mongoClient.Disconnect(context.TODO())
-
-	collection := mongoClient.Database("admin").Collection("argocd")
-	document := bson.M{
-		"email":         email,
-		"pipeline_name": pipelineName,
-		"time":          time.Now(),
-		"summary": bson.M{
-			"pod":        summary.Pod,
-			"service":    summary.Service,
-			"deployment": summary.Deployment,
-			"replicaSet": summary.ReplicaSet,
-		},
-	}
-
-	_, err = collection.InsertOne(context.TODO(), document)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Inserted in MongoDB....")
-	return nil
 }
 
 // get all availble pipelines
@@ -209,7 +178,6 @@ func DataPipelineState(c *gin.Context) {
 	defer conn.Close()
 
 	pipeline_name := "" // Default value if the parameter is not provided
-	email := os.Getenv("USER_EMAIL")
 
 	// get all availble pipelines map
 	availble_pipeline, err := getAvailblePipelineMap()
@@ -230,13 +198,6 @@ func DataPipelineState(c *gin.Context) {
 					return
 				}
 				summary := ParsePipelineData(responseData["nodes"].([]interface{}))
-				// insert in the db
-				err = InsertSummaryToMongoDB(email, pipeline_name, summary)
-				if err != nil {
-					// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					fmt.Println(err)
-					return
-				}
 				// send summary to frontend
 				err = WriteJSONToWebSocket(conn, summary)
 				if err != nil {
