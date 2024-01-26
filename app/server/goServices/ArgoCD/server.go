@@ -72,6 +72,18 @@ func main() {
 		controller.PipelineHistory(c)
 	})
 
+	r.POST("/api/store-daviation-value", func(c *gin.Context) {
+		// Parse request body to get the "token" value
+		var requestBody map[string]string
+		if err := c.BindJSON(&requestBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		deviation_value := requestBody["deviation_value"]
+		controller.StoreDeviationValue(c, deviation_value)
+	})
+
 	// Run the server
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)

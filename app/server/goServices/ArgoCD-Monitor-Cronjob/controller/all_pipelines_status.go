@@ -11,9 +11,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/notificationClient"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
-	"github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/notificationClient"
 )
 
 var (
@@ -74,6 +74,7 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	var responseData map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&responseData)
 	if err != nil {
+		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
 		return nil, err
 	}
 
