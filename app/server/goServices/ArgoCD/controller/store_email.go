@@ -2,13 +2,47 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 	"github.com/gin-gonic/gin"
 )
+
+type Email struct {
+	Email string `json:"email"`
+}
+
+func StoreEmailInMongoDB(c *gin.Context, email string) {
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	defer mongoClient.Disconnect(context.TODO())
+
+	collection := mongoClient.Database("admin").Collection("emails")
+
+	// Drop the collection
+	err = collection.Drop(context.TODO())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new Email instance
+	emailDocument := Email{Email: email}
+
+	// Insert the new Email instance into the database
+	_, err = collection.InsertOne(context.TODO(), emailDocument)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+}
 
 func updateDotenvEmail(key, value string) error {
 	// Read the content of the dotenv file
@@ -58,6 +92,7 @@ func StoreEmail(c *gin.Context, email string) {
 		return
 	}
 
+	StoreEmailInMongoDB(c, email)
 	fmt.Println("Email Saved successfully")
 	c.JSON(http.StatusOK, gin.H{"message": "Email Saved successfully"})
 }
