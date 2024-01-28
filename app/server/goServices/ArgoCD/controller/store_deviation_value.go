@@ -13,18 +13,6 @@ type Deviation struct {
 	Value string `json:"value"`
 }
 
-// func GetDeviationValue(collection *mongo.Collection, key string) {
-// 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-// 	filter := bson.M{key: bson.M{"$exists": true}}
-// 	var result bson.M
-// 	err := collection.FindOne(ctx, filter).Decode(&result)
-// 	if err != nil {
-// 		fmt.Println("Error: ", err)
-// 		return
-// 	}
-// 	fmt.Println("Old Value: ", result[key])
-// }
-
 func StoreDeviationValue(c *gin.Context, deviation_value string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {

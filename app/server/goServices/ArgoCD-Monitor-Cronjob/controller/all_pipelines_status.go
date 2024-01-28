@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -52,6 +53,29 @@ func init() {
 	}
 	// defer mongoClient.Disconnect(context.TODO())
 
+}
+
+func GetDeviationValue() int {
+	collection := mongoClient.Database("admin").Collection("deviations")
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	filter := bson.M{"value": bson.M{"$exists": true}}
+	var result bson.M
+	err := collection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return 10
+	}
+	deviationValueSTR, ok := result["value"].(string)
+	if !ok {
+		fmt.Println("Error: value is not a string")
+		return 10
+	}
+	deviationValueINT, err := strconv.Atoi(deviationValueSTR)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return 10
+	}
+	return deviationValueINT
 }
 
 func InsertSummaryToMongoDB(email, pipelineName string, summary HealthSummary) error {
@@ -181,7 +205,10 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 			fmt.Println("Error getting counter value:", err)
 		}
 
-		if val == 10 {
+		// get the deviation value from the db
+		deviationValue := GetDeviationValue()
+
+		if val == deviationValue {
 			fmt.Println("Sending Slack Notification..........")
 			// Add your Slack notification logic here
 			notificationClient.TriggerNotificationService()
