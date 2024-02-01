@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Tilt from "react-parallax-tilt";
+import ImageAtom from "../../atoms/ImageAtom";
+import TextAtom from "../../atoms/TextAtom";
 
 function Card({ key, status, title, colors, imageURL }) {
   const [isMounted, setIsMounted] = useState(false);
@@ -33,12 +35,21 @@ function Card({ key, status, title, colors, imageURL }) {
     <Tilt scale={1.2} glareMaxOpacity={1}>
       <div
         style={cardStyle}
-        className="rounded-3xl flex flex-row items-center px-5 my-3"
+        className="rounded-3xl flex flex-row justify-center items-center px-5 my-3"
       >
-        <img src={imageURL} alt="" width={70} className="mr-3 md:mr-5" />
+        <ImageAtom
+          src={imageURL}
+          alt={""}
+          width={70}
+          height={70}
+          properties={["mr-3", "md:mr-5"]}
+        />
         <div className="">
-          <p className="text-2xl font-semibold font-Ubuntu capitalize">{status}</p>
-          <p className="mt-3">{title}</p>
+          <TextAtom
+            properties={"text-2xl font-semibold font-Ubuntu capitalize"}
+            text={status}
+          />
+          <TextAtom properties={"mt-3"} text={title} />
         </div>
       </div>
     </Tilt>
