@@ -11,7 +11,7 @@ function HistoryHeader({ labels, pipelineName }) {
       >
         <span className="text-gray-400 text-2xl">{pipelineName}</span>
       </TextAtom>
-      <div className="flex items-center justify-between flex-wrap rounded-xl px-5 py-2 bg-blue-300 w-[90%] my-5 gap-4">
+      <div className="flex items-center justify-between flex-wrap rounded-xl px-5 py-2 bg-[#1E40AF] w-[90%] my-5 gap-4">
         {labels.map((label, index) => (
           <TextAtom properties={"my-px flex-grow"} text={label} key={index} />
         ))}

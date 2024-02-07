@@ -3,7 +3,7 @@ const RoundBtnAtom = ({ text, onClick, properties }) => {
 
   return (
     <button
-      className={`px-5 py-2 rounded-full mx-1 text-md transform duration-300 ease-linear ${additionalClasses}`}
+      className={`px-5 py-2 rounded-full mx-1 text-md font-Ubuntu transform duration-300 ease-linear ${additionalClasses}`}
       onClick={onClick}
     >
       {text}

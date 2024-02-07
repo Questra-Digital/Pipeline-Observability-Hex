@@ -34,9 +34,9 @@ function PipelineHistory() {
     <div className="w-[100%] flex justify-center items-center flex-col">
       <HistoryHeader labels={Labels} pipelineName={pipelineName} />
 
-      {history && // Check if history is truthy (not null or undefined)
+      {history &&
         (history.length === 0 ? (
-          <TextAtom properties={"text-center text-white mt-4"} text={"No previous history available"}/>
+          <TextAtom properties={"text-center text-lg font-semibold text-red-600 mt-4"} text={"No previous history available"}/>
         ) : (
           history.map((data, index) => (
             <PipelineDataRow data={data} key={index} />

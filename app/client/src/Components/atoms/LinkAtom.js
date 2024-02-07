@@ -6,7 +6,7 @@ const LinkAtom = ({children, text, link, prefetch, properties}) => {
       <Link
         href={link}
         prefetch={prefetch}
-        className={`${properties}`}
+        className={`${properties} font-Ubuntu`}
       >
         {text}
         {children}
