@@ -13,6 +13,7 @@ const Typerwriter = () => {
           color: textColor,
           marginLeft: '20px'
         }}
+        className="font-Ubuntu"
       >
         <TypeAnimation
           sequence={[
