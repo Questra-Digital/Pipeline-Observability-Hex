@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
 
@@ -36,7 +35,7 @@ func IsPipelineAvailable(pipelineName string, c *gin.Context) bool {
 }
 
 // FindPipelineHistory retrieves pipeline history documents from MongoDB
-func findPipelineHistory(email, pipelineName string) ([]map[string]interface{}, error) {
+func findPipelineHistory(pipelineName string) ([]map[string]interface{}, error) {
 	client, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		return nil, err
@@ -45,7 +44,7 @@ func findPipelineHistory(email, pipelineName string) ([]map[string]interface{}, 
 
 	collection := client.Database("admin").Collection("argocd")
 
-	filter := bson.M{"email": email, "pipeline_name": pipelineName}
+	filter := bson.M{"pipeline_name": pipelineName}
 	options := options.Find().SetSort(bson.D{{Key: "time", Value: -1}})
 
 	cursor, err := collection.Find(context.TODO(), filter, options)
@@ -90,9 +89,7 @@ func PipelineHistory(c *gin.Context) {
 		return
 	}
 
-	// Get the email from the authentication or wherever you have it
-	email := os.Getenv("USER_EMAIL")
-	history, err := findPipelineHistory(email, pipelineName)
+	history, err := findPipelineHistory(pipelineName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to MongoDB"})
 	}

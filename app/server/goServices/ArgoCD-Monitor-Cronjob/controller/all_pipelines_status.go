@@ -46,6 +46,7 @@ func init() {
 		Addr: REDIS_URL, // Update with your Redis server address
 		DB:   0,
 	})
+
 	// Initialize MongoDB client
 	mongoClient, err = mongoconnection.ConnectToMongoDB()
 	if err != nil {
@@ -78,10 +79,9 @@ func GetDeviationValue() int {
 	return deviationValueINT
 }
 
-func InsertSummaryToMongoDB(email, pipelineName string, summary HealthSummary) error {
+func InsertSummaryToMongoDB(pipelineName string, summary HealthSummary) error {
 	collection := mongoClient.Database("admin").Collection("argocd")
 	document := bson.M{
-		"email":         email,
 		"pipeline_name": pipelineName,
 		"time":          time.Now(),
 		"summary": bson.M{
@@ -185,8 +185,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 
 	if !isPipelineHealthy {
 		// insert the summary of pipeline in the db if the pipeline is not healthy
-		USER_EMAIL := os.Getenv("")
-		err := InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+		err := InsertSummaryToMongoDB(pipelineName, summary)
 		if err != nil {
 			// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			fmt.Println(err)
@@ -221,8 +220,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 		}
 		if val > 0 {
 			// insert the summary of pipeline in the db if the pipeline is not healthy
-			USER_EMAIL := os.Getenv("")
-			err = InsertSummaryToMongoDB(USER_EMAIL, pipelineName, summary)
+			err = InsertSummaryToMongoDB(pipelineName, summary)
 			if err != nil {
 				// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				fmt.Println(err)
