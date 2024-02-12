@@ -188,6 +188,7 @@ func DataPipelineState(c *gin.Context) {
 
 	go func() {
 		for {
+			log.Println("Available Pipelines : ", availble_pipeline)
 			_, isPipelineAvailble := availble_pipeline[string(pipeline_name)]
 
 			if isPipelineAvailble {

@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  web-app:
+    build:
+      context: ./ArgoCD-Web-App
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - mongo
+
+  cronjob:
+    build:
+      context: ./ArgoCD-Monitor-Cronjob
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo # mongosh --username mongouser --password mongopassword 
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    network_mode: host  # Use the host network mode
+
+  redis:
+    image: "redis:7.2.3-alpine"
+    network_mode: host  # Use the host network mode
+
+
+
