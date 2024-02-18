@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from "react";
-import axios from "../../axios";
+import axios from "../../axios/axios";
 import HistoryHeader from "@/Components/molecules/PipelineHistory/HistoryHeader";
 import PipelineDataRow from "@/Components/molecules/PipelineHistory/PipelineDataRow";
 import TextAtom from "@/Components/atoms/TextAtom";

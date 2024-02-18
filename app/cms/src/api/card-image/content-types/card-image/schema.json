@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "card_images",
+  "info": {
+    "singularName": "card-image",
+    "pluralName": "card-images",
+    "displayName": "cardImage"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "cardImage": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false,
+      "required": true
+    }
+  }
+}
