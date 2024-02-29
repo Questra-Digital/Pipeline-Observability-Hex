@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import axios from '../../axios';
+import axios from '../../axios/axios';
 import React, { useState } from 'react';
 
 function Page() {

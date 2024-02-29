@@ -1,0 +1,37 @@
+{
+  "kind": "singleType",
+  "collectionName": "global_items",
+  "info": {
+    "singularName": "global-item",
+    "pluralName": "global-items",
+    "displayName": "globalItem"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "default": "Datalogs-Pipeline-Observer",
+      "unique": true
+    },
+    "logo": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false,
+      "required": true
+    },
+    "heroImage": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false,
+      "required": true
+    }
+  }
+}

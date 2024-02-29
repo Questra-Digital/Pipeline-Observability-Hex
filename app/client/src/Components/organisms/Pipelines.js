@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import axios from "../../axios";
+import axios from "../../axios/axios";
 import { useRouter } from "next/navigation";
 import TextAtom from "@/Components/atoms/TextAtom";
 import PipelinesList from "@/Components/molecules/Pipelines/PipelineList";

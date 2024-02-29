@@ -5,3 +5,9 @@ const instance = axios.create({
 });
 
 export default instance;
+
+const strapiInstance = axios.create({
+  baseURL: "http://127.0.0.1:1337",
+});
+
+export {strapiInstance};
