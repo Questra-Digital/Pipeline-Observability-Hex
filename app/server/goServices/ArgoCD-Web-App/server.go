@@ -84,6 +84,16 @@ func main() {
 		controller.StoreDeviationValue(c, deviation_value)
 	})
 
+	r.POST("/signin", func(c *gin.Context) {
+		// call the signin function from controller
+		controller.Signin(c)
+	})
+
+	r.POST("/signup", func(c *gin.Context) {
+		// call the signup function from controller
+		controller.Signup(c)
+	})
+
 	// Run the server
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)
