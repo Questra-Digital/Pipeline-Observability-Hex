@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
-	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -48,6 +52,28 @@ func isUserExists(email string, password string) bool {
 	return true
 }
 
+func generateToken(email string) (string, error) {
+	// Load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		return "", err
+	}
+	var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	fmt.Println(os.Getenv("JWT_SECRET"))
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": email,
+		"exp":   time.Now().Add(120 * time.Minute).Unix(), // Token expires 1 minute from now
+	})
+
+	// Sign and get the complete encoded token as a string
+	tokenString, err := token.SignedString(jwtSecret)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
 func Signin(c *gin.Context) {
 	// Parse request body
 	var credentials Credentials
@@ -60,5 +86,15 @@ func Signin(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
+
+	// Generate JWT token
+	token, err := generateToken(credentials.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		return
+	}
+	// Set the token in the Authorization header
+	c.Header("Authorization", "Bearer "+token)
+
 	c.JSON(http.StatusOK, gin.H{"message": "User signed in successfully"})
 }

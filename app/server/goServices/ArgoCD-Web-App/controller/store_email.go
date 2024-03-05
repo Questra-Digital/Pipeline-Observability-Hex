@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD/mongoConnection"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
 )
 

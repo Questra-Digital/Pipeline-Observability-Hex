@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/QuestraDigital/goServices/ArgoCD/controller"
+	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
+	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,13 @@ func main() {
 
 	// Add CORS middleware
 	r.Use(cors.Default())
+
+	// Apply the AuthMiddleware to routes except the "/signin" route
+	r.Use(func(c *gin.Context) {
+		if c.FullPath() != "/signin" {
+			middleware.AuthMiddleware()(c)
+		}
+	})
 
 	// Define your routes here
 	// get all the pipelines
