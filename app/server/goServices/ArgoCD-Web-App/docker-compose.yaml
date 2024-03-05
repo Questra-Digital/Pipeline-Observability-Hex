@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  mongodb:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    network_mode: host  # Use the host network mode

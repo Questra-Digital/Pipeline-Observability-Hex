@@ -8,8 +8,9 @@ import (
 	"time"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -51,13 +52,17 @@ func isUserExists(email string, password string) bool {
 	return true
 }
 
-// JWT secret key
-var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
-
 func generateToken(email string) (string, error) {
+	// Load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		return "", err
+	}
+	var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	fmt.Println(os.Getenv("JWT_SECRET"))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"email": email,
-		"exp":   time.Now().Add(time.Minute).Unix(), // Token expires 1 minute from now
+		"exp":   time.Now().Add(120 * time.Minute).Unix(), // Token expires 1 minute from now
 	})
 
 	// Sign and get the complete encoded token as a string
@@ -88,7 +93,6 @@ func Signin(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
 		return
 	}
-
 	// Set the token in the Authorization header
 	c.Header("Authorization", "Bearer "+token)
 
