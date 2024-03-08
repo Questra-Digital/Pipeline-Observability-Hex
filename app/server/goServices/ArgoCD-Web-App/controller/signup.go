@@ -29,7 +29,7 @@ type DatabaseUser struct {
 }
 
 // check is email already exists
-func isEmailExists(email string) bool {
+func IsEmailExists(email string) bool {
 	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
@@ -93,7 +93,7 @@ func Signup(c *gin.Context) {
 		return
 	}
 	// user already exists
-	if isEmailExists(user.Email) {
+	if IsEmailExists(user.Email) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User already exists"})
 		return
 	}
