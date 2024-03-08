@@ -62,7 +62,7 @@ func generateToken(email string) (string, error) {
 	fmt.Println(os.Getenv("JWT_SECRET"))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"email": email,
-		"exp":   time.Now().Add(120 * time.Minute).Unix(), // Token expires 1 minute from now
+		"exp":   time.Now().Add(time.Hour * 24).Unix(), // Token expires after 1 day
 	})
 
 	// Sign and get the complete encoded token as a string

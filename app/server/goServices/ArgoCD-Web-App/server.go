@@ -102,6 +102,10 @@ func main() {
 		controller.Signup(c)
 	})
 
+	r.POST("/api/forgetpass", func(c *gin.Context) {
+		// call the forgetpass function from controller
+		controller.ForgetPass(c)
+	})
 	// Run the server
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)
