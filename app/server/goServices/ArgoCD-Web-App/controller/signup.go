@@ -46,6 +46,15 @@ func IsEmailExists(email string) bool {
 	return err == nil
 }
 
+// hash the password
+func HashPassword(password string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedPassword), nil
+}
+
 // store user in the database
 func storeUser(user User) error {
 	// Connect to the MongoDB
@@ -59,7 +68,7 @@ func storeUser(user User) error {
 	// Get the collection
 	collection := mongoClient.Database("admin").Collection("users")
 	// hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
 		return err
 	}
