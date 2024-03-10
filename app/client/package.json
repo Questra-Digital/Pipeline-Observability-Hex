@@ -16,6 +16,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-parallax-tilt": "^1.7.176",
+    "react-toastify": "^10.0.4",
     "react-tsparticles": "^2.12.2",
     "react-type-animation": "^3.2.0",
     "tsparticles": "^2.12.0"

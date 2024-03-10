@@ -1,17 +1,34 @@
 "use client";
 import { useState } from "react";
 import LinkAtom from "@/Components/atoms/LinkAtom";
+import { ErrorToast, SuccessToast, WarningToast } from "@/Components/atoms/toastUtils/Toast";
+import instance from "@/axios/axios";
+import { useRouter } from "next/navigation";
 
 const LoginForm = ({children}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password) {
-      alert("Login");
+      try {
+        const response = await instance.post('/api/signin', {email, password});
+        if(response.data.message === "User signed in successfully"){
+          SuccessToast('Signin Successful!');
+          setTimeout(() => {
+            router.push('/home');
+          }, 2000);
+        }
+      } catch (error) {
+        if(error.response.data.error)
+          ErrorToast(error.response.data.error);
+        else
+          ErrorToast('We are facing some issue. Try Again!')
+      }
     } else {
-      alert("Must fill all fields");
+      WarningToast("Must fill all fields!");
     }
   };
 
@@ -36,7 +53,7 @@ const LoginForm = ({children}) => {
             className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
             placeholder="example@gmail.com"
             type="email"
-            name=""
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -50,7 +67,7 @@ const LoginForm = ({children}) => {
             className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
             placeholder="********"
             type="password"
-            name=""
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

@@ -1,5 +1,8 @@
 "use client";
 import { useState } from "react";
+import instance from "@/axios/axios";
+import { ErrorToast, SuccessToast, WarningToast } from "@/Components/atoms/toastUtils/Toast";
+import { useRouter } from "next/navigation";
 
 const SignupForm = ({ children }) => {
   const [email, setEmail] = useState("");
@@ -7,16 +10,39 @@ const SignupForm = ({ children }) => {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password && companyName && name && confirmPassword) {
-      if (password === confirmPassword) alert("Signup");
-      else {
-        alert("Password and Confirm Password must be same");
+      if (password === confirmPassword) {
+        try {
+          const response = await instance.post("/api/signup", {
+            name,
+            email,
+            companyName,
+            password,
+          });
+
+          console.log(response);
+          if (response.data.message === "User created successfully") {
+            SuccessToast("Account Created Successfully!");
+            setTimeout(() => {
+              router.push('/login');
+            }, 2000);
+          }
+        } catch (error) {
+          if (error.response.data.error === "User already exists") {
+            ErrorToast('User Already Exist!')
+          } else {
+            ErrorToast('We are facing some issue. Try Again!')
+          }
+        }
+      } else {
+        WarningToast("Password and Confirm Password must be same!");
       }
     } else {
-      alert("Must fill all fields");
+      WarningToast("Must fill all fields!");
     }
   };
 
@@ -31,15 +57,13 @@ const SignupForm = ({ children }) => {
         onSubmit={handleSubmit}
         className="flex flex-col mt-5 w-[100%] items-center font-Ubuntu"
       >
-              <div className="w-[100%] flex flex-col my-2">
-          <label htmlFor="email" >
-            Email
-          </label>
+        <div className="w-[100%] flex flex-col my-2">
+          <label htmlFor="email">Email</label>
           <input
             className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
             placeholder="example@gmail.com"
             type="email"
-            name=""
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             id=""
@@ -54,7 +78,7 @@ const SignupForm = ({ children }) => {
               className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
               placeholder="Full Name"
               type="text"
-              name=""
+              name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               id=""
@@ -68,7 +92,7 @@ const SignupForm = ({ children }) => {
               className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
               placeholder="Datalogs"
               type="text"
-              name=""
+              name="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               id=""
@@ -79,13 +103,13 @@ const SignupForm = ({ children }) => {
         <div className="w-[100%] flex flex-col md:flex-row my-2">
           <div className="w-full md:w-[50%] mr-3">
             <label htmlFor="password" className="my-2">
-            Password
+              Password
             </label>
             <input
               className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
               placeholder="********"
               type="password"
-              name=""
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
