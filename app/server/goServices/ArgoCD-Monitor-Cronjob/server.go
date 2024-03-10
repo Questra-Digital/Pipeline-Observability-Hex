@@ -17,7 +17,7 @@ func runAllPipelinesStatusCronJob() {
 
 	// Start the scheduler
 	c.Start()
-	// just for pipeline testing
+	// Ya Allah code chala dy
 }
 
 func main() {
