@@ -1,4 +1,4 @@
-name: CI - ArgoCD-Monitor
+name: CI - Notifications
 
 on:
   push:
