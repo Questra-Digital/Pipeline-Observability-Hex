@@ -13,8 +13,8 @@ import (
 
 // User represents the user data structure
 type User struct {
-	Name        string `json:"name" binding:"required"`
 	Email       string `json:"email" binding:"required,email"`
+	Name        string `json:"name" binding:"required"`
 	CompanyName string `json:"companyName" binding:"required"`
 	Password    string `json:"password" binding:"required"`
 }

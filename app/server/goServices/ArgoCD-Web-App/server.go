@@ -25,7 +25,7 @@ func main() {
 
 	// Apply the AuthMiddleware to routes except the "/signin" route
 	r.Use(func(c *gin.Context) {
-		if c.FullPath() != "/signin" {
+		if c.FullPath() != "/api/signin" && c.FullPath() != "/api/signup" && c.FullPath() != "/api/forgetpass" {
 			middleware.AuthMiddleware()(c)
 		}
 	})
@@ -92,12 +92,12 @@ func main() {
 		controller.StoreDeviationValue(c, deviation_value)
 	})
 
-	r.POST("/signin", func(c *gin.Context) {
+	r.POST("/api/signin", func(c *gin.Context) {
 		// call the signin function from controller
 		controller.Signin(c)
 	})
 
-	r.POST("/signup", func(c *gin.Context) {
+	r.POST("/api/signup", func(c *gin.Context) {
 		// call the signup function from controller
 		controller.Signup(c)
 	})
