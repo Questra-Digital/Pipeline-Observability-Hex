@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/server/goServices/ArgoCD-Monitor-Cronjob/**'
   pull_request:
     branches:
       - main
-
+    paths:
+      - 'app/server/goServices/ArgoCD-Monitor-Cronjob/**'
+      
 jobs:
   build:
     name: Build and Test
