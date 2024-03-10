@@ -57,7 +57,7 @@ const LoginForm = ({children}) => {
         </div>
         <div className="w-full flex justify-end">
           <LinkAtom
-            link={""}
+            link={"/resetPassword"}
             text={"Forget Password?"}
             properties="underline"
           />
