@@ -13,19 +13,10 @@ import (
 
 // User represents the user data structure
 type User struct {
-	Name            string `json:"name" binding:"required"`
-	Email           string `json:"email" binding:"required,email"`
-	CompanyName     string `json:"companyName" binding:"required"`
-	Password        string `json:"password" binding:"required"`
-	ConfirmPassword string `json:"confirmPassword" binding:"required"`
-}
-
-// DatabaseUser represents the user data structure for database storage
-type DatabaseUser struct {
-	Name        string `json:"name" bson:"name"`
-	Email       string `json:"email" bson:"email"`
-	CompanyName string `json:"companyName" bson:"companyName"`
-	Password    string `json:"password" bson:"password"`
+	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	CompanyName string `json:"companyName" binding:"required"`
+	Password    string `json:"password" binding:"required"`
 }
 
 // check is email already exists
@@ -74,15 +65,8 @@ func storeUser(user User) error {
 	}
 	user.Password = string(hashedPassword)
 
-	// Create a DatabaseUser object without the ConfirmPassword field
-	dbUser := DatabaseUser{
-		Name:        user.Name,
-		Email:       user.Email,
-		CompanyName: user.CompanyName,
-		Password:    user.Password,
-	}
 	// Insert the user without the ConfirmPassword field
-	_, err = collection.InsertOne(context.TODO(), dbUser)
+	_, err = collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		return err
 	}
@@ -97,10 +81,7 @@ func Signup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	if user.Password != user.ConfirmPassword {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Password and confirm password do not match"})
-		return
-	}
+
 	// user already exists
 	if IsEmailExists(user.Email) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User already exists"})
