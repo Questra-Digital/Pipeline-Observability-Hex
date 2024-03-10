@@ -25,7 +25,7 @@ func main() {
 
 	// Apply the AuthMiddleware to routes except the "/signin" route
 	r.Use(func(c *gin.Context) {
-		if c.FullPath() != "/signin" {
+		if c.FullPath() != "/signin" && c.FullPath() != "/signup" {
 			middleware.AuthMiddleware()(c)
 		}
 	})
