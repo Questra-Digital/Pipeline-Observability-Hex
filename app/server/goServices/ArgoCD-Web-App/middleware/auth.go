@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -47,6 +48,21 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		// Check token expiration
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid token claims"})
+			c.Abort()
+			return
+		}
+
+		expirationTime := int64(claims["exp"].(float64))
+		if time.Now().Unix() > expirationTime {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Token has expired"})
 			c.Abort()
 			return
 		}

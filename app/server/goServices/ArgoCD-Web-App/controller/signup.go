@@ -81,7 +81,6 @@ func Signup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-
 	// user already exists
 	if IsEmailExists(user.Email) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User already exists"})
