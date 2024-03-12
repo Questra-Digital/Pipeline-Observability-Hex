@@ -24,8 +24,12 @@ const Sidebar = () => {
         </p>
       </div>
       <div className="sm:mt-6 w-full">
-        {dashboardTabs.map((Tab) => (
-          <LinkAtom link={Tab.link} click={() => setCurrentTab(Tab.link)}>
+        {dashboardTabs.map((Tab, index) => (
+          <LinkAtom
+            link={Tab.link}
+            click={() => setCurrentTab(Tab.link)}
+            key={index}
+          >
             <div
               className={`w-[100%] flex justify-center lg:justify-start items-center px-3 py-2 my-2 ${
                 currentTab === Tab.link

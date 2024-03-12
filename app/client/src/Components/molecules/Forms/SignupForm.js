@@ -32,7 +32,7 @@ const SignupForm = ({ children }) => {
             }, 2000);
           }
         } catch (error) {
-          if (error.response.data.error === "User already exists") {
+          if (error?.response?.data?.error === "User already exists") {
             ErrorToast('User Already Exist!')
           } else {
             ErrorToast('We are facing some issue. Try Again!')

@@ -22,7 +22,7 @@ const LoginForm = ({children}) => {
           }, 2000);
         }
       } catch (error) {
-        if(error.response.data.error)
+        if(error?.response?.data?.error)
           ErrorToast(error.response.data.error);
         else
           ErrorToast('We are facing some issue. Try Again!')
