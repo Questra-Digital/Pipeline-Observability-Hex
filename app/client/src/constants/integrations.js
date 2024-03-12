@@ -1,0 +1,51 @@
+export const allApps = [
+  {
+    name: "ArgoCD",
+    image: "/assets/Images/argocd.png",
+    alt: "ArgoCD Icon",
+    status: true,
+    url: "/integrations/argocd",
+  },
+  {
+    name: "Slack",
+    image: "/assets/Images/slack.png",
+    alt: "Slack Icon",
+    status: true,
+    url: "/integrations/slack",
+  },
+  {
+    name: "Gmail",
+    image: "/assets/Images/gmail.png",
+    alt: "Gmail Icon",
+    status: false,
+    url: "/integrations/gmail",
+  },
+  {
+    name: "GitLab",
+    image: "/assets/Images/gitlab.png",
+    alt: "GitLab Icon",
+    status: false,
+    url: "/integrations/gitlab",
+  },
+  {
+    name: "Jenkins",
+    image: "/assets/Images/jenkins.png",
+    alt: "Jenkins Icon",
+    status: false,
+    url: "/integrations/jenkins",
+  },
+  {
+    name: "Github Actions",
+    image: "/assets/Images/GHActions.png",
+    alt: "GitHub Actions Icon",
+    status: false,
+    url: "/integrations/githubactions",
+  },
+  {
+    name: "Drone CI",
+    image: "/assets/Images/droneci.png",
+    alt: "Drone CI Icon",
+    status: false,
+    url: "/integrations/droneci",
+  },
+];

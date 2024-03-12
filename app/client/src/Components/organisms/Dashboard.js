@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react';
-import CardContainer from '@/Components/molecules/Dashboard/CardContainer';
-import TimeSeriesGraph from '@/Components/molecules/Dashboard/TimeSeriesGraph';
+import CardContainer from '@/Components/molecules/PipelineDashboard/CardContainer';
+import TimeSeriesGraph from '@/Components/molecules/PipelineDashboard/TimeSeriesGraph';
 import TextAtom from '../atoms/TextAtom';
 
 function Dashboard() {
