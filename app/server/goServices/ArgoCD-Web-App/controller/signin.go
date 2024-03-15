@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -35,11 +36,13 @@ func isUserExists(email string, password string) bool {
 
 	// Find the user with the given email
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{{"email", email}}).Decode(&result)
+	err = collection.FindOne(context.TODO(), bson.D{{Key: "email", Value: email}}).Decode(&result)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return false
 	}
+
+	log.Println("User found: ", result)
 
 	// Compare the stored hashed password with the given password
 	hashedPassword := result["password"].(string)

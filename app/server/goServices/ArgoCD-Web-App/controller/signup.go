@@ -33,7 +33,7 @@ func IsEmailExists(email string) bool {
 	collection := mongoClient.Database("admin").Collection("users")
 
 	// Check if the email exists
-	err = collection.FindOne(context.TODO(), bson.D{{"email", email}}).Err()
+	err = collection.FindOne(context.TODO(), bson.D{{Key: "email", Value: email}}).Err()
 	return err == nil
 }
 
