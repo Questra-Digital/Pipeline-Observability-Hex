@@ -106,6 +106,11 @@ func main() {
 		// call the forgetpass function from controller
 		controller.ForgetPass(c)
 	})
+
+	r.POST("/api/slack", func(c *gin.Context) {
+		controller.StoreSlackBot(c)
+	})
+
 	// Run the server
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)
