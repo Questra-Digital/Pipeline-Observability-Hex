@@ -6,7 +6,7 @@ const Integrations = () => {
   return (
     <div className="w-full flex justify-start p-5 flex-col gap-10">
       <div>
-        <p className="text-xl font-semibold mb-3">Installed Apps</p>
+        <p className="text-xl font-semibold mb-3">Configured Apps</p>
         <AppContainer>
           {allApps
             .filter((app) => app.status === true)
