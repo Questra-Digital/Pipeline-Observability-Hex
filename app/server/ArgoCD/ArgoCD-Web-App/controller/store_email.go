@@ -53,7 +53,6 @@ func updateDotenvEmail(key, value string) error {
 
 	// Split the content into lines
 	lines := strings.Split(string(content), "\n")
-	fmt.Println("lines : ", lines)
 
 	// Find and update the key-value pair
 	found := false
