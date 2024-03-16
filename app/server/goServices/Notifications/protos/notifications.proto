@@ -7,8 +7,7 @@ service Notifications {
 }
 
 message NotificationRequest {
-    string username = 1;
-    string message = 2;
+    string message = 1;
 }
 
 message NotificationResponse {

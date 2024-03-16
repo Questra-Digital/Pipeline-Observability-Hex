@@ -1,23 +1,36 @@
 package main
 
 import (
-    "context"
-    "log"
-    "net"
+	"context"
+	"log"
+
+	mongoconnection "github.com/QuestraDigital/goServices/Slack/mongoConnection"
+	"github.com/nats-io/nats.go"
 	"github.com/slack-go/slack"
-    "google.golang.org/grpc"
-    pb "github.com/QuestraDigital/goServices/Slack/protos"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-type slackServer struct {
-    pb.UnimplementedSlackServiceServer
-}
+// send Message to Slack
+func sendMessageToSlack(messageText string) error {
+	// connect to MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		return err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	// fetch the bot token and channel ID from MongoDB
 
-func sendMessageToSlack(botToken, channelID, messageText string) error {
+	collection := mongoClient.Database("admin").Collection("slack")
+	var slackData map[string]string
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&slackData)
+	if err != nil {
+		return err
+	}
+	botToken := slackData["token"]
+	channelID := slackData["channel"]
+
 	api := slack.New(botToken)
-
 	message := slack.MsgOptionText(messageText, false)
-
 	channel, timestamp, err := api.PostMessage(channelID, message)
 	if err != nil {
 		return err
@@ -27,28 +40,23 @@ func sendMessageToSlack(botToken, channelID, messageText string) error {
 	return nil
 }
 
-func (s *slackServer) SendMessage(ctx context.Context, req *pb.SlackMessageRequest) (*pb.SlackMessageResponse, error) {
-    err := sendMessageToSlack(req.BotToken, req.ChannelId, req.MessageText)
-    if err != nil {
-        return &pb.SlackMessageResponse{Success: false, ErrorMessage: err.Error()}, nil
-    }
-    return &pb.SlackMessageResponse{Success: true}, nil
-}
-
-func (s *slackServer) mustEmbedUnimplementedSlackServiceServer() {}
-
-
 func main() {
-    lis, err := net.Listen("tcp", ":50051")
-    if err != nil {
-        log.Fatalf("Failed to listen: %v", err)
-    }
+	// Connect to NATS server
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
 
-    grpcServer := grpc.NewServer()
-    pb.RegisterSlackServiceServer(grpcServer, &slackServer{})
+	// Subscribe to a slack subject
+	nc.Subscribe("slack", func(msg *nats.Msg) {
+		log.Printf("Received message: %s\n", string(msg.Data))
+		err := sendMessageToSlack(string(msg.Data))
+		if err != nil {
+			log.Println("Error sending message to Slack:", err)
+		}
+	})
 
-    log.Println("gRPC server started on :50051")
-    if err := grpcServer.Serve(lis); err != nil {
-        log.Fatalf("Failed to serve: %v", err)
-    }
+	// Keep the subscriber running
+	select {}
 }
