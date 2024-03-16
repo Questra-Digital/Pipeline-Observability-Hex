@@ -34,14 +34,14 @@ func publishMessage(message string) {
 		log.Println("Message published(Slack) successfully....")
 	}
 
-	// publish message with subject gmail
+	// publish message with subject email
 
-	// err = nc.Publish("gmail", []byte(message))
-	// if err != nil {
-	// 	log.Println("Error publishing message:", err)
-	// } else {
-	// 	log.Println("Message published(gmail) successfully")
-	// }
+	err = nc.Publish("email", []byte(message))
+	if err != nil {
+		log.Println("Error publishing message:", err)
+	} else {
+		log.Println("Message published(gmail) successfully")
+	}
 }
 
 func (s *server) SendNotification(ctx context.Context, req *notifications.NotificationRequest) (*notifications.NotificationResponse, error) {
@@ -61,6 +61,7 @@ func main() {
 	s := grpc.NewServer()
 	notifications.RegisterNotificationsServer(s, &server{})
 	log.Printf("Server listening on port %s", port)
+	publishMessage("Hey! You. I am here to notify you.")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
