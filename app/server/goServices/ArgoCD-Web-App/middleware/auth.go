@@ -29,7 +29,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-		// jwtSecret := []byte("wait_a_minute")
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Missing Authorization header"})
