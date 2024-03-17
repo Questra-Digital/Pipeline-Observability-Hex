@@ -10,7 +10,7 @@ const Sidebar = () => {
   const [currentTab, setCurrentTab] = useState(pathname);
   return (
     // bg-[#1C1D23]
-    <div className=" w-[20%] sm:w-[15%] min-h-full flex flex-col flex-wrap justify-start items-center bg-slate-800 border-r-2 border-gray-600">
+    <div className=" w-[20%] sm:w-[15%] min-h-full flex flex-col flex-wrap justify-start items-center bg-gray-800 border-r-2 border-gray-600">
       <div className="my-2">
         <ImageAtom
           src="/assets/Images/logo.png"

@@ -1,8 +1,9 @@
+import Settings from '@/Components/organisms/Settings/Settings'
 import React from 'react'
 
 const page = () => {
   return (
-    <div>Settings</div>
+    <Settings/>
   )
 }
 
