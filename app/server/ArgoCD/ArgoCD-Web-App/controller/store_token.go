@@ -24,7 +24,7 @@ func StoreTokenInMongoDB(c *gin.Context, token string) {
 	}
 	defer mongoClient.Disconnect(context.TODO())
 
-	collection := mongoClient.Database("admin").Collection("argocdTokens")
+	collection := mongoClient.Database("admin").Collection("argocdToken")
 
 	// Drop the collection
 	err = collection.Drop(context.TODO())
@@ -54,7 +54,6 @@ func updateDotenv(key, value string) error {
 
 	// Split the content into lines
 	lines := strings.Split(string(content), "\n")
-	fmt.Println("lines : ", lines)
 
 	// Find and update the key-value pair
 	found := false
