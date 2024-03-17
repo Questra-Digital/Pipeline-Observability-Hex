@@ -80,7 +80,7 @@ func main() {
 		controller.PipelineHistory(c)
 	})
 
-	r.POST("/api/store-daviation-value", func(c *gin.Context) {
+	r.POST("/api/daviation-value", func(c *gin.Context) {
 		// Parse request body to get the "token" value
 		var requestBody map[string]string
 		if err := c.BindJSON(&requestBody); err != nil {

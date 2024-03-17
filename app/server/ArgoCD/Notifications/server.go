@@ -70,7 +70,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-
 	s := grpc.NewServer()
 	notifications.RegisterNotificationsServer(s, &server{})
 	log.Printf("Server listening on port %s", port)

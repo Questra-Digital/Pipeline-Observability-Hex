@@ -44,9 +44,8 @@ func sendEmailToUser(messageText string) error {
 	// SMTP configuration
 	smtpServer := os.Getenv("SMTP_SERVER")
 	senderEmail := os.Getenv("SENDER_EMAIL")
-	senderPassword := os.Getenv("SENDER_PASSWORD")
+	senderPassword := os.Getenv("EMAIL_PASSWORD")
 	smtpPortStr := string(os.Getenv("SMTP_PORT"))
-	log.Println("smtpPortStr:", smtpPortStr)
 	smtpPort, err := strconv.Atoi(smtpPortStr)
 	if err != nil {
 		log.Println("Error converting SMTP_PORT to int:", err)
