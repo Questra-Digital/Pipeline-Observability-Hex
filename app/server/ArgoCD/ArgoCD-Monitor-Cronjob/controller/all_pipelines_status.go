@@ -6,10 +6,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -259,7 +261,76 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	updateCounter(isPipelineHealthy, pipeline_name, summary)
 }
 
+// fetch argocdToken from the db
+func getArgocdToken() (string, error) {
+	collection := mongoClient.Database("admin").Collection("argocdToken")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel() // Call the cancel function at the end of the function
+	filter := bson.M{"value": bson.M{"$exists": true}}
+	var result bson.M
+	err := collection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		return "", err
+	}
+	token, ok := result["value"].(string)
+	if !ok {
+		return "", fmt.Errorf("value is not a string")
+	}
+	return token, nil
+}
+
+// Store Token in .env file
+func updateDotenv(key, value string) error {
+	// Read the content of the dotenv file
+	content, err := ioutil.ReadFile(".env")
+	if err != nil {
+		return err
+	}
+
+	// Split the content into lines
+	lines := strings.Split(string(content), "\n")
+
+	// Find and update the key-value pair
+	found := false
+	for i, line := range lines {
+		pair := strings.SplitN(line, "=", 2)
+		if len(pair) == 2 && pair[0] == key {
+			lines[i] = fmt.Sprintf("%s=%s", key, value)
+			found = true
+			break
+		}
+	}
+
+	// If key is not found, add a new key-value pair
+	if !found {
+		newLine := fmt.Sprintf("%s=%s", key, value)
+		lines = append(lines, newLine)
+	}
+
+	// Join the lines back into a string
+	newContent := strings.Join(lines, "\n")
+
+	// Write the updated content back to the dotenv file
+	err = ioutil.WriteFile(".env", []byte(newContent), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func AllPipelinesStatus() {
+	token, err := getArgocdToken()
+	if err != nil {
+		fmt.Println(err, " :: Token Not Exist")
+		return
+	}
+	fmt.Println("Token : ", token)
+	err = updateDotenv("ARGOCD_TOKEN", token)
+	if err != nil {
+		log.Println("Error:", err)
+		return
+	}
 	allpipelines, err := GetAllPipelineNames()
 	if err != nil {
 		fmt.Println(err)
