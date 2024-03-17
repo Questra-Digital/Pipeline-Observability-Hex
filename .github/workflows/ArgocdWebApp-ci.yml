@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'app/server/goServices/ArgoCD-Web-App/**'
+      - 'app/server/ArgoCD/ArgoCD-Web-App/**'
   pull_request:
     branches:
       - main
     paths:
-      - 'app/server/goServices/ArgoCD-Web-App/**'
+      - 'app/server/ArgoCD/ArgoCD-Web-App/**'
       
 jobs:
   ci:
@@ -24,7 +24,7 @@ jobs:
           go-version: 1.21
 
       - name: pkg build
-        working-directory: ./app/server/goServices/ArgoCD-Web-App
+        working-directory: ./app/server/ArgoCD/ArgoCD-Web-App
         run: go build -v ./...     
       
       #- name: Run Tests
