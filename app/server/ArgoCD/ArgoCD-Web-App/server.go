@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
@@ -25,7 +26,8 @@ func main() {
 
 	// Apply the AuthMiddleware to routes except the "/signin" route
 	r.Use(func(c *gin.Context) {
-		if c.FullPath() != "/api/signin" && c.FullPath() != "/api/signup" && c.FullPath() != "/api/forgetpass" {
+		log.Println("path: ", c.FullPath())
+		if c.FullPath() != "/api/signin" && c.FullPath() != "/api/signup" && c.FullPath() != "/api/forgetpass" && c.FullPath() != "/pipeline_state" {
 			middleware.AuthMiddleware()(c)
 		}
 	})
