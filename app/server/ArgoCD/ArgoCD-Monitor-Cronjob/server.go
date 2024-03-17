@@ -17,7 +17,6 @@ func runAllPipelinesStatusCronJob() {
 
 	// Start the scheduler
 	c.Start()
-	// Ya Allah code chala dy
 }
 
 func main() {

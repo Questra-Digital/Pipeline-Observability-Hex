@@ -17,6 +17,33 @@ services:
     depends_on:
       - mongo
       - redis
+  
+  notification:
+    build:
+      context: ./Notifications
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
+  
+  slack:
+    build:
+      context: ./Slack
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
+    
+  email:
+    build:
+      context: ./Email
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
 
   mongo:
     image: mongo # mongosh --username mongouser --password mongopassword 
@@ -27,6 +54,10 @@ services:
 
   redis:
     image: "redis:7.2.3-alpine"
+    network_mode: host  # Use the host network mode
+
+  nats:
+    image: nats:latest
     network_mode: host  # Use the host network mode
 
 
