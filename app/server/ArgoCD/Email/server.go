@@ -24,7 +24,7 @@ func fetchRecipientEmail() (string, error) {
 		return "", err
 	}
 	defer mongoClient.Disconnect(context.TODO())
-	// fetch the bot token and channel ID from MongoDB
+	// fetch email from MongoDB
 
 	collection := mongoClient.Database("admin").Collection("emails")
 	var mailData map[string]string
@@ -88,7 +88,7 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Subscribe to a slack subject
+	// Subscribe to a email subject
 	nc.Subscribe("email", func(msg *nats.Msg) {
 		err := sendEmailToUser(string(msg.Data))
 		if err != nil {
