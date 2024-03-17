@@ -188,9 +188,7 @@ func DataPipelineState(c *gin.Context) {
 
 	go func() {
 		for {
-			log.Println("Available Pipelines : ", availble_pipeline)
 			_, isPipelineAvailble := availble_pipeline[string(pipeline_name)]
-
 			if isPipelineAvailble {
 				// get pipeline data
 				responseData, err := FetchPipelineData(pipeline_name)
@@ -205,8 +203,8 @@ func DataPipelineState(c *gin.Context) {
 					fmt.Println(err)
 					return
 				}
-				time.Sleep(5 * time.Second) // Send a message every 5 seconds
 			}
+			time.Sleep(5 * time.Second) // Send a message every 5 seconds
 		}
 	}()
 
@@ -221,12 +219,6 @@ func DataPipelineState(c *gin.Context) {
 		if receivedMsg.Name != "" {
 			pipeline_name = receivedMsg.Name
 			fmt.Println("Pipeline Name:", pipeline_name)
-			// Echo the message back to the browser
-			// err = conn.WriteMessage(websocket.TextMessage, []byte(pipeline_name))
-			// if err != nil {
-			// 	fmt.Println(err)
-			// 	return
-			// }
 		} else {
 			fmt.Println("Error: 'Name' field not present in the received message")
 			return
