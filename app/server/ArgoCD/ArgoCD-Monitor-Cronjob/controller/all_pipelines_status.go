@@ -198,7 +198,6 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 			fmt.Println("Error incrementing counter:", err)
 		}
 
-		// Check if the counter is 2
 		val, err := redisClient.Get(context.Background(), key).Int()
 		if err != nil {
 			fmt.Println("Error getting counter value:", err)
@@ -208,8 +207,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 		deviationValue := GetDeviationValue()
 
 		if val == deviationValue {
-			fmt.Println("Sending Slack Notification..........")
-			// Add your Slack notification logic here
+			fmt.Println("Sending Notification..........")
 			notificationClient.TriggerNotificationService()
 		}
 	} else {
