@@ -1,4 +1,11 @@
-import SettingsComponent from "@/Components/molecules/Settings/SettingsComponent";
+import ToggleGmailNotification from "@/Components/molecules/Settings/ToggleGmailNotification";
+import ToggleSlackNotification from "@/Components/molecules/Settings/ToggleSlackNotification";
+import UpdateCompanyName from "@/Components/molecules/Settings/UpdateCompanyName";
+import UpdateDeviationValue from "@/Components/molecules/Settings/UpdateDeviationValue";
+import UpdateEmail from "@/Components/molecules/Settings/UpdateEmail";
+import UpdatePassword from "@/Components/molecules/Settings/UpdatePassword";
+import UpdatePipelineObservability from "@/Components/molecules/Settings/UpdatePipelineObservability";
+import UpdateToken from "@/Components/molecules/Settings/UpdateToken";
 
 
 export const settingsOptions = [
@@ -9,17 +16,17 @@ export const settingsOptions = [
             {
                 name: 'Email',
                 state: 'email',
-                component: SettingsComponent
+                component: UpdateEmail
             },
             {
                 name: 'Company Name',
                 state: 'company',
-                component: SettingsComponent
+                component: UpdateCompanyName
             },
             {
                 name: 'Password',
                 state: 'password',
-                component: SettingsComponent
+                component: UpdatePassword
             }
         ]
     },
@@ -30,17 +37,17 @@ export const settingsOptions = [
             {
                 name: 'Observability',
                 state: 'observability',
-                component: SettingsComponent
+                component: UpdatePipelineObservability
             },
             {
                 name: 'Deviation Value',
                 state: 'deviation',
-                component: SettingsComponent
+                component: UpdateDeviationValue
             },
             {
                 name: 'Token',
                 state: 'token',
-                component: SettingsComponent
+                component: UpdateToken
             }
         ]
     },
@@ -51,12 +58,12 @@ export const settingsOptions = [
             {
                 name: 'Slack',
                 state: 'slack',
-                component: SettingsComponent
+                component: ToggleSlackNotification
             },
             {
                 name: 'Gmail',
                 state: 'gmail',
-                component: SettingsComponent
+                component: ToggleGmailNotification
             },
         ]
     }

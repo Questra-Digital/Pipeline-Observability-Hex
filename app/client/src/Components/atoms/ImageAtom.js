@@ -7,7 +7,7 @@ const ImageAtom = ({src, width, height, alt, loading, quality, priority, propert
 
   return (
     <Image
-    className={`my-2 md:my-0  ${additionalClasses}`}
+    className={`  ${additionalClasses}`}
     src={src}
     width={width}
     height={height}

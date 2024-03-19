@@ -77,5 +77,13 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  /* background-color: #f1f1f1;  Adjust the background color as needed  */
+  /* background-color: #f1f1f1; */
+}
+
+
+/* Hide the default arrow buttons */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
