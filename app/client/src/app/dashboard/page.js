@@ -2,8 +2,8 @@ import { pieplines } from "@/constants/pipelines";
 
 const Page = () => {
   return (
-    <div className="h-full w-full p-10 overflow-x-auto">
-      <table className="min-w-full text-sm text-left text-gray-400 table-auto shadow-md shadow-purple-900">
+    <div className="h-full w-full p-2 xs:p-5 md:p-10 overflow-x-auto">
+      <table className="w-full text-sm text-left text-gray-400 table-auto shadow-md shadow-purple-900">
         <thead className="uppercase bg-gray-700">
           <tr>
             <th scope="col" className="px-6 py-3">

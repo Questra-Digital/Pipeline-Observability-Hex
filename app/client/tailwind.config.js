@@ -8,9 +8,13 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    screens: {
+      xs: '375px', // Your new "xs" breakpoint
+      ...defaultTheme.screens, // Existing breakpoints from defaultTheme
+    },
     extend: {
       colors: {
-
+        // Add your custom colors here
       },
       fontFamily: {
         Roboto: ['Roboto', ...defaultTheme.fontFamily.sans],
@@ -24,4 +28,4 @@ module.exports = {
     },
   },
   plugins: [],
-}
+};
