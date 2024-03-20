@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
 	"github.com/gin-gonic/gin"
+	// import grpc client
 )
 
 type ErrorResponse struct {
@@ -111,6 +112,16 @@ func main() {
 
 	r.POST("/api/slack", func(c *gin.Context) {
 		controller.StoreSlackBot(c)
+	})
+
+	r.GET("/api/runcronjob", func(c *gin.Context) {
+		// call the cronjob function from controller
+		controller.RunCronjob(c)
+	})
+
+	r.GET("/api/stopcronjob", func(c *gin.Context) {
+		// call the cronjob function from controller
+		controller.StopCronjob(c)
 	})
 
 	// Run the server

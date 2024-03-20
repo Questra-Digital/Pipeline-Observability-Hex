@@ -1,0 +1,16 @@
+syntax = "proto3";
+option go_package = "./protos";
+package grpc_server;
+
+service CronjobController {
+    rpc controlCronjob(ControlCronjobRequest) returns (ControlCronjobResponse);
+}
+
+message ControlCronjobRequest {
+    bool startCronjob = 1; // true to start, false to stop
+}
+
+message ControlCronjobResponse {
+    bool success = 1;
+    string message = 2;
+}
