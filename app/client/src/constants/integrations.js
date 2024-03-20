@@ -36,7 +36,7 @@ export const allApps = [
   },
   {
     name: "Github Actions",
-    image: "/assets/Images/GHActions.png",
+    image: "/assets/Images/ghactions.png",
     alt: "GitHub Actions Icon",
     status: false,
     url: "",

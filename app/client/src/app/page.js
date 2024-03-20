@@ -1,4 +1,4 @@
-import LandingPage from '@/Components/organisms/LandingPage'
+import LandingPage from '@/components/organisms/LandingPage'
 import React from 'react'
 
 const page = () => {

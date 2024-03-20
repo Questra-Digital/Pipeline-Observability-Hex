@@ -1,4 +1,4 @@
-import Dashboard from "@/Components/organisms/Dashboard"
+import Dashboard from "@/components/organisms/Dashboard"
 
 const page = () => {
   return (

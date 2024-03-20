@@ -1,11 +1,11 @@
-import ToggleGmailNotification from "@/Components/molecules/Settings/ToggleGmailNotification";
-import ToggleSlackNotification from "@/Components/molecules/Settings/ToggleSlackNotification";
-import UpdateCompanyName from "@/Components/molecules/Settings/UpdateCompanyName";
-import UpdateDeviationValue from "@/Components/molecules/Settings/UpdateDeviationValue";
-import UpdateEmail from "@/Components/molecules/Settings/UpdateEmail";
-import UpdatePassword from "@/Components/molecules/Settings/UpdatePassword";
-import UpdatePipelineObservability from "@/Components/molecules/Settings/UpdatePipelineObservability";
-import UpdateToken from "@/Components/molecules/Settings/UpdateToken";
+import ToggleGmailNotification from "@/components/molecules/Settings/ToggleGmailNotification";
+import ToggleSlackNotification from "@/components/molecules/Settings/ToggleSlackNotification";
+import UpdateCompanyName from "@/components/molecules/Settings/UpdateCompanyName";
+import UpdateDeviationValue from "@/components/molecules/Settings/UpdateDeviationValue";
+import UpdateEmail from "@/components/molecules/Settings/UpdateEmail";
+import UpdatePassword from "@/components/molecules/Settings/UpdatePassword";
+import UpdatePipelineObservability from "@/components/molecules/Settings/UpdatePipelineObservability";
+import UpdateToken from "@/components/molecules/Settings/UpdateToken";
 
 
 export const settingsOptions = [

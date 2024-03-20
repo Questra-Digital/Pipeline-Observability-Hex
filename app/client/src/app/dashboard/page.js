@@ -1,4 +1,4 @@
-import Pipelines from "@/Components/organisms/Dashboard/Pipelines";
+import Pipelines from "@/components/organisms/Dashboard/Pipelines";
 
 const Page = () => {
   return (

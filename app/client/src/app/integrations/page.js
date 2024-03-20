@@ -1,4 +1,4 @@
-import Integrations from "@/Components/organisms/Dashboard/Integrations";
+import Integrations from "@/components/organisms/Dashboard/Integrations";
 import DashboardLayout from "../dashboard/layout";
 
 const page = () => {

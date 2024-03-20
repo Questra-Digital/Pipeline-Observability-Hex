@@ -1,4 +1,4 @@
-import PipelineHistory from '@/Components/organisms/PipelineHistory'
+import PipelineHistory from '@/components/organisms/PipelineHistory'
 import React from 'react'
 
 const page = () => {
