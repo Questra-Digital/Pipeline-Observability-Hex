@@ -35,7 +35,7 @@ func main() {
 
 	// Define your routes here
 	// get all the pipelines
-	r.GET("/get_all_pipelines", func(c *gin.Context) {
+	r.GET("/all_pipelines", func(c *gin.Context) {
 		availble_pipelines, err := controller.GetAllPipelineNames()
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"Error": "Token error"})
@@ -48,7 +48,7 @@ func main() {
 	})
 
 	// store token in .env file
-	r.POST("/api/storetoken", func(c *gin.Context) {
+	r.POST("/api/token", func(c *gin.Context) {
 		// Parse request body to get the "token" value
 		var requestBody map[string]string
 		if err := c.BindJSON(&requestBody); err != nil {
@@ -61,7 +61,7 @@ func main() {
 	})
 
 	// store token in .env file
-	r.POST("/api/storeemail", func(c *gin.Context) {
+	r.POST("/api/email", func(c *gin.Context) {
 		// Parse request body to get the "token" value
 		var requestBody map[string]string
 		if err := c.BindJSON(&requestBody); err != nil {
