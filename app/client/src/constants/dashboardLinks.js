@@ -2,25 +2,25 @@ export const dashboardTabs = [
     {
         name: "Home",
         link: "/home",
-        icon: '/assets/Images/Home.png',
+        icon: '/assets/Images/home.png',
         alt: 'Home Icon',
     },
     {
         name: "Dashboard",
         link: "/dashboard",
-        icon: '/assets/Images/Dashboard.png',
+        icon: '/assets/Images/dashboard.png',
         alt: 'Dashboard Icon',
     },
     {
         name: "Integrations",
         link: "/integrations",
-        icon: '/assets/Images/Integrations.png',
+        icon: '/assets/Images/integrations.png',
         alt: 'Integrations Icon',
     },
     {
         name: "Settings",
         link: "/dashboard/settings",
-        icon: '/assets/Images/Settings.png',
+        icon: '/assets/Images/settings.png',
         alt: 'Settings Icon',
     },
 ];  

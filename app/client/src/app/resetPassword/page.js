@@ -1,4 +1,4 @@
-import ResetPassword from "@/Components/organisms/ResetPassword"
+import ResetPassword from "@/components/organisms/ResetPassword"
 
 const page = () => {
   return (

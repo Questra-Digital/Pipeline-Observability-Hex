@@ -1,4 +1,4 @@
-import Settings from '@/Components/organisms/Settings/Settings'
+import Settings from '@/components/organisms/Settings/Settings'
 import React from 'react'
 
 const page = () => {

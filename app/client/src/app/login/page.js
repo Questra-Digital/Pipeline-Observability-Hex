@@ -1,4 +1,4 @@
-import Login from '@/Components/organisms/Login'
+import Login from '@/components/organisms/Login'
 import React from 'react'
 
 const page = () => {
