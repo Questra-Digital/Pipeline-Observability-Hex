@@ -16,7 +16,7 @@ const Integrations = () => {
                 imageURL={app.image}
                 alt={app.alt}
                 name={app.name}
-                url={app.url}
+                url={``}
                 status={app.status}
               />
             ))}
@@ -33,7 +33,7 @@ const Integrations = () => {
                 imageURL={app.image}
                 alt={app.alt}
                 name={app.name}
-                url={app.url}
+                url={`/integrations/app?app=${encodeURIComponent(app.name)}`}
                 status={app.status}
               />
             ))}
