@@ -23,7 +23,14 @@ func main() {
 	r := gin.Default()
 
 	// Add CORS middleware
-	r.Use(cors.Default())
+	config := cors.DefaultConfig()
+    config.AllowOrigins = []string{"*"} // Specify origins you want to allow
+    config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE",}
+    config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+    config.AllowCredentials = true // Allow cookies to be sent cross-origin
+
+    r.Use(cors.New(config))
+
 
 	// Apply the AuthMiddleware to routes except the "/signin" route
 	r.Use(func(c *gin.Context) {

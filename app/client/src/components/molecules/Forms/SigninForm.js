@@ -15,11 +15,11 @@ const LoginForm = ({children}) => {
     if (email && password) {
       try {
         const response = await instance.post('/api/signin', {email, password});
+        const token = response.data.token;
+        localStorage.setItem('token', token);
         if(response.data.message === "User signed in successfully"){
           SuccessToast('Signin Successful!');
-          setTimeout(() => {
             router.push('/home');
-          }, 2000);
         }
       } catch (error) {
         if(error?.response?.data?.error)

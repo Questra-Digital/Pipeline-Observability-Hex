@@ -13,13 +13,23 @@ const Pipelines = () => {
     setIsLoading(true);
     async function fetchPipelines() {
       try {
-        const response = await instance.get("/all_pipelines", {});
+        const token = localStorage.getItem('token');
+        console.log(token);
+        const response = await instance.get("/all_pipelines", {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept'       : 'application/json'
+           }
+        });
         setPipelines(response.data.available_pipeline);
         console.log(response.data);
       } catch (error) {
         console.error("Error fetching files:", error);
         if (error.response.status == 401) {
-          ErrorToast('Please Configure ArgoCD First!');
+          ErrorToast('Token Missing!');
+        }
+        else if(error.response.status == 500){
+          ErrorToast('Server Error!')
         }
       }
       finally{
