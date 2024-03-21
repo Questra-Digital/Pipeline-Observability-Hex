@@ -1,9 +1,39 @@
 'use client'
+import instance from "@/axios/axios";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react";
 
 
 const Gmail = () => {
     const [email, setEmail] = useState('');
+
+    const handleConfigure = async (e) => {
+      e.preventDefault();
+      if (email) {
+        try {
+          const authToken = localStorage.getItem('token');
+          const response = await instance.post('/api/email', {email},
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              }
+          });
+          if(response.status === 200 && response.data.message === "Email Saved successfully"){
+            SuccessToast('Email Saved successfully!');
+          } else {
+            ErrorToast('Failed to save email. Please try again.');
+          }
+        } catch (error) {
+          if(error?.response?.data?.error)
+            ErrorToast(error.response.data.error);
+          else
+            ErrorToast('We are facing some issue. Try Again!')
+        }
+      } else {
+        WarningToast("Enter Email First!");
+      }
+    };   
+
   return (
     <div className="border flex flex-col rounded-md border-gray-500 shadow shadow-blue-500 p-5 sm:p-8 max-w-[450px] sm:py-12">
     <div className="mb-8">
@@ -23,7 +53,7 @@ const Gmail = () => {
         onChange={(e) => setEmail(e.target.value)}
       />
     </div>
-    <button className="bg-purple-600 py-2 rounded-lg text-lg font-semibold">Configure</button>
+    <button className="bg-purple-600 py-2 rounded-lg text-lg font-semibold" onClick={handleConfigure}>Configure</button>
 </div>
   )
 }
