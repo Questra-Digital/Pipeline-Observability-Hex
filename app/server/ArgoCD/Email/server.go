@@ -16,6 +16,28 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+// check is the notification status is enabled
+func isNotificationEnabled() (bool, error) {
+	// connect to MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		return false, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	// fetch notification status from MongoDB
+	collection := mongoClient.Database("notification").Collection("email")
+	var notificationData map[string]string
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&notificationData)
+	if err != nil {
+		return false, err
+	}
+	notificationStatus := notificationData["status"]
+	if notificationStatus == "on" {
+		return true, nil
+	}
+	return false, nil
+}
+
 // Fetch the recipient email from MongoDB
 func fetchRecipientEmail() (string, error) {
 	// connect to MongoDB
@@ -39,6 +61,15 @@ func fetchRecipientEmail() (string, error) {
 
 // send Email to User
 func sendEmailToUser(messageText string) error {
+	// check if notification is enabled
+	if enabled, err := isNotificationEnabled(); err != nil {
+		log.Println("Error checking notification status:", err)
+		return err
+	} else if !enabled {
+		log.Println("Notification is disabled")
+		return nil
+	}
+
 	// send email to user
 	log.Printf("Email sent to user: %s", messageText)
 	// SMTP configuration
