@@ -10,8 +10,38 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// check is the notification status is enabled
+func isNotificationEnabled() (bool, error) {
+	// connect to MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		return false, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	// fetch notification status from MongoDB
+	collection := mongoClient.Database("notification").Collection("slack")
+	var notificationData map[string]string
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&notificationData)
+	if err != nil {
+		return false, err
+	}
+	notificationStatus := notificationData["status"]
+	if notificationStatus == "on" {
+		return true, nil
+	}
+	return false, nil
+}
+
 // send Message to Slack
 func sendMessageToSlack(messageText string) error {
+	// check if notification is enabled
+	if enabled, err := isNotificationEnabled(); err != nil {
+		log.Println("Error checking notification status:", err)
+		return err
+	} else if !enabled {
+		log.Println("Notification is disabled")
+		return nil
+	}
 	// connect to MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {

@@ -9,7 +9,7 @@ func ReadEmailNotificationStatus(c *gin.Context) {
 	ReadNotificationStatus(c, "email")
 }
 
-// update the slack notification status
+// update the Email notification status
 func UpdateEmailNotificationStatus(c *gin.Context) {
 	UpdateNotificationStatus(c, "email")
 }
