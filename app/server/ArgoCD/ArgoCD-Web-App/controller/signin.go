@@ -62,7 +62,6 @@ func generateToken(email string) (string, error) {
 		return "", err
 	}
 	var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
-	fmt.Println(os.Getenv("JWT_SECRET"))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"email": email,
 		"exp":   time.Now().Add(time.Hour * 24).Unix(), // Token expires after 1 day
@@ -98,10 +97,11 @@ func Signin(c *gin.Context) {
 	}
 
 	// Set the token in the Authorization header
-	c.Header("Authorization", "Bearer "+token)
+	// c.Header("Authorization", "Bearer "+token)
 
 	// Send token and message in response body
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User signed in successfully",
+		"token":   token,
 	})
 }
