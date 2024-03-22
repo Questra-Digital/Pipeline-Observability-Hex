@@ -67,8 +67,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Add the claims to the context for further use
-		// claims := token.Claims.(jwt.MapClaims)
-		// c.Set("claims", claims)
+		// claims = token.Claims.(jwt.MapClaims)
+		c.Set("claims", claims)
 		c.Next()
 	}
 }

@@ -24,13 +24,12 @@ func main() {
 
 	// Add CORS middleware
 	config := cors.DefaultConfig()
-    config.AllowOrigins = []string{"*"} // Specify origins you want to allow
-    config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE",}
-    config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-    config.AllowCredentials = true // Allow cookies to be sent cross-origin
+	config.AllowOrigins = []string{"*"} // Specify origins you want to allow
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowCredentials = true // Allow cookies to be sent cross-origin
 
-    r.Use(cors.New(config))
-
+	r.Use(cors.New(config))
 
 	// Apply the AuthMiddleware to routes except the "/signin" route
 	r.Use(func(c *gin.Context) {
@@ -115,6 +114,11 @@ func main() {
 	r.POST("/api/forgetpass", func(c *gin.Context) {
 		// call the forgetpass function from controller
 		controller.ForgetPass(c)
+	})
+
+	r.POST("/api/changepassword", func(c *gin.Context) {
+		// call the forgetpass function from controller
+		controller.ChangePassword(c)
 	})
 
 	r.POST("/api/slack", func(c *gin.Context) {

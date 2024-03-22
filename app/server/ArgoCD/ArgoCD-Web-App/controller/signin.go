@@ -78,28 +78,30 @@ func generateToken(email string) (string, error) {
 }
 
 func Signin(c *gin.Context) {
-    // Parse request body
-    var credentials Credentials
-    if err := c.BindJSON(&credentials); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-        return
-    }
-    // Check if the user exists
-    if !isUserExists(credentials.Email, credentials.Password) {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-        return
-    }
+	// Parse request body
+	var credentials Credentials
+	if err := c.BindJSON(&credentials); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	// Check if the user exists
+	if !isUserExists(credentials.Email, credentials.Password) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
 
-    // Generate JWT token
-    token, err := generateToken(credentials.Email)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
-        return
-    }
+	// Generate JWT token
+	token, err := generateToken(credentials.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		return
+	}
 
-    // Send token and message in response body
-    c.JSON(http.StatusOK, gin.H{
-        "message": "User signed in successfully",
-        "token":   token,
-    })
+	// Set the token in the Authorization header
+	c.Header("Authorization", "Bearer "+token)
+
+	// Send token and message in response body
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User signed in successfully",
+	})
 }
