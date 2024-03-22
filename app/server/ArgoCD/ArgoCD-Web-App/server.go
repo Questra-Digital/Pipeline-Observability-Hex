@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
+	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
@@ -31,7 +32,7 @@ func main() {
 
 	r.Use(cors.New(config))
 
-	// Apply the AuthMiddleware to routes except the "/signin" route
+	// Apply the AuthMiddleware to routes that require authentication
 	r.Use(func(c *gin.Context) {
 		log.Println("path: ", c.FullPath())
 		if c.FullPath() != "/api/signin" && c.FullPath() != "/api/signup" && c.FullPath() != "/api/forgetpass" && c.FullPath() != "/pipeline_state" {
@@ -133,6 +134,27 @@ func main() {
 	r.GET("/api/stopcronjob", func(c *gin.Context) {
 		// call the cronjob function from controller
 		controller.StopCronjob(c)
+	})
+
+	// notification routes for slack and email notification services
+	r.GET("/api/notification/slack", func(c *gin.Context) {
+		// call the cronjob function from controller
+		notificationtoggle.ReadSlackNotificationStatus(c)
+	})
+
+	r.POST("/api/notification/slack", func(c *gin.Context) {
+		// call the cronjob function from controller
+		notificationtoggle.UpdateSlackNotificationStatus(c)
+	})
+
+	r.GET("/api/notification/email", func(c *gin.Context) {
+		// call the cronjob function from controller
+		notificationtoggle.ReadEmailNotificationStatus(c)
+	})
+
+	r.POST("/api/notification/email", func(c *gin.Context) {
+		// call the cronjob function from controller
+		notificationtoggle.UpdateEmailNotificationStatus(c)
 	})
 
 	// Run the server
