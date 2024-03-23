@@ -4,11 +4,17 @@ import LinkAtom from "@/components/atoms/LinkAtom";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import instance from "@/axios/axios";
 import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { addUser } from "@/redux/features/user/userSlice";
 
 const LoginForm = ({children}) => {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const user = useSelector((state) => state.user);
+  console.log(user);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,8 +22,12 @@ const LoginForm = ({children}) => {
       try {
         const response = await instance.post('/api/signin', {email, password});
         const token = response.data.token;
-        localStorage.setItem('token', token);
         if(response.data.message === "User signed in successfully"){
+          const newUser = {
+            email: email,
+            token: token
+          }
+          dispatch(addUser(newUser));
           SuccessToast('Signin Successful!');
             router.push('/home');
         }
