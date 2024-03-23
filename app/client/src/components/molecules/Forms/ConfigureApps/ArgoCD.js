@@ -2,16 +2,18 @@
 import instance from "@/axios/axios";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react"
+import { useSelector } from "react-redux";
 
 
 const ArgoCD = () => {
     const [token, setToken] = useState('');
+    const authToken = useSelector((state) => state.user);
+    console.log('token',authToken);
 
     const handleConfigure = async (e) => {
       e.preventDefault();
       if (token) {
         try {
-          const authToken = localStorage.getItem('token');
           const response = await instance.post('/api/token', {token},
           {
             headers: {
@@ -25,11 +27,11 @@ const ArgoCD = () => {
           }
         } catch (error) {
           
-          if(error?.response?.data?.error)
-            ErrorToast(error.response.data.error);
-          else if(error.response.status == 401){
+          if(error.response.status == 401){
             ErrorToast('Please enter a valid token!')
           }
+          else if(error?.response?.data?.error)
+            ErrorToast(error.response.data.error);
           else
             ErrorToast('We are facing some issue. Try Again!')
         }
