@@ -1,10 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  isLogged: JSON.parse(localStorage?.getItem("userData"))?.isLogged || false,
-  email: JSON.parse(localStorage?.getItem("userData"))?.email || '',
-  token: JSON.parse(localStorage?.getItem("userData"))?.token || '',
+  isLogged: (typeof window !== 'undefined' && JSON.parse(localStorage?.getItem("userData"))?.isLogged) || false,
+  email: (typeof window !== 'undefined' && JSON.parse(localStorage?.getItem("userData"))?.email) || "",
+  token: (typeof window !== 'undefined' && JSON.parse(localStorage?.getItem("userData"))?.token) || "",
 };
+
 
 const userSlice = createSlice({
   name: "user",
@@ -12,32 +13,31 @@ const userSlice = createSlice({
   reducers: {
     addUser: (state, action) => {
       const { email, token } = action.payload;
-      return {
-        ...state,
-        isLogged: true,
-        email,
-        token,
-      };
-    localStorage?.setItem("userData", JSON.stringify(state));
+      state.isLogged = true;
+      state.email = email;
+      state.token = token;
+      localStorage.setItem("userData", JSON.stringify(state));
+      return state;
     },
     deleteUser: (state) => {
-      return {
-        isLogged: false,
-        email: "",
-        token: "",
-      };
-      localStorage?.setItem("userData", JSON.stringify(state));
+      state.isLogged = false;
+      state.email = "";
+      state.toke = "";
+      localStorage.setItem("userData", JSON.stringify(state));
+      return state;
     },
   },
 });
 
 // Helper function to retrieve user data from localStorage on application load
 const loadUserFromStorage = () => {
-  if(localStorage?.getItem("userData") === null){
-    localStorage?.setItem("userData", JSON.stringify(initialState));
-}else{
-   return
-}
+  if(typeof window !== "undefined"){
+    if (localStorage?.getItem("userData") === null) {
+      localStorage?.setItem("userData", JSON.stringify(initialState));
+    } else {
+      return;
+    }
+  }
 };
 
 loadUserFromStorage();

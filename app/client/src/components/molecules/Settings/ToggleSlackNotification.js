@@ -1,12 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
+import instance from "@/axios/axios";
+import { ErrorToast, SuccessToast } from "@/components/atoms/toastUtils/Toast";
 
 const ToggleSlackNotification = () => {
   const [slackNotifications, setSlackNotifications] = useState(false);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const authToken = JSON.parse(localStorage.getItem("userData")).token;
+        const response = await instance.get("/api/notification/slack", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        if (response.status === 200) {
+          setSlackNotifications(response.data.status === "on" ? true : false);
+        }
+      } catch (error) {
+        if (error.response.status == 500) {
+          ErrorToast("Configure Slack First!");
+        }
+        if (error.response.status === 401) {
+          ErrorToast(error.response.data.error);
+        } else {
+          ErrorToast("Error fetching status!");
+        }
+      }
+    };
+
+    fetchStatus();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      const authToken = JSON.parse(localStorage.getItem("userData")).token;
+      const response = await instance.post(
+        "/api/notification/slack",
+        {
+          status: slackNotifications ? "on" : "off",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        SuccessToast("Status Updated Successfully!");
+      } else {
+        console.log(response?.data?.message);
+      }
+    } catch (error) {
+      if (error.response.status === 401) {
+        ErrorToast(error.response.data.error);
+      }
+      ErrorToast("Error updating status!", error);
+    }
+  };
+
   return (
     <div className="flex w-full flex-col p-2">
       <div className="self-end">
-        <button className="bg-purple-600 h-fit px-3 py-1 rounded-md">
+        <button
+          className="bg-purple-600 h-fit px-3 py-1 rounded-md"
+          onClick={handleSave}
+        >
           Save
         </button>
       </div>
