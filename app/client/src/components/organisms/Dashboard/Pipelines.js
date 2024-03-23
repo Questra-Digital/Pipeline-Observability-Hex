@@ -13,11 +13,11 @@ const Pipelines = () => {
     setIsLoading(true);
     async function fetchPipelines() {
       try {
-        const token = localStorage.getItem('token');
-        console.log(token);
+        const authToken = JSON.parse(localStorage.getItem("userData")).token;
+        console.log(authToken);
         const response = await instance.get("/all_pipelines", {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${authToken}`,
             'Accept'       : 'application/json'
            }
         });

@@ -1,12 +1,54 @@
 import { useState } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
+import {
+  ErrorToast,
+  SuccessToast,
+  WarningToast,
+} from "@/components/atoms/toastUtils/Toast";
+import instance from "@/axios/axios";
 
 const UpdateEmail = () => {
   const [email, setEmail] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (email) {
+      try {
+        const authToken = JSON.parse(localStorage.getItem("userData")).token;
+        const response = await instance.post(
+          "/api/email",
+          { email },
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+        if (
+          response.status === 200 &&
+          response.data.message === "Email Saved successfully"
+        ) {
+          SuccessToast("Email Updated successfully!");
+        } else {
+          ErrorToast("Failed to update email. Please try again.");
+        }
+      } catch (error) {
+        if (error?.response?.status == 401) {
+          ErrorToast(error.response.data.error);
+        } else ErrorToast("We are facing some issue. Try Again!");
+      }
+    } else {
+      WarningToast("Enter Email First!");
+    }
+  };
+
   return (
     <div className="flex w-full flex-col p-5 sm:p-2 border rounded-lg border-gray-600 sm:border-none mt-3 sm:mt-0">
       <div className="self-end mb-2">
-        <button className="bg-purple-600 px-3 py-1 rounded-md">
+        <button
+          className="bg-purple-600 px-3 py-1 rounded-md"
+          onClick={handleSubmit}
+        >
           Save
         </button>
       </div>
