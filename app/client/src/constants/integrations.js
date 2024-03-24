@@ -4,35 +4,35 @@ import Slack from "@/components/molecules/Forms/ConfigureApps/Slack";
 
 export const allApps = [
   {
-    name: "ArgoCD",
+    name: "argocd",
     image: "/assets/Images/argocd.png",
     alt: "ArgoCD Icon",
     status: false,
     component: ArgoCD
   },
   {
-    name: "Slack",
+    name: "slack",
     image: "/assets/Images/slack.png",
     alt: "Slack Icon",
     status: true,
     component: Slack
   },
   {
-    name: "Gmail",
+    name: "email",
     image: "/assets/Images/gmail.png",
     alt: "Gmail Icon",
     status: false,
     component: Gmail
   },
   {
-    name: "GitLab",
+    name: "gitlab",
     image: "/assets/Images/gitlab.png",
     alt: "GitLab Icon",
     status: false,
     component: null
   },
   {
-    name: "Jenkins",
+    name: "jenkins",
     image: "/assets/Images/jenkins.png",
     alt: "Jenkins Icon",
     status: false,
@@ -40,14 +40,14 @@ export const allApps = [
 
   },
   {
-    name: "Github Actions",
+    name: "github actions",
     image: "/assets/Images/ghactions.png",
     alt: "GitHub Actions Icon",
     status: false,
     component: null
   },
   {
-    name: "Drone CI",
+    name: "drone CI",
     image: "/assets/Images/droneci.png",
     alt: "Drone CI Icon",
     status: false,
