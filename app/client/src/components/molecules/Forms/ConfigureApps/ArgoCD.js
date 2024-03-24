@@ -26,7 +26,7 @@ const ArgoCD = () => {
           }
         );
         if (
-          response.status === 200 &&
+          response?.status === 200 &&
           response.data.message === "Token Saved successfully"
         ) {
           SuccessToast("Token Saved successfully!");
@@ -34,7 +34,7 @@ const ArgoCD = () => {
           ErrorToast("Failed to save token. Please try again.");
         }
       } catch (error) {
-        if (error.response.status == 401) {
+        if (error?.response?.status == 401) {
           ErrorToast("Please enter a valid token!");
         } else if (error?.response?.data?.error)
           ErrorToast(error.response.data.error);

@@ -47,6 +47,6 @@ func GetAllApps(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"slack":       slackBot,
 		"email":       emailNotification,
-		"argocdToken": argocdToken,
+		"argocd": argocdToken,
 	})
 }
