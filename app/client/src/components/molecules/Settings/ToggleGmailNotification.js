@@ -1,63 +1,40 @@
 import { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
-import instance from "@/axios/axios";
 import { ErrorToast, SuccessToast } from "@/components/atoms/toastUtils/Toast";
+import useFetch from "@/hooks/useFetch";
+import usePost from "@/hooks/usePost";
+import ToggleButton from "@/components/atoms/ToggleButton";
 
 const ToggleGmailNotification = () => {
   const [emailNotifications, setEmailNotifications] = useState(false);
+  const { data, error, loading, fetchData } = useFetch(
+    "/api/notification/email"
+  );
+  const { postData: updateStatus } = usePost();
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const authToken = JSON.parse(localStorage.getItem("userData")).token;
-        const response = await instance.get("/api/notification/email", {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
-        if (response.status === 200) {
-          setEmailNotifications(response.data.status === "on" ? true : false);
-        }
-      } catch (error) {
-        if (error.response.status == 500) {
-          ErrorToast("Configure Email First!");
-        }
-        if (error.response.status === 401) {
-          ErrorToast(error.response.data.error);
-        } else {
-          ErrorToast("Error fetching status!");
-        }
-      }
-    };
-
-    fetchStatus();
+    fetchData();
   }, []);
+
+  useEffect(() => {
+    if (data) {
+      setEmailNotifications(data.status === "on");
+    }
+  }, [data]);
 
   const handleSave = async () => {
     try {
-      const authToken = JSON.parse(localStorage.getItem("userData")).token;
-      const response = await instance.post(
-        "/api/notification/email",
-        {
-          status: emailNotifications ? "on" : "off",
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      if (response.status === 200) {
-        SuccessToast("Status Updated Successfully!");
-      } else {
-        ErrorToast(response?.data?.message);
-      }
+      // Update status of email notifications
+      await updateStatus("/api/notification/email", {
+        status: emailNotifications ? "on" : "off",
+      });
+      SuccessToast("Status Updated Successfully!");
     } catch (error) {
-      if (error.response.status === 401) {
+      if (error.response && error.response.status === 401) {
         ErrorToast(error.response.data.error);
+      } else {
+        ErrorToast("Error updating status!");
       }
-      ErrorToast("Error updating status!");
     }
   };
 
@@ -67,8 +44,9 @@ const ToggleGmailNotification = () => {
         <button
           className="bg-purple-600 h-fit px-3 py-1 rounded-md"
           onClick={handleSave}
+          disabled={loading}
         >
-          Save
+          {loading ? "Saving..." : "Save"}
         </button>
       </div>
       <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
@@ -87,7 +65,7 @@ const ToggleGmailNotification = () => {
               onChange={(e) => setEmailNotifications(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <ToggleButton />
           </label>
         </div>
       </div>
