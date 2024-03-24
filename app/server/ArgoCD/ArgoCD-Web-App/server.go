@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
+	apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
 	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
@@ -155,6 +156,11 @@ func main() {
 	r.POST("/api/notification/email", func(c *gin.Context) {
 		// call the cronjob function from controller
 		notificationtoggle.UpdateEmailNotificationStatus(c)
+	})
+
+	// get all configured apps data
+	r.GET("/api/apps/", func(c *gin.Context) {
+		apps.GetAllApps(c)
 	})
 
 	// Run the server
