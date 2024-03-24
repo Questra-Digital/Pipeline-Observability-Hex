@@ -1,49 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
-import {
-  ErrorToast,
-  SuccessToast,
-  WarningToast,
-} from "@/components/atoms/toastUtils/Toast";
-import instance from "@/axios/axios";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
+import usePost from "@/hooks/usePost";
 
 const UpdateToken = () => {
   const [token, setToken] = useState("");
+  const { loading, error, data, postData } = usePost();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (token) {
-      try {
-        const authToken = JSON.parse(localStorage.getItem("userData")).token;
-        const response = await instance.post(
-          "/api/token",
-          { token },
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
-        if (
-          response.status === 200 &&
-          response.data.message === "Token Saved successfully"
-        ) {
-          SuccessToast("Token Updated successfully!");
-        } else {
-          SuccessToast;
-          ErrorToast("Failed to update token. Please try again.");
-        }
-      } catch (error) {
-        if (error.response.status == 401) {
-          ErrorToast("Please enter a valid token!");
-        } else if (error?.response?.data?.error)
-          ErrorToast(error.response.data.error);
-        else ErrorToast("We are facing some issue. Try Again!");
-      }
+      await postData("/api/token", { token });
     } else {
       WarningToast("Enter Token First!");
     }
   };
+
+  // Handle success and error messages after rendering is complete
+  useEffect(() => {
+    if (data && data.message === "Token Saved successfully") {
+      SuccessToast("Token Updated successfully!");
+    } else if (error) {
+      ErrorToast(error);
+    }
+  }, [data, error]);
 
   return (
     <div className="flex w-full flex-col p-2">
@@ -51,16 +31,15 @@ const UpdateToken = () => {
         <button
           className="bg-purple-600 h-fit px-3 py-1 rounded-md"
           onClick={handleSubmit}
+          disabled={loading}
         >
-          Save
+          {loading ? "Saving..." : "Save"}
         </button>
       </div>
       <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
         <SettingsText
           Heading={"Token Settings"}
-          Description={
-            "Ensure uninterrupted insights: Keep your monitoring current with a renewed ArgoCD token, ensuring seamless access to real-time analytics for informed decision-making."
-          }
+          Description={"Ensure uninterrupted insights: Keep your monitoring current with a renewed ArgoCD token, ensuring seamless access to real-time analytics for informed decision-making."}
         />
         <div className="w-[100%] flex flex-col my-3">
           <label htmlFor="token" className="my-2">
@@ -73,6 +52,7 @@ const UpdateToken = () => {
             name="token"
             value={token}
             onChange={(e) => setToken(e.target.value)}
+            disabled={loading}
           />
         </div>
       </div>

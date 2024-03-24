@@ -1,47 +1,30 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
-import {
-  ErrorToast,
-  SuccessToast,
-  WarningToast,
-} from "@/components/atoms/toastUtils/Toast";
-import instance from "@/axios/axios";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
+import usePost from "@/hooks/usePost";
 
 const UpdatePassword = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const { loading, error, data, postData } = usePost();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (newPassword && oldPassword) {
-      try {
-        const authToken = JSON.parse(localStorage.getItem("userData")).token;
-        const response = await instance.post(
-          "/api/changepassword",
-          { newPassword },
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
-        if (
-          response.status === 200 &&
-          response.data.message === "Password updated successfully"
-        ) {
-          SuccessToast("Password updated successfully!");
-        } else {
-          ErrorToast("Failed to update password. Please try again.");
-        }
-      } catch (error) {
-        if (error?.response?.status == 401) {
-          ErrorToast(error.response.data.error);
-        } else ErrorToast("We are facing some issue. Try Again!");
-      }
+      await postData("/api/changepassword", { newPassword, oldPassword });
     } else {
       WarningToast("Enter All Fields First!");
     }
   };
+
+  // Handle success and error messages after rendering is complete
+  useEffect(() => {
+    if (data && data.message === "Password updated successfully") {
+      SuccessToast("Password updated successfully!");
+    } else if (error) {
+      ErrorToast(error);
+    }
+  }, [data, error]);
 
   return (
     <div className="flex w-full flex-col p-2">
@@ -49,16 +32,15 @@ const UpdatePassword = () => {
         <button
           className="bg-purple-600 px-3 py-1 rounded-md"
           onClick={handleSubmit}
+          disabled={loading}
         >
-          Save
+          {loading ? "Saving..." : "Save"}
         </button>
       </div>
       <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
         <SettingsText
           Heading={"Change Password"}
-          Description={
-            "Renew your digital credentials: Stay proactive in protecting your information by updating your password, ensuring continuous security and peace of mind."
-          }
+          Description={"Renew your digital credentials: Stay proactive in protecting your information by updating your password, ensuring continuous security and peace of mind."}
         />
         <div>
           <div className="w-[100%] flex flex-col my-3">
@@ -72,6 +54,7 @@ const UpdatePassword = () => {
               name="oldPassword"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
+              disabled={loading}
             />
           </div>{" "}
           <div className="w-[100%] flex flex-col my-3">
@@ -85,6 +68,7 @@ const UpdatePassword = () => {
               name="newPassword"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
         </div>

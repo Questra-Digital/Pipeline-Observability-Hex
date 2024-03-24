@@ -1,9 +1,9 @@
 'use client'
 import React, { useEffect, useState } from "react";
-import axios from "../../axios/axios";
 import HistoryHeader from "@/components/molecules/PipelineHistory/HistoryHeader";
 import PipelineDataRow from "@/components/molecules/PipelineHistory/PipelineDataRow";
 import TextAtom from "@/components/atoms/TextAtom";
+import instance from "@/axios/axios";
 
 function PipelineHistory() {
   const [history, setHistory] = useState([]);
@@ -13,7 +13,7 @@ function PipelineHistory() {
   useEffect(() => {
     async function fetchPipelineData() {
       try {
-        const response = await axios.get("/pipeline_history", {
+        const response = await instance.get("/pipeline_history", {
           params: {
             pipeline: `${pipelineName}`,
           },

@@ -1,50 +1,36 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import instance from "@/axios/axios";
 import { useRouter } from "next/navigation";
 import { ErrorToast } from "@/components/atoms/toastUtils/Toast";
 import ImageAtom from "@/components/atoms/ImageAtom";
+import useFetch from "@/hooks/useFetch";
 
 const Pipelines = () => {
   const [pipelines, setPipelines] = useState([]);
   const [filteredPipelines, setFilteredPipelines] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
   const router = useRouter();
 
+  const { data: pipelineData, error, loading, fetchData } = useFetch("/all_pipelines");
+
   useEffect(() => {
-    setIsLoading(true);
-    async function fetchPipelines() {
-      try {
-        const authToken = JSON.parse(localStorage.getItem("userData")).token;
-        console.log(authToken);
-        const response = await instance.get("/all_pipelines", {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            Accept: "application/json",
-          },
-        });
-        setPipelines(response.data.available_pipeline);
-        setFilteredPipelines(response.data.available_pipeline);
-      } catch (error) {
-        if (error.response.status == 401) {
-          ErrorToast("Token Missing!");
-        } else if (error.response.status == 500) {
-          ErrorToast("Server Error!");
-        }
-        else{
-          ErrorToast("Error fetching Pipelines!", error);
-        }
-      } finally {
-        setIsLoading(false);
+    if (!loading) {
+      setLoading(false);
+      if (pipelineData) {
+        setPipelines(pipelineData.available_pipeline);
+        setFilteredPipelines(pipelineData.available_pipeline);
       }
+      if(error)
+        ErrorToast("Error fetching Pipelines!");
     }
-    fetchPipelines();
+  }, [pipelineData, loading]);
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   const handleRowClick = (pipelineName) => {
-    router.push(
-      `/dashboard/pipeline?pipeline=${encodeURIComponent(pipelineName)}`
-    );
+    router.push(`/dashboard/pipeline?pipeline=${encodeURIComponent(pipelineName)}`);
   };
 
   const handleChange = (e) => {
@@ -73,8 +59,8 @@ const Pipelines = () => {
         </div>
       )}
       <div className="h-full w-full md:w-[80%] p-2 xs:p-5 overflow-x-auto">
-        {isLoading && <p className="text-center">Loading Your Pipelines...</p>}
-        {!isLoading && (
+        {loading && <p className="text-center">Loading Your Pipelines...</p>}
+        {!loading && (
           <table className="w-full text-sm text-left text-gray-400 table-auto shadow-md shadow-purple-900">
             <thead className="uppercase bg-gray-700">
               <tr>
