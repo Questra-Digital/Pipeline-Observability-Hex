@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.6.1
-// source: proto/cronjob_controller.proto
+// source: protos/cronjob_controller.proto
 
 package protos
 
@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CronjobControllerClient interface {
 	ControlCronjob(ctx context.Context, in *ControlCronjobRequest, opts ...grpc.CallOption) (*ControlCronjobResponse, error)
+	GetCronjobStatus(ctx context.Context, in *CronjobStatus, opts ...grpc.CallOption) (*CronjobStatusResponse, error)
 }
 
 type cronjobControllerClient struct {
@@ -42,11 +43,21 @@ func (c *cronjobControllerClient) ControlCronjob(ctx context.Context, in *Contro
 	return out, nil
 }
 
+func (c *cronjobControllerClient) GetCronjobStatus(ctx context.Context, in *CronjobStatus, opts ...grpc.CallOption) (*CronjobStatusResponse, error) {
+	out := new(CronjobStatusResponse)
+	err := c.cc.Invoke(ctx, "/grpc_server.CronjobController/getCronjobStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CronjobControllerServer is the server API for CronjobController service.
 // All implementations must embed UnimplementedCronjobControllerServer
 // for forward compatibility
 type CronjobControllerServer interface {
 	ControlCronjob(context.Context, *ControlCronjobRequest) (*ControlCronjobResponse, error)
+	GetCronjobStatus(context.Context, *CronjobStatus) (*CronjobStatusResponse, error)
 	mustEmbedUnimplementedCronjobControllerServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedCronjobControllerServer struct {
 
 func (UnimplementedCronjobControllerServer) ControlCronjob(context.Context, *ControlCronjobRequest) (*ControlCronjobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ControlCronjob not implemented")
+}
+func (UnimplementedCronjobControllerServer) GetCronjobStatus(context.Context, *CronjobStatus) (*CronjobStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCronjobStatus not implemented")
 }
 func (UnimplementedCronjobControllerServer) mustEmbedUnimplementedCronjobControllerServer() {}
 
@@ -88,6 +102,24 @@ func _CronjobController_ControlCronjob_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CronjobController_GetCronjobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CronjobStatus)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronjobControllerServer).GetCronjobStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc_server.CronjobController/getCronjobStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronjobControllerServer).GetCronjobStatus(ctx, req.(*CronjobStatus))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CronjobController_ServiceDesc is the grpc.ServiceDesc for CronjobController service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -99,7 +131,11 @@ var CronjobController_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "controlCronjob",
 			Handler:    _CronjobController_ControlCronjob_Handler,
 		},
+		{
+			MethodName: "getCronjobStatus",
+			Handler:    _CronjobController_GetCronjobStatus_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/cronjob_controller.proto",
+	Metadata: "protos/cronjob_controller.proto",
 }

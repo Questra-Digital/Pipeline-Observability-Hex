@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
+	cronjob "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/cronjob"
 	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
@@ -161,6 +162,11 @@ func main() {
 	// get all configured apps data
 	r.GET("/api/apps/", func(c *gin.Context) {
 		apps.GetAllApps(c)
+	})
+
+	// get cronjob status
+	r.GET("/api/cronjob/status", func(c *gin.Context) {
+		cronjob.GetCronjobStatus(c)
 	})
 
 	// Run the server
