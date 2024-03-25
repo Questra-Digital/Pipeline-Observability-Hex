@@ -1,13 +1,15 @@
 "use client";
 import instance from "@/axios/axios";
-import {
-  ErrorToast,
-  SuccessToast,
-  WarningToast,
-} from "@/components/atoms/toastUtils/Toast";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react";
+import {useDispatch} from 'react-redux';
+import { addApp } from "@/redux/features/apps/appsSlice";
+import { useRouter } from "next/navigation";
+
 
 const Gmail = () => {
+  const router = useRouter();
+  const dispatch = useDispatch();
   const [email, setEmail] = useState("");
 
   const handleConfigure = async (e) => {
@@ -25,10 +27,11 @@ const Gmail = () => {
           }
         );
         if (
-          response.status === 200 &&
-          response.data.message === "Email Saved successfully"
+          response.status === 200
         ) {
           SuccessToast("Email Saved successfully!");
+          dispatch(addApp({name: "email"}));
+          router.back();
         } else {
           ErrorToast("Failed to save email. Please try again.");
         }

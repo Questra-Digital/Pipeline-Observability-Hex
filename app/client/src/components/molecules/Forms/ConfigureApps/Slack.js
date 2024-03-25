@@ -1,13 +1,14 @@
 "use client";
 import instance from "@/axios/axios";
-import {
-  ErrorToast,
-  SuccessToast,
-  WarningToast,
-} from "@/components/atoms/toastUtils/Toast";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react";
+import {useDispatch} from 'react-redux';
+import { useRouter } from "next/navigation";
+import { addApp } from "@/redux/features/apps/appsSlice";
 
 const Slack = () => {
+  const router = useRouter();
+  const dispatch = useDispatch();
   const [token, setToken] = useState("");
   const [channel, setChannel] = useState("");
 
@@ -26,11 +27,11 @@ const Slack = () => {
           }
         );
         if (
-          response.status === 200 &&
-          response.data.message ===
-            "Slack bot token and channel stored successfully"
+          response.status === 200
         ) {
           SuccessToast("Slack configured successfully!");
+          dispatch(addApp({name: 'slack'}));
+          router.back();
         } else {
           ErrorToast("Failed to save. Please try again.");
         }
