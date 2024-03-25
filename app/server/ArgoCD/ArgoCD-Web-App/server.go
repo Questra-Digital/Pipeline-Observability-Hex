@@ -92,7 +92,7 @@ func main() {
 		controller.PipelineHistory(c)
 	})
 
-	r.POST("/api/daviation-value", func(c *gin.Context) {
+	r.POST("/api/deviation-value", func(c *gin.Context) {
 		// Parse request body to get the "token" value
 		var requestBody map[string]string
 		if err := c.BindJSON(&requestBody); err != nil {
@@ -167,6 +167,11 @@ func main() {
 	// get cronjob status
 	r.GET("/api/cronjob/status", func(c *gin.Context) {
 		cronjob.GetCronjobStatus(c)
+	})
+
+	// get deviation value
+	r.GET("/api/deviation-value", func(c *gin.Context) {
+		controller.GetDeviationValue(c)
 	})
 
 	// Run the server
