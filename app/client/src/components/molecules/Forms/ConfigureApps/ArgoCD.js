@@ -10,7 +10,7 @@ import { useSelector } from "react-redux";
 
 const ArgoCD = () => {
   const [token, setToken] = useState("");
-  const authToken = useSelector((state) => state.user);
+  const authToken = useSelector((state) => state.user.token);
 
   const handleConfigure = async (e) => {
     e.preventDefault();
@@ -25,10 +25,7 @@ const ArgoCD = () => {
             },
           }
         );
-        if (
-          response?.status === 200 &&
-          response.data.message === "Token Saved successfully"
-        ) {
+        if (response?.status === 200) {
           SuccessToast("Token Saved successfully!");
         } else {
           ErrorToast("Failed to save token. Please try again.");
