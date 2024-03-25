@@ -45,8 +45,8 @@ func GetAllApps(c *gin.Context) {
 	}
 	// Return the configured apps data
 	c.JSON(200, gin.H{
-		"slack":       slackBot,
-		"email":       emailNotification,
+		"slack":  slackBot,
+		"email":  emailNotification,
 		"argocd": argocdToken,
 	})
 }
