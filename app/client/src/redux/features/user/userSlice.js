@@ -22,7 +22,7 @@ const userSlice = createSlice({
     deleteUser: (state) => {
       state.isLogged = false;
       state.email = "";
-      state.toke = "";
+      state.token = "";
       localStorage.setItem("userData", JSON.stringify(state));
       return state;
     },
