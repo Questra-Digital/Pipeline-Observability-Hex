@@ -23,10 +23,14 @@ jobs:
         with:
           go-version: 1.21
 
-      - name: pkg build
+      - name: Build Packages
         working-directory: ./app/server/ArgoCD/ArgoCD-Monitor-Cronjob
         run: go build -v ./...     
       
-      - name: Run Tests
+      - name: Run Test Cases
         working-directory: ./app/server/ArgoCD/ArgoCD-Monitor-Cronjob/controller_test
         run: go test ./... -v
+        
+      - name: Build Docker Image
+        working-directory: ./app/server/ArgoCD/ArgoCD-Monitor-Cronjob
+        run: docker build . --file Dockerfile --tag argocd-monitor-cronjob  
