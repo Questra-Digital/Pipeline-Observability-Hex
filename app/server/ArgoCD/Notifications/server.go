@@ -72,8 +72,6 @@ func main() {
 	}
 	s := grpc.NewServer()
 	notifications.RegisterNotificationsServer(s, &server{})
-	publishMessage(natsSubjectSlack, "message from server")
-	publishMessage(natsSubjectEmail, "message from server")
 	log.Printf("Server listening on port %s", port)
 
 	if err := s.Serve(lis); err != nil {
