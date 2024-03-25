@@ -35,7 +35,7 @@ export default function MainSection() {
           </TextAtom>
           <div className="min-h-[70px]">{showTypewriter && <Typewriter />}</div>
           <LinkAtom
-            link="./configurePipeline"
+            link="/home"
             prefetch={true}
             text={"Get Started"}
             properties={

@@ -72,6 +72,14 @@ func (s *server) ControlCronjob(ctx context.Context, in *grpc_cronjob_controller
 	}
 }
 
+// implement the GetCronjobStatus method
+func (s *server) GetCronjobStatus(ctx context.Context, in *grpc_cronjob_controller.CronjobStatus) (*grpc_cronjob_controller.CronjobStatusResponse, error) {
+	if s.isCronJobRunning {
+		return &grpc_cronjob_controller.CronjobStatusResponse{Running: true}, nil
+	}
+	return &grpc_cronjob_controller.CronjobStatusResponse{Running: false}, nil
+}
+
 func main() {
 	// Start gRPC server
 	lis, err := net.Listen("tcp", port)

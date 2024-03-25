@@ -20,7 +20,9 @@ const useFetch = (url, optionalHeaderValue = true) => {
       const response = await instance.get(url, { headers });
       if (response.status === 200) setData(response.data);
       else setError("Failed. Please try again!");
+      console.log(response);
     } catch (error) {
+      console.log(error);
       if (error?.response?.status === 401) {
         setError(error.response.data.Error || error.response.statusText);
       } else setError("We are facing some issue. Try Again!");
