@@ -1,16 +1,26 @@
-'use client'
+"use client";
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import HistoryHeader from "@/components/molecules/PipelineHistory/HistoryHeader";
 import PipelineDataRow from "@/components/molecules/PipelineHistory/PipelineDataRow";
 import TextAtom from "@/components/atoms/TextAtom";
 import instance from "@/axios/axios";
 
 function PipelineHistory() {
+  const searchParams = useSearchParams();
   const [history, setHistory] = useState([]);
-  const pipelineName = localStorage.getItem("pipeline");
-  const Labels = ["PipelineName", "Deployment", "Service", "Pod", "ReplicaSet", "Time"];
+  const [pipelineName, setPipelineName] = useState("");
+  const Labels = [
+    "PipelineName",
+    "Deployment",
+    "Service",
+    "Pod",
+    "ReplicaSet",
+    "Time",
+  ];
 
   useEffect(() => {
+    setPipelineName(searchParams.get("pipeline"));
     async function fetchPipelineData() {
       try {
         const response = await instance.get("/pipeline_history", {
@@ -31,12 +41,17 @@ function PipelineHistory() {
   }, []);
 
   return (
-    <div className="w-[100%] flex justify-center items-center flex-col">
+    <div className="w-[100%] h-full flex justify-center items-center flex-col">
       <HistoryHeader labels={Labels} pipelineName={pipelineName} />
 
       {history &&
         (history.length === 0 ? (
-          <TextAtom properties={"text-center text-lg font-semibold text-red-600 mt-4"} text={"No previous history available"}/>
+          <div className="w-full h-full justify-center items-center">
+            <TextAtom
+              properties={"text-center animate-pulse text-2xl font-semibold text-red-600"}
+              text={"No history available for this pipeline!"}
+            />
+          </div>
         ) : (
           history.map((data, index) => (
             <PipelineDataRow data={data} key={index} />

@@ -29,8 +29,11 @@ const Pipelines = () => {
     fetchData();
   }, []);
 
-  const handleRowClick = (pipelineName) => {
+  const handleDashboardClick = (pipelineName) => {
     router.push(`/dashboard/pipeline?pipeline=${encodeURIComponent(pipelineName)}`);
+  };
+  const handleHistoryClick = (pipelineName) => {
+    router.push(`pipelineHistory?pipeline=${encodeURIComponent(pipelineName)}`);
   };
 
   const handleChange = (e) => {
@@ -67,7 +70,7 @@ const Pipelines = () => {
                 <th scope="col" className="px-6 py-3">
                   pipeline name
                 </th>
-                <th scope="col" className="px-6 py-3 text-center">
+                <th scope="col" className="px-6 py-3 text-center w-[50%] md:w-[30%]">
                   Actions
                 </th>
               </tr>
@@ -77,7 +80,6 @@ const Pipelines = () => {
                 <tr
                   key={index}
                   className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600"
-                  onClick={() => handleRowClick(pipeline)}
                 >
                   <th
                     scope="row"
@@ -85,11 +87,18 @@ const Pipelines = () => {
                   >
                     {pipeline}
                   </th>
-                  <td className="flex justify-center py-2">
+                  <td className="flex justify-center py-2 px-3 gap-5 z-20">
                     <span
-                      className={`px-5 py-3 rounded-md font-semibold text-white bg-green-600`}
+                      className={`px-5 py-3 rounded-md font-semibold text-white bg-green-600 hover:bg-green-700`}
+                      onClick={() => handleDashboardClick(pipeline)}
                     >
                       Dashboard
+                    </span>
+                    <span
+                      className={`px-5 py-3 rounded-md font-semibold text-white bg-blue-700 hover:bg-blue-500`}
+                      onClick={() => handleHistoryClick(pipeline)}
+                    >
+                      History
                     </span>
                   </td>
                 </tr>

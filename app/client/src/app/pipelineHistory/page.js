@@ -1,10 +1,13 @@
-import PipelineHistory from '@/components/organisms/PipelineHistory'
-import React from 'react'
+import PipelineHistory from "@/components/organisms/PipelineHistory";
+import React from "react";
+import DashboardLayout from "../dashboard/layout";
 
 const page = () => {
   return (
-    <PipelineHistory/>
-  )
-}
+    <DashboardLayout>
+      <PipelineHistory />
+    </DashboardLayout>
+  );
+};
 
-export default page
+export default page;
