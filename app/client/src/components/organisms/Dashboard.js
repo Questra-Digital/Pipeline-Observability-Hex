@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import CardContainer from "@/components/molecules/PipelineDashboard/CardContainer";
 import TimeSeriesGraph from "@/components/molecules/PipelineDashboard/TimeSeriesGraph";
 import TextAtom from "../atoms/TextAtom";
+import BackButton from "../atoms/BackButton";
 
 function Dashboard() {
   const searchParams = useSearchParams();
@@ -49,9 +50,13 @@ function Dashboard() {
 
   return (
     <div className="w-full p-5">
-      <TextAtom properties={"font-semibold text-xl my-5"} text={"Dashboard | "}>
+    <div className="w-full flex justify-start">
+    <BackButton />
+      <TextAtom properties={"font-semibold text-xl py-3 px-10"} text={"Dashboard | "}>
         <span className="text-gray-400">{pipelineName}</span>
       </TextAtom>
+
+    </div>
       <CardContainer data={currentData} />
       <div className="flex justify-center items-center mt-4">
         <div className="md:w-[70vw]">
