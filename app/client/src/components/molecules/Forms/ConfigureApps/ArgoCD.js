@@ -1,14 +1,14 @@
 "use client";
 import instance from "@/axios/axios";
-import {
-  ErrorToast,
-  SuccessToast,
-  WarningToast,
-} from "@/components/atoms/toastUtils/Toast";
+import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { addApp } from "@/redux/features/apps/appsSlice";
+import { useRouter } from "next/navigation";
 
 const ArgoCD = () => {
+  const dispatch = useDispatch();
+  const router = useRouter();
   const [token, setToken] = useState("");
   const authToken = useSelector((state) => state.user.token);
 
@@ -27,6 +27,8 @@ const ArgoCD = () => {
         );
         if (response?.status === 200) {
           SuccessToast("Token Saved successfully!");
+          dispatch(addApp({name: "argocd"}))
+          router.back();
         } else {
           ErrorToast("Failed to save token. Please try again.");
         }
