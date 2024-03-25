@@ -27,5 +27,6 @@ jobs:
         working-directory: ./app/server/ArgoCD/ArgoCD-Web-App
         run: go build -v ./...     
       
-      #- name: Run Tests
-      #  run: go test ./... 
+      - name: Run Tests
+        working-directory: ./app/server/ArgoCD/ArgoCD-Web-App/controller_test
+        run: go test ./... -v 
