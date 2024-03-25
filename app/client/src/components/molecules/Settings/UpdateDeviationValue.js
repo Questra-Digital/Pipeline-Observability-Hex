@@ -2,15 +2,17 @@ import React, { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import usePost from "@/hooks/usePost";
+import useFetch from "@/hooks/useFetch";
 
 const UpdateDeviationValue = () => {
   const [deviationValue, setDeviationValue] = useState("");
-  const { loading, error, data, postData } = usePost();
+  const { loading: postDataLoading, error: postDataError, data: postDataResponse, postData } = usePost();
+  const { data: deviationData, error: deviationError, loading: deviationLoading, fetchData: fetchDeviationValue } = useFetch("/api/deviation-value"); // Use useFetch hook to get deviation value
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (deviationValue) {
-      await postData("/api/daviation-value", { deviation_value: deviationValue });
+      await postData("/api/deviation-value", { deviation_value: deviationValue });
     } else {
       WarningToast("Enter Value First!");
     }
@@ -18,12 +20,25 @@ const UpdateDeviationValue = () => {
 
   // Handle success and error messages after rendering is complete
   useEffect(() => {
-    if (data && data.message === "Deviation Value inserted....") {
+    if (postDataResponse && postDataResponse.message === "Deviation Value inserted....") {
       SuccessToast("Deviation Value Updated!");
-    } else if (error) {
-      ErrorToast(error);
+    } else if (postDataError) {
+      ErrorToast(postDataError);
     }
-  }, [data, error]);
+  }, [postDataResponse, postDataError]);
+
+  // Fetch deviation value on component mount
+  useEffect(() => {
+    fetchDeviationValue();
+  }, []);
+
+  useEffect(() => {
+    if (deviationData) {
+      setDeviationValue(deviationData.deviationValue);
+    } else if (deviationError) {
+      ErrorToast(deviationError);
+    }
+  }, [deviationData, deviationError]);
 
   return (
     <div className="flex w-full flex-col p-2">
@@ -31,9 +46,9 @@ const UpdateDeviationValue = () => {
         <button
           className="bg-purple-600 px-3 py-1 rounded-md"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={postDataLoading || deviationLoading}
         >
-          {loading ? "Saving..." : "Save"}
+          {(postDataLoading || deviationLoading) ? "Saving..." : "Save"}
         </button>
       </div>
       <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
@@ -53,7 +68,7 @@ const UpdateDeviationValue = () => {
             min="1"
             value={deviationValue}
             onChange={(e) => setDeviationValue(e.target.value)}
-            disabled={loading}
+            disabled={postDataLoading || deviationLoading}
           />
         </div>
       </div>
