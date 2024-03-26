@@ -1,7 +1,6 @@
-// graphConfigurations.js
 
 export const graphConfigs = {
-  type: "bar",
+  type: "line",
   options: {
     maintainAspectRatio: false,
     responsive: true,
@@ -63,7 +62,7 @@ export const graphConfigs = {
         label: (tooltipItem, data) => {
           const datasetIndex = tooltipItem.datasetIndex;
           const value = data.datasets[datasetIndex].data[tooltipItem.index];
-          const originalValue = value === 1 ? 'Healthy' : 'Other'; // Adjusted based on value
+          const originalValue = reverseValueMap[value];
           return `${data.datasets[datasetIndex].label}: ${originalValue}`;
         },
       },
@@ -80,6 +79,12 @@ export const graphConfigs = {
       padding: 16,
       cornerRadius: 5,
       displayColors: false,
+    },
+    // Disable the initial animation
+    animation: {
+      onComplete: () => {},
+      onProgress: () => {},
+      duration: 0,
     },
   },
 };

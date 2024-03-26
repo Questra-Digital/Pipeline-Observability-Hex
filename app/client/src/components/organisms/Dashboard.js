@@ -52,7 +52,7 @@ function Dashboard() {
     <div className="w-full p-5">
     <div className="w-full flex justify-start">
     <BackButton />
-      <TextAtom properties={"font-semibold text-xl py-3 px-10"} text={"Dashboard | "}>
+      <TextAtom properties={"font-semibold text-xl py-3 px-10 capitalize"}>
         <span className="text-gray-400">{pipelineName}</span>
       </TextAtom>
 
