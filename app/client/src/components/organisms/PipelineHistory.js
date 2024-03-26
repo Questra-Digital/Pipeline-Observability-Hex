@@ -49,7 +49,7 @@ function PipelineHistory() {
       <table className="w-[90%] my-3 rounded-lg">
         <HistoryHeader labels={labels} />
         <tbody className="">
-          {history.length === 0 ? (
+          {!history || history?.length === 0 ? (
             <tr>
               <td colSpan={labels.length}>
                 <TextAtom
@@ -59,7 +59,7 @@ function PipelineHistory() {
               </td>
             </tr>
           ) : (
-            history.map((data, index) => (
+            history?.map((data, index) => (
               <PipelineDataRow data={data} key={index} />
             ))
           )}
