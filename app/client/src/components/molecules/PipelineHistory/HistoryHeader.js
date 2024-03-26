@@ -1,16 +1,17 @@
-import BackButton from "@/components/atoms/BackButton";
+import React from "react";
 import TextAtom from "@/components/atoms/TextAtom";
 
-function HistoryHeader({ labels, pipelineName }) {
+function HistoryHeader({ labels }) {
   return (
-    <>
-      <BackButton/>
-      <div className="flex items-center justify-between flex-wrap rounded-xl px-5 py-2 bg-[#1E40AF] w-[90%] my-3 gap-4">
+    <thead>
+      <tr className="rounded-xl bg-[#1E40AF] text-white">
         {labels.map((label, index) => (
-          <TextAtom properties={"my-px flex-grow"} text={label} key={index} />
+          <th className="px-5 py-2" key={index}>
+            <TextAtom text={label} />
+          </th>
         ))}
-      </div>
-    </>
+      </tr>
+    </thead>
   );
 }
 
