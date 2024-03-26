@@ -87,3 +87,13 @@ input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
+@keyframes color-change {
+  0% { color: blue; }
+  50% { color: purple; }
+  100% { color: blue; }
+}
+
+.color-change {
+  animation: color-change 3s infinite;
+}

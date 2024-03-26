@@ -1,12 +1,13 @@
+'use client'
 import Sidebar from "@/components/Layout/Sidebar";
 import Navbar from "@/components/Layout/Navbar";
+import withAuth from "@/components/withAuth";
 
-
-export default function DashboardLayout({
-  children, // will be a page or nested layout
-}) {
+const DashboardLayout = ({
+  children,
+}) => {
   return (
-    <section>
+      <section>
       <div className="flex min-h-screen max-h-screen w-screen">
         <Sidebar />
         <div className="flex flex-col w-full min-h-full">
@@ -19,3 +20,5 @@ export default function DashboardLayout({
     </section>
   );
 }
+
+export default withAuth(DashboardLayout);
