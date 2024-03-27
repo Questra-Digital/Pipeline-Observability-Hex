@@ -27,6 +27,11 @@ const SignupForm = ({ children }) => {
           console.log(response);
           if (response.data.message === "User created successfully") {
             SuccessToast("Account Created Successfully!");
+            setEmail("");
+            setPassword("");
+            setCompanyName("");
+            setName("");
+            setConfirmPassword("");
             setTimeout(() => {
               router.push('/login');
             }, 2000);

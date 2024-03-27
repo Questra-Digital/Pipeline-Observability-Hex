@@ -10,7 +10,7 @@ function Header() {
   const [logoSource, setLogoSource] = useState("");
   const [title, setTitle] = useState("");
   useEffect(() => {
-    async function fetchPipelineData() {
+    async function fetchAppData() {
       try {
         const response = await strapiInstance.get(
           "/api/global-item?populate=*",
@@ -27,7 +27,7 @@ function Header() {
         console.error("Error fetching data ", error.message);
       }
     }
-    fetchPipelineData();
+    fetchAppData();
   }, []);
 
   return (
@@ -36,8 +36,8 @@ function Header() {
         <div>
           <ImageAtom
             src={logoSource}
-            width={50}
-            height={50}
+            width={60}
+            height={60}
             alt={"Logo"}
             properties={["mx-2", "md:mx-0, self-center"]}
           />

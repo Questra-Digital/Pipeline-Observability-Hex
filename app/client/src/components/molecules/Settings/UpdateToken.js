@@ -20,6 +20,7 @@ const UpdateToken = () => {
   useEffect(() => {
     if (data && data.message === "Token Saved successfully") {
       SuccessToast("Token Updated successfully!");
+      setToken("");
     } else if (error) {
       ErrorToast(error);
     }

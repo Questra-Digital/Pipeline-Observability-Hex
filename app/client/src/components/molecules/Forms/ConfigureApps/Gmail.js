@@ -31,6 +31,7 @@ const Gmail = () => {
         ) {
           SuccessToast("Email Saved successfully!");
           dispatch(addApp({name: "email"}));
+          setEmail("");
           router.back();
         } else {
           ErrorToast("Failed to save email. Please try again.");

@@ -28,6 +28,7 @@ const ArgoCD = () => {
         if (response?.status === 200) {
           SuccessToast("Token Saved successfully!");
           dispatch(addApp({name: "argocd"}))
+          setToken("");
           router.back();
         } else {
           ErrorToast("Failed to save token. Please try again.");

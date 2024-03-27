@@ -20,6 +20,7 @@ const UpdateEmail = () => {
   useEffect(() => {
     if (data && data.message === "Email Saved successfully") {
       SuccessToast("Email Updated successfully!");
+      setEmail("");
     } else if (error) {
       ErrorToast(error);
     }
