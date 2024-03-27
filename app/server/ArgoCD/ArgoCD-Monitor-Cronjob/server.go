@@ -10,7 +10,8 @@ import (
 	"github.com/robfig/cron"
 	"google.golang.org/grpc"
 )
-//just for testing
+
+// just for testing
 const (
 	// Port to listen on
 	port = ":50059"
@@ -88,6 +89,7 @@ func main() {
 	}
 	s := grpc.NewServer()
 	grpc_cronjob_controller.RegisterCronjobControllerServer(s, &server{})
+	runAllPipelinesStatusCronJob()
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
