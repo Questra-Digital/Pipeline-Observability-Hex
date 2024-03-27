@@ -89,7 +89,7 @@ func main() {
 	}
 	s := grpc.NewServer()
 	grpc_cronjob_controller.RegisterCronjobControllerServer(s, &server{})
-	runAllPipelinesStatusCronJob()
+	// runAllPipelinesStatusCronJob()
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

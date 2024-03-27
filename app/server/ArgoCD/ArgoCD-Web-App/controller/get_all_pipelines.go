@@ -3,6 +3,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,9 @@ import (
 	"net/http"
 	"os"
 
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // this function parse the Json reponse and returns the availble pipelines
@@ -46,7 +49,30 @@ func GetAllPipelineNames() ([]string, error) {
 	}
 
 	url := os.Getenv("ARGOCD_API")
-	token := os.Getenv("ARGOCD_TOKEN")
+
+	// token := os.Getenv("ARGOCD_TOKEN")
+	// connection to mongoDB
+
+	// Connect to the MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+
+	// get the token from the database
+	collection := mongoClient.Database("admin").Collection("argocdToken")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	token := result["value"].(string)
+
+	fmt.Println("Token: ", token)
+
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))

@@ -4,7 +4,7 @@ import React from "react";
 function SuccessCard({ history }) {
   const calculateSuccessCount = () => {
     let successCount = 0;
-    history.forEach((data) => {
+    history?.forEach((data) => {
       const { deployment, service, pod, replicaSet } = data.summary;
       if (deployment === "Healthy" && service === "Healthy" && pod === "Healthy" && replicaSet === "Healthy") {
         successCount++;
