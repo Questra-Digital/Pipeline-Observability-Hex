@@ -21,7 +21,7 @@ type server struct {
 	grpc_cronjob_controller.UnimplementedCronjobControllerServer
 	isCronJobRunning bool // This will be used to check if the cron job is running
 }
-
+// test
 var cronjobStopper = make(chan bool) // This channel will be used to stop the cron job
 
 func runAllPipelinesStatusCronJob() {
