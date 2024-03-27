@@ -45,11 +45,13 @@ services:
       - mongo
       - nats
 
-  mongo:
-    image: mongo # mongosh --username mongouser --password mongopassword 
+  mongo: # mongosh --username mongouser --password mongopassword 
+    image: mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongouser
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    volumes:
+      - mongodb_data:/data/db
     network_mode: host  # Use the host network mode
 
   redis:
@@ -59,6 +61,8 @@ services:
   nats:
     image: nats:latest
     network_mode: host  # Use the host network mode
-
+    
+volumes:
+  mongodb_data:  # Define the named volume for MongoDB data
 
 
