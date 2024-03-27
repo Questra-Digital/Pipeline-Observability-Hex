@@ -21,6 +21,8 @@ const UpdatePassword = () => {
   useEffect(() => {
     if (data && data.message === "Password updated successfully") {
       SuccessToast("Password updated successfully!");
+      setOldPassword("");
+      setNewPassword("");
     } else if (error) {
       ErrorToast(error);
     }

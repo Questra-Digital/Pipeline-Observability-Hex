@@ -23,6 +23,8 @@ const LoginForm = ({children}) => {
         const response = await instance.post('/api/signin', {email, password});
         const token = response.data.token;
         if(response.data.message === "User signed in successfully"){
+          setEmail("");
+          setPassword("");
           const newUser = {
             email: email,
             token: token

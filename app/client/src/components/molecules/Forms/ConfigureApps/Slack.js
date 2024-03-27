@@ -31,6 +31,8 @@ const Slack = () => {
         ) {
           SuccessToast("Slack configured successfully!");
           dispatch(addApp({name: 'slack'}));
+          setToken("");
+          setChannel("");
           router.back();
         } else {
           ErrorToast("Failed to save. Please try again.");

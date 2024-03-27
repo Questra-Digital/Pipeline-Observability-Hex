@@ -18,11 +18,11 @@ export const settingsOptions = [
                 state: 'email',
                 component: UpdateEmail
             },
-            {
-                name: 'Company Name',
-                state: 'company',
-                component: UpdateCompanyName
-            },
+                // {
+                //     name: 'Company Name',
+                //     state: 'company',
+                //     component: UpdateCompanyName
+                // },
             {
                 name: 'Password',
                 state: 'password',
