@@ -50,15 +50,19 @@ function PipelineHistory() {
           <span className="text-gray-400">{pipelineName}</span>
         </TextAtom>
       </div>
-      <div className="w-[90%] max-h-[400px] flex justify-between">
+    {
+      history ? (
+        <div className="w-[90%] max-h-[400px] flex justify-between">
         <div className="w-[75%] max-h-full bg-gray-900 rounded-lg shadow shadow-yellow-900 p-4">
-          {history && <HitoryGraph history={history} />}
+          <HitoryGraph history={history} />
         </div>
         <div className="w-fit flex flex-col justify-between">
           <SuccessCard history={history} />
           <FailureCard history={history} />
         </div>
       </div>
+      ) : (null)
+    }
       <TextAtom text={"Pipeline History"} properties={"w-[90%] text-2xl font-semibold mt-16"} />
       <table className="w-[90%] rounded-lg my-5">
         <HistoryHeader labels={labels} />
