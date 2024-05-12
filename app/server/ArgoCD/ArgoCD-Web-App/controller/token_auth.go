@@ -3,23 +3,34 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
-	"net/http"
 	"log"
-	"os"
-	"github.com/joho/godotenv"
+	"net/http"
+
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
 func TokenAuth(token string) bool {
-	err := godotenv.Load(".env")
 
+	// fetch thr url from mongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-	  log.Fatalf("Error loading .env file")
+		log.Println("Error: ", err)
+		return false
 	}
-
-	url := os.Getenv("ARGOCD_API")
+	defer mongoClient.Disconnect(context.TODO())
+	collection := mongoClient.Database("admin").Collection("argocd_api")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return false
+	}
+	url := result["argocdURL"].(string)
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
