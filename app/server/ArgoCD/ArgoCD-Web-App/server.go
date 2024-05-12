@@ -174,6 +174,11 @@ func main() {
 		controller.GetDeviationValue(c)
 	})
 
+	// store the notifier email in the db
+	r.POST("/api/notifier-email", func(c *gin.Context) {
+		controller.StoreNotifierEmail(c)
+	})
+
 	// Run the server
 	if err := r.Run(":8000"); err != nil {
 		fmt.Println("Error starting server:", err)

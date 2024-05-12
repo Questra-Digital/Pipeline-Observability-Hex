@@ -72,10 +72,27 @@ func sendEmailToUser(messageText string) error {
 
 	// send email to user
 	log.Printf("Email sent to user: %s", messageText)
+
+	// fetch email credentials from MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		return err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+
+	// fetch email credentials from MongoDB
+	collection := mongoClient.Database("notification").Collection("email_notifier")
+	var emailData map[string]string
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&emailData)
+	if err != nil {
+		return err
+	}
+
+	// get email credentials
+	senderEmail := emailData["email"]
+	senderPassword := emailData["password"]
 	// SMTP configuration
 	smtpServer := os.Getenv("SMTP_SERVER")
-	senderEmail := os.Getenv("SENDER_EMAIL")
-	senderPassword := os.Getenv("EMAIL_PASSWORD")
 	smtpPortStr := string(os.Getenv("SMTP_PORT"))
 	smtpPort, err := strconv.Atoi(smtpPortStr)
 	if err != nil {

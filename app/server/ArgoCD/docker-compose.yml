@@ -50,6 +50,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongouser
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    volumes:
+      - mongo_test:/data/db
     network_mode: host  # Use the host network mode
     
   redis:
@@ -60,5 +62,5 @@ services:
     image: nats:latest
     network_mode: host  # Use the host network mode
     
-
-
+volumes:
+  mongo_test:
