@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/joho/godotenv"
@@ -48,11 +47,7 @@ func GetAllPipelineNames() ([]string, error) {
 		log.Fatalf("Error loading .env file")
 	}
 
-	url := os.Getenv("ARGOCD_API")
-
-	// token := os.Getenv("ARGOCD_TOKEN")
-	// connection to mongoDB
-
+	// fetch thr url from mongoDB
 	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
@@ -60,10 +55,17 @@ func GetAllPipelineNames() ([]string, error) {
 		return nil, err
 	}
 	defer mongoClient.Disconnect(context.TODO())
+	collection := mongoClient.Database("admin").Collection("argocd_api")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	url := result["argocdURL"].(string)
 
 	// get the token from the database
-	collection := mongoClient.Database("admin").Collection("argocdToken")
-	var result bson.M
+	collection = mongoClient.Database("admin").Collection("argocdToken")
 	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
 	if err != nil {
 		log.Println("Error: ", err)

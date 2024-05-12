@@ -3,14 +3,16 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/mongoConnection"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // this function parse the Json reponse and returns the availble pipelines
@@ -45,8 +47,34 @@ func GetAllPipelineNames() ([]string, error) {
 		log.Fatalf("Error loading .env file")
 	}
 
-	url := os.Getenv("ARGOCD_API")
-	token := os.Getenv("ARGOCD_TOKEN")
+	// fetch thr url from mongoDB
+	// Connect to the MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	collection := mongoClient.Database("admin").Collection("argocd_api")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	url := result["argocdURL"].(string)
+
+	// get the token from the database
+	collection = mongoClient.Database("admin").Collection("argocdToken")
+	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	token := result["value"].(string)
+
+	fmt.Println("Token: ", token)
+
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))

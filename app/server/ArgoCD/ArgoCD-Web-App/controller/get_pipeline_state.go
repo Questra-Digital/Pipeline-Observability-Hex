@@ -2,17 +2,19 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Define a struct to store health statuses
@@ -88,10 +90,35 @@ func ReadMessageFromWebSocket(conn *websocket.Conn) (Message, error) {
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
 func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("https://127.0.0.1:8081/api/v1/applications/%s/resource-tree", pipelineName)
+	// fetch the url from the database
+	// Connect to the MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	collection := mongoClient.Database("admin").Collection("argocd_api")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	url := result["argocdURL"].(string) + "/" + pipelineName + "/resource-tree"
 	// fmt.Printf("%v", url)
 
-	token := os.Getenv("ARGOCD_TOKEN")
+	// get the token from the database
+	collection = mongoClient.Database("admin").Collection("argocdToken")
+	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	token := result["value"].(string)
+
+	fmt.Println("Token: ", token)
+
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
