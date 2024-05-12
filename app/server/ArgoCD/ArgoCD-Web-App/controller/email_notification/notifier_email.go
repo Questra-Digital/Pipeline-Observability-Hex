@@ -47,3 +47,20 @@ func StoreNotifierEmail(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Email stored successfully"})
 }
+
+func GetNotifierEmail(c *gin.Context) {
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer mongoClient.Disconnect(context.Background())
+	collection := mongoClient.Database("notification").Collection("email_notifier")
+	var result bson.M
+	err = collection.FindOne(context.Background(), bson.D{}).Decode(&result)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"email": result["email"], "password": result["password"]})
+}

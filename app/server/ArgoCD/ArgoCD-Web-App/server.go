@@ -8,6 +8,7 @@ import (
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
 	cronjob "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/cronjob"
+	email_notifier "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/email_notification"
 	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
@@ -176,7 +177,12 @@ func main() {
 
 	// store the notifier email in the db
 	r.POST("/api/notifier-email", func(c *gin.Context) {
-		controller.StoreNotifierEmail(c)
+		email_notifier.StoreNotifierEmail(c)
+	})
+
+	// get the notifier email from the db
+	r.GET("/api/notifier-email", func(c *gin.Context) {
+		email_notifier.GetNotifierEmail(c)
 	})
 
 	// Run the server
