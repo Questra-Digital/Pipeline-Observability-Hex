@@ -21,6 +21,7 @@ type ErrorResponse struct {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Next()
 		// Extract the token from the Authorization header
 		// jwt from .env file
 		err := godotenv.Load(".env")
