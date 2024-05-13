@@ -21,6 +21,7 @@ import (
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
@@ -35,6 +36,40 @@ type HealthSummary struct {
 	Service    string
 	Deployment string
 	ReplicaSet string
+}
+
+// fetch all_pipeline names and then fetch the counter value from mongoDB and store it in Redis
+func InitializePipelineCounter() {
+	allpipelines, err := GetAllPipelineNames()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, pipeline_name := range allpipelines {
+		// fetch the latest counter value from the db based on time
+		collection := mongoClient.Database("admin").Collection("pipelineCounter")
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		filter := bson.M{"pipeline_name": pipeline_name}
+		opts := options.FindOne().SetSort(bson.D{{Key: "time", Value: -1}})
+		var result bson.M
+		err := collection.FindOne(ctx, filter, opts).Decode(&result)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			continue
+		}
+		counter, ok := result["counter"]
+		if !ok {
+			fmt.Println("Error: counter is not an integer")
+			continue
+		}
+		key := fmt.Sprintf("pipeline:%s:counter", pipeline_name)
+		// fmt.Println("Counter: ", counter)
+		err = redisClient.Set(context.Background(), key, counter, 0).Err()
+		if err != nil {
+			fmt.Println("Error setting counter:", err)
+		}
+	}
 }
 
 func init() {
@@ -55,7 +90,7 @@ func init() {
 		log.Fatalf("Error connecting to MongoDB: %v", err)
 	}
 	// defer mongoClient.Disconnect(context.TODO())
-
+	InitializePipelineCounter()
 }
 
 func GetDeviationValue() int {
@@ -105,16 +140,9 @@ func InsertSummaryToMongoDB(pipelineName string, summary HealthSummary) error {
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
 func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	// fetch the url from the database
-	// Connect to the MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	defer mongoClient.Disconnect(context.TODO())
 	collection := mongoClient.Database("admin").Collection("argocd_api")
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	err := collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
 	if err != nil {
 		log.Println("Error: ", err)
 		return nil, err
@@ -195,6 +223,23 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 	return summary
 }
 
+// Store the Pipeline Nama and Counter Value in MongoDB just like Redis
+func StorePipelineCounterInMongoDB(pipelineName string, counter int) error {
+	collection := mongoClient.Database("admin").Collection("pipelineCounter")
+	document := bson.M{
+		"pipeline_name": pipelineName,
+		"counter":       counter,
+		"time":          time.Now(),
+	}
+	// Insert the new Token instance into the database
+	_, err := collection.InsertOne(context.TODO(), document)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Inserted in MongoDB....")
+	return nil
+}
+
 // update the counter and send notification to slack
 func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSummary) {
 	counterLock.Lock()
@@ -221,6 +266,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 		if err != nil {
 			fmt.Println("Error getting counter value:", err)
 		}
+		StorePipelineCounterInMongoDB(pipelineName, val)
 
 		// get the deviation value from the db
 		deviationValue := GetDeviationValue()
@@ -232,6 +278,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 	} else {
 		// Check if the counter is 10
 		val, err := redisClient.Get(context.Background(), key).Int()
+		// fmt.Println("Counter Value: ", val)
 		if err != nil {
 			fmt.Println("Error getting counter value:", err)
 		}
@@ -245,6 +292,7 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 			}
 		}
 		// Reset counter
+		StorePipelineCounterInMongoDB(pipelineName, 0)
 		err = redisClient.Set(context.Background(), key, 0, 0).Err()
 		if err != nil {
 			fmt.Println("Error resetting counter:", err)
@@ -342,7 +390,9 @@ func AllPipelinesStatus() {
 		fmt.Println(err, " :: Token Not Exist")
 		return
 	}
+
 	fmt.Println("Token : ", token)
+
 	err = updateDotenv("ARGOCD_TOKEN", token)
 	if err != nil {
 		log.Println("Error:", err)
