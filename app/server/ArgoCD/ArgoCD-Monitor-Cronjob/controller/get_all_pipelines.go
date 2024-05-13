@@ -68,7 +68,7 @@ func GetAllPipelineNames() ([]string, error) {
 	// get the token from the .env
 	token := os.Getenv("ARGOCD_TOKEN")
 
-	fmt.Println("Token: ", token)
+	// fmt.Println("Token: ", token)
 
 	bearer := "Bearer " + token
 
