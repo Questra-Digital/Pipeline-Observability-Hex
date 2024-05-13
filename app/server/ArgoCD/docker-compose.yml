@@ -6,6 +6,7 @@ services:
       context: ./ArgoCD-Web-App
       dockerfile: Dockerfile
     network_mode: "host"
+    restart: always
     depends_on:
       - mongo
 
@@ -13,6 +14,7 @@ services:
     build:
       context: ./ArgoCD-Monitor-Cronjob
       dockerfile: Dockerfile
+    restart: always
     network_mode: "host"
     depends_on:
       - mongo
@@ -22,6 +24,7 @@ services:
     build:
       context: ./Notifications
       dockerfile: Dockerfile
+    restart: always
     network_mode: "host"
     depends_on:
       - mongo
@@ -31,6 +34,7 @@ services:
     build:
       context: ./Slack
       dockerfile: Dockerfile
+    restart: always
     network_mode: "host"
     depends_on:
       - mongo
@@ -40,6 +44,7 @@ services:
     build:
       context: ./Email
       dockerfile: Dockerfile
+    restart: always
     network_mode: "host"
     depends_on:
       - mongo
@@ -52,14 +57,17 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
     volumes:
       - mongo_test:/data/db
+    restart: always
     network_mode: host  # Use the host network mode
     
   redis:
     image: "redis:7.2.3-alpine"
+    restart: always
     network_mode: host  # Use the host network mode
 
   nats:
     image: nats:latest
+    restart: always
     network_mode: host  # Use the host network mode
     
 volumes:
