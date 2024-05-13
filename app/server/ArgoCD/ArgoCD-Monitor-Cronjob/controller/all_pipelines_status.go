@@ -42,7 +42,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-	REDIS_URL := os.Getenv("")
+	REDIS_URL := os.Getenv("REDIS_URL")
 	// Initialize Redis client
 	redisClient = redis.NewClient(&redis.Options{
 		Addr: REDIS_URL, // Update with your Redis server address
@@ -122,14 +122,9 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	url := result["argocdURL"].(string) + "/" + pipelineName + "/resource-tree"
 	// fmt.Printf("%v", url)
 
-	// get the token from the database
-	collection = mongoClient.Database("admin").Collection("argocdToken")
-	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	token := result["value"].(string)
+	// get the token from the ,env
+	token := os.Getenv("ARGOCD_TOKEN")
+
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))

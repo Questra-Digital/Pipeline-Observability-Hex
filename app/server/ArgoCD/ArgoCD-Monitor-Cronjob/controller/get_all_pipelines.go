@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/mongoConnection"
 	"github.com/joho/godotenv"
@@ -64,14 +65,8 @@ func GetAllPipelineNames() ([]string, error) {
 	}
 	url := result["argocdURL"].(string)
 
-	// get the token from the database
-	collection = mongoClient.Database("admin").Collection("argocdToken")
-	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	token := result["value"].(string)
+	// get the token from the .env
+	token := os.Getenv("ARGOCD_TOKEN")
 
 	fmt.Println("Token: ", token)
 
