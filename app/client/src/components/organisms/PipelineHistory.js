@@ -71,7 +71,7 @@ function PipelineHistory() {
             <tr>
               <td colSpan={labels.length}>
                 <TextAtom
-                  properties="text-center animate-pulse text-2xl font-semibold text-red-600"
+                  properties="text-center animate-pulse text-2xl mt-20 font-semibold text-red-600"
                   text="No history available for this pipeline!"
                 />
               </td>
