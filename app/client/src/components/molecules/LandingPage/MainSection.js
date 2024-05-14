@@ -3,6 +3,8 @@ import { lazy, useState, useEffect } from "react";
 import ImageAtom from "@/components/atoms/ImageAtom";
 import LinkAtom from "@/components/atoms/LinkAtom";
 import TextAtom from "@/components/atoms/TextAtom";
+import { strapiInstance } from "@/axios/axios";
+
 const ParticlesBg = lazy(() =>
   import("@/components/atoms/Particles/ParticlesBg")
 );
@@ -14,6 +16,27 @@ export default function MainSection() {
   // state to handle Elements Display
   const [showParticlesBg, setShowParticlesBg] = useState(false);
   const [showTypewriter, setShowTypewriter] = useState(false);
+  const [heroImage, setHeroImage] = useState("");
+
+  useEffect(() => {
+    async function fetchAppData() {
+      try {
+        const response = await strapiInstance.get(
+          "/api/global-item?populate=*",
+          {}
+        );
+        console.log(response);
+        setHeroImage(
+          "http:127.0.0.1:1337" +
+            response.data.data.attributes.heroImage.data.attributes.url
+        );
+        console.log(response);
+      } catch (error) {
+        console.error("Error fetching data ", error.message);
+      }
+    }
+    fetchAppData();
+  }, []);
 
   useEffect(() => {
     setTimeout(() => setShowTypewriter(true), 1000); // Delay loading Typewriter by 1 seconds
@@ -43,7 +66,7 @@ export default function MainSection() {
             }
           >
             <ImageAtom
-              src="/assets/Images/Enter.png"
+              src="/assets/Images/enter.png"
               alt="Enter Image"
               width={30}
               height={20}
@@ -54,7 +77,7 @@ export default function MainSection() {
         </section>
         <section className="w-[100%] flex items-center justify-center mt-10 sm:mt-0">
           <ImageAtom
-            src="/assets/Images/hero.png"
+            src={heroImage}
             alt=""
             height={550}
             width={500}

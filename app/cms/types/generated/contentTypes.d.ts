@@ -362,71 +362,6 @@ export interface AdminTransferTokenPermission extends Schema.CollectionType {
   };
 }
 
-export interface ApiCardImageCardImage extends Schema.CollectionType {
-  collectionName: 'card_images';
-  info: {
-    singularName: 'card-image';
-    pluralName: 'card-images';
-    displayName: 'cardImage';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    cardImage: Attribute.Media & Attribute.Required;
-    createdAt: Attribute.DateTime;
-    updatedAt: Attribute.DateTime;
-    publishedAt: Attribute.DateTime;
-    createdBy: Attribute.Relation<
-      'api::card-image.card-image',
-      'oneToOne',
-      'admin::user'
-    > &
-      Attribute.Private;
-    updatedBy: Attribute.Relation<
-      'api::card-image.card-image',
-      'oneToOne',
-      'admin::user'
-    > &
-      Attribute.Private;
-  };
-}
-
-export interface ApiGlobalItemGlobalItem extends Schema.SingleType {
-  collectionName: 'global_items';
-  info: {
-    singularName: 'global-item';
-    pluralName: 'global-items';
-    displayName: 'globalItem';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    title: Attribute.String &
-      Attribute.Required &
-      Attribute.Unique &
-      Attribute.DefaultTo<'Datalogs-Pipeline-Observer'>;
-    logo: Attribute.Media & Attribute.Required;
-    heroImage: Attribute.Media & Attribute.Required;
-    createdAt: Attribute.DateTime;
-    updatedAt: Attribute.DateTime;
-    publishedAt: Attribute.DateTime;
-    createdBy: Attribute.Relation<
-      'api::global-item.global-item',
-      'oneToOne',
-      'admin::user'
-    > &
-      Attribute.Private;
-    updatedBy: Attribute.Relation<
-      'api::global-item.global-item',
-      'oneToOne',
-      'admin::user'
-    > &
-      Attribute.Private;
-  };
-}
-
 export interface PluginUploadFile extends Schema.CollectionType {
   collectionName: 'files';
   info: {
@@ -846,6 +781,133 @@ export interface PluginI18NLocale extends Schema.CollectionType {
   };
 }
 
+export interface ApiAppIconAppIcon extends Schema.CollectionType {
+  collectionName: 'app_icons';
+  info: {
+    singularName: 'app-icon';
+    pluralName: 'app-icons';
+    displayName: 'AppIcon';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    icon: Attribute.Media & Attribute.Required;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    publishedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::app-icon.app-icon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::app-icon.app-icon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface ApiCardImageCardImage extends Schema.CollectionType {
+  collectionName: 'card_images';
+  info: {
+    singularName: 'card-image';
+    pluralName: 'card-images';
+    displayName: 'cardImage';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cardImage: Attribute.Media & Attribute.Required;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    publishedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::card-image.card-image',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::card-image.card-image',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface ApiGlobalItemGlobalItem extends Schema.SingleType {
+  collectionName: 'global_items';
+  info: {
+    singularName: 'global-item';
+    pluralName: 'global-items';
+    displayName: 'globalItem';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    title: Attribute.String &
+      Attribute.Required &
+      Attribute.Unique &
+      Attribute.DefaultTo<'Datalogs-Pipeline-Observer'>;
+    logo: Attribute.Media & Attribute.Required;
+    heroImage: Attribute.Media & Attribute.Required;
+    loginAnimation: Attribute.Media & Attribute.Required;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    publishedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::global-item.global-item',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::global-item.global-item',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface ApiSiderbarIconSiderbarIcon extends Schema.CollectionType {
+  collectionName: 'siderbar_icons';
+  info: {
+    singularName: 'siderbar-icon';
+    pluralName: 'siderbar-icons';
+    displayName: 'siderbarIcon';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    icon: Attribute.Media & Attribute.Required;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    publishedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::siderbar-icon.siderbar-icon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::siderbar-icon.siderbar-icon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 declare module '@strapi/types' {
   export module Shared {
     export interface ContentTypes {
@@ -856,8 +918,6 @@ declare module '@strapi/types' {
       'admin::api-token-permission': AdminApiTokenPermission;
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
-      'api::card-image.card-image': ApiCardImageCardImage;
-      'api::global-item.global-item': ApiGlobalItemGlobalItem;
       'plugin::upload.file': PluginUploadFile;
       'plugin::upload.folder': PluginUploadFolder;
       'plugin::content-releases.release': PluginContentReleasesRelease;
@@ -866,6 +926,10 @@ declare module '@strapi/types' {
       'plugin::users-permissions.role': PluginUsersPermissionsRole;
       'plugin::users-permissions.user': PluginUsersPermissionsUser;
       'plugin::i18n.locale': PluginI18NLocale;
+      'api::app-icon.app-icon': ApiAppIconAppIcon;
+      'api::card-image.card-image': ApiCardImageCardImage;
+      'api::global-item.global-item': ApiGlobalItemGlobalItem;
+      'api::siderbar-icon.siderbar-icon': ApiSiderbarIconSiderbarIcon;
     }
   }
 }
