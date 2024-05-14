@@ -245,6 +245,14 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 	counterLock.Lock()
 	defer counterLock.Unlock()
 
+	// check if redis DBSIZE if Zero
+	if redisClient.DBSize(context.Background()).Val() == 0 {
+		fmt.Println("******************************")
+		fmt.Println("|      Redis Initialized     |")
+		fmt.Println("******************************")
+		InitializePipelineCounter()
+	}
+
 	key := fmt.Sprintf("pipeline:%s:counter", pipelineName)
 
 	if !isPipelineHealthy {
