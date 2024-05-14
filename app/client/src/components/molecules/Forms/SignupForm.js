@@ -16,31 +16,33 @@ const SignupForm = ({ children }) => {
     e.preventDefault();
     if (email && password && companyName && name && confirmPassword) {
       if (password === confirmPassword) {
-        try {
-          const response = await instance.post("/api/signup", {
-            name,
-            email,
-            companyName,
-            password,
-          });
+        if (validateFields()) {
+          try {
+            const response = await instance.post("/api/signup", {
+              name,
+              email,
+              companyName,
+              password,
+            });
 
-          console.log(response);
-          if (response.data.message === "User created successfully") {
-            SuccessToast("Account Created Successfully!");
-            setEmail("");
-            setPassword("");
-            setCompanyName("");
-            setName("");
-            setConfirmPassword("");
-            setTimeout(() => {
-              router.push('/login');
-            }, 2000);
-          }
-        } catch (error) {
-          if (error?.response?.data?.error === "User already exists") {
-            ErrorToast('User Already Exist!')
-          } else {
-            ErrorToast('We are facing some issue. Try Again!')
+            console.log(response);
+            if (response.data.message === "User created successfully") {
+              SuccessToast("Account Created Successfully!");
+              setEmail("");
+              setPassword("");
+              setCompanyName("");
+              setName("");
+              setConfirmPassword("");
+              setTimeout(() => {
+                router.push('/login');
+              }, 2000);
+            }
+          } catch (error) {
+            if (error?.response?.data?.error === "User already exists") {
+              ErrorToast('User Already Exist!')
+            } else {
+              ErrorToast('We are facing some issue. Try Again!')
+            }
           }
         }
       } else {
@@ -51,6 +53,35 @@ const SignupForm = ({ children }) => {
     }
   };
 
+  const validateFields = () => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*_=+-]).{8,}$/;
+    const nameRegex = /^[a-zA-Z ]*$/;
+
+    if (!emailRegex.test(email)) {
+      ErrorToast('Invalid Email!');
+      return false;
+    }
+
+    if (!passwordRegex.test(password)) {
+      ErrorToast('Password should be strong!');
+      return false;
+    }
+
+    if (!nameRegex.test(name)) {
+      ErrorToast('Name should contain letters only!');
+      return false;
+    }
+
+    if (!nameRegex.test(companyName)) {
+      ErrorToast('Company Name should contain letters only!');
+      return false;
+    }
+
+    return true;
+  };
+
+  
   return (
     <div className="w-[100%] lg:w-[50%] flex flex-col justify-center items-center px-5 lg:px-15 xl:px-20">
       <div className="font-Ubuntu self-start">
