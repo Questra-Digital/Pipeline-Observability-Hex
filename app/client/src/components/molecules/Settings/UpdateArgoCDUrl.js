@@ -1,19 +1,42 @@
 import React, { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
+import useFetch from "@/hooks/useFetch";
 import usePost from "@/hooks/usePost";
 
 const UpdateArgoCDUrl = () => {
   const [argocdURL, setArgocdURL] = useState("");
-  const { loading, error, data, postData } = usePost();
+  const { data, error, loading, fetchData } = useFetch(
+    "/api/argocdurl"
+  );
+  const { postData } = usePost();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (data) {
+      setArgocdURL(data.argocdURL);
+    }
+  }, [data]);
+
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (argocdURL) {
-      await postData("/api/argocd-url", { argocdURL });
-    } else {
-      WarningToast("Enter ArgoCD URL First!");
-    }
+      e.preventDefault();
+    try {
+        if (argocdURL) {
+            await postData("/api/argocdurl", { argocdURL });
+      
+          }
+        SuccessToast("URL Updated Successfully!");
+      } catch (error) {
+        if (error.response && error.response.status === 401) {
+          ErrorToast(error.response.data.error);
+        } else {
+          ErrorToast("Error updating URL!");
+        }
+      }
   };
 
   useEffect(() => {
