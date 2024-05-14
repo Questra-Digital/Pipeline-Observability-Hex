@@ -4,7 +4,8 @@
   "info": {
     "singularName": "global-item",
     "pluralName": "global-items",
-    "displayName": "globalItem"
+    "displayName": "globalItem",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -18,16 +19,24 @@
       "unique": true
     },
     "logo": {
-      "allowedTypes": [
-        "images"
-      ],
       "type": "media",
       "multiple": false,
-      "required": true
-    },
-    "heroImage": {
+      "required": true,
       "allowedTypes": [
         "images"
+      ]
+    },
+    "heroImage": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "loginAnimation": {
+      "allowedTypes": [
+        "videos"
       ],
       "type": "media",
       "multiple": false,

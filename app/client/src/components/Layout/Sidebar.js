@@ -35,7 +35,7 @@ const Sidebar = () => {
     <div className="w-[50px] md:w-[18%] min-h-full flex flex-col flex-wrap justify-start items-center bg-gray-800 border-r-2 border-gray-600">
       <div className="my-2 md:p-0 p-1">
         <ImageAtom
-          src="/assets/Images/logo.png"
+          src="http://localhost:1337/uploads/logo_aa5ebfd486.png"
           width={70}
           height={70}
           alt="Datalogs Icon"
@@ -70,7 +70,7 @@ const Sidebar = () => {
         onClick={openModal}
       >
         <ImageAtom
-          src="/assets/Images/logout.png"
+          src="http://localhost:1337/uploads/logout_3ce1698227.png"
           width={24}
           height={24}
           alt="Logout Buttom"

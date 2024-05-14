@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "app_icons",
+  "info": {
+    "singularName": "app-icon",
+    "pluralName": "app-icons",
+    "displayName": "AppIcon"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "icon": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": true,
+      "required": true
+    }
+  }
+}

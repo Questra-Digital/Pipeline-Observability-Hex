@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "siderbar_icons",
+  "info": {
+    "singularName": "siderbar-icon",
+    "pluralName": "siderbar-icons",
+    "displayName": "siderbarIcon"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "icon": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false,
+      "required": true
+    }
+  }
+}
