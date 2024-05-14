@@ -1,0 +1,40 @@
+name: CI - ClientSide
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/client/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/client/**'
+      
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install Dependencies
+        working-directory: app/client
+        run: npm install
+
+      - name: Build Next.js Project
+        working-directory: app/client
+        run: echo 'npm run dev'
+
+      - name: Run Tests
+        working-directory: app/client
+        run: echo 'run test'
+
+      - name: Build Docker Image
+        working-directory: app/client
+        run: docker build . --file Dockerfile --tag app/client:latest
