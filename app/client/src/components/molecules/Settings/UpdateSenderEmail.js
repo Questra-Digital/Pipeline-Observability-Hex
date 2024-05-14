@@ -31,7 +31,7 @@ const UpdateSenderEmail = () => {
       if (email && password) {
         if (!/\S+@\S+\.\S+/.test(email)) {
           WarningToast("Invalid Email Address");
-        } else if (password.length !== 8) {
+        } else if (password.length < 8) {
           WarningToast("Password must be 8 characters long.");
         } else {
           await postData("/api/notifier-email", { email, password });
