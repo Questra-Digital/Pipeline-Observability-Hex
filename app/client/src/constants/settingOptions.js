@@ -1,10 +1,12 @@
 import ToggleGmailNotification from "@/components/molecules/Settings/ToggleGmailNotification";
 import ToggleSlackNotification from "@/components/molecules/Settings/ToggleSlackNotification";
+import UpdateArgoCDUrl from "@/components/molecules/Settings/UpdateArgoCDUrl";
 import UpdateCompanyName from "@/components/molecules/Settings/UpdateCompanyName";
 import UpdateDeviationValue from "@/components/molecules/Settings/UpdateDeviationValue";
 import UpdateEmail from "@/components/molecules/Settings/UpdateEmail";
 import UpdatePassword from "@/components/molecules/Settings/UpdatePassword";
 import UpdatePipelineObservability from "@/components/molecules/Settings/UpdatePipelineObservability";
+import UpdateSenderEmail from "@/components/molecules/Settings/UpdateSenderEmail";
 import UpdateToken from "@/components/molecules/Settings/UpdateToken";
 
 
@@ -18,6 +20,11 @@ export const settingsOptions = [
                 state: 'email',
                 component: UpdateEmail
             },
+            {
+                name: 'Sender Email',
+                state: 'SenderEmail',
+                component: UpdateSenderEmail
+            },
                 // {
                 //     name: 'Company Name',
                 //     state: 'company',
@@ -27,6 +34,22 @@ export const settingsOptions = [
                 name: 'Password',
                 state: 'password',
                 component: UpdatePassword
+            }
+        ]
+    },
+    {
+        name: 'ArgoCD',
+        state: 'argocd',
+        childOptions: [
+            {
+                name: 'ArgoCD URL',
+                state: 'argocdURL',
+                component: UpdateArgoCDUrl
+            },
+            {
+                name: 'Token',
+                state: 'token',
+                component: UpdateToken
             }
         ]
     },
@@ -44,11 +67,6 @@ export const settingsOptions = [
                 state: 'deviation',
                 component: UpdateDeviationValue
             },
-            {
-                name: 'Token',
-                state: 'token',
-                component: UpdateToken
-            }
         ]
     },
     {
