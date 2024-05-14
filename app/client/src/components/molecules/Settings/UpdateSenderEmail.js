@@ -1,34 +1,60 @@
 import React, { useState, useEffect } from "react";
 import SettingsText from "@/components/atoms/SettingsText";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
+import useFetch from "@/hooks/useFetch";
 import usePost from "@/hooks/usePost";
 
 const UpdateSenderEmail = () => {
-  const [senderEmail, setSenderEmail] = useState("");
-  const [senderPassword, setSenderPassword] = useState("");
-  const { loading, error, data, postData } = usePost();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const { data, error, loading, fetchData } = useFetch(
+    "/api/notifier-email"
+  );
+  const { postData } = usePost();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (data) {
+      setEmail(data.email);
+      setPassword(data.password);
+    }
+  }, [data]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (senderEmail && senderPassword) {
-      if (!/\S+@\S+\.\S+/.test(senderEmail)) {
-        WarningToast("Invalid Email Address");
-      } else if (senderPassword.length !== 8) {
-        WarningToast("Password must be 8 characters long.");
+    try {
+      if (email && password) {
+        if (!/\S+@\S+\.\S+/.test(email)) {
+          WarningToast("Invalid Email Address");
+        } else if (password.length !== 8) {
+          WarningToast("Password must be 8 characters long.");
+        } else {
+          await postData("/api/notifier-email", { email, password });
+        }
       } else {
-        await postData("/api/sender-email", { senderEmail, senderPassword });
+        WarningToast("Enter Sender Email and Password First!");
       }
-    } else {
-      WarningToast("Enter Sender Email and Password First!");
-    }
+        SuccessToast("Email and App Password Updated Successfully!");
+      } catch (error) {
+        if (error.response && error.response.status === 401) {
+          ErrorToast(error.response.data.error);
+        } else {
+          ErrorToast("Error updating Email and Password!");
+        }
+      }
   };
 
   // Handle success and error messages after rendering is complete
   useEffect(() => {
     if (data && data.message === "Email Saved successfully") {
       SuccessToast("Email Updated successfully!");
-      setSenderEmail("");
-      setSenderPassword("");
+      setEmail("");
+      setPassword("");
     } else if (error) {
       ErrorToast(error);
     }
@@ -51,30 +77,30 @@ const UpdateSenderEmail = () => {
           Description={"Update your sender email and password to ensure seamless communication."}
         />
         <div className="w-[100%] flex flex-col my-3">
-          <label htmlFor="senderEmail" className="my-2">
+          <label htmlFor="email" className="my-2">
             Sender Email
           </label>
           <input
             className="border-2 w-full sm:w-[70%] p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
             placeholder="sender@gmail.com"
             type="email"
-            name="senderEmail"
-            value={senderEmail}
-            onChange={(e) => setSenderEmail(e.target.value)}
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
           />
         </div>
         <div className="w-[100%] flex flex-col my-3">
-          <label htmlFor="senderPassword" className="my-2">
+          <label htmlFor="password" className="my-2">
             App Password
           </label>
           <input
             className="border-2 w-full sm:w-[70%] p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
             placeholder="********"
             type="text"
-            name="senderPassword"
-            value={senderPassword}
-            onChange={(e) => setSenderPassword(e.target.value)}
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
           />
         </div>
