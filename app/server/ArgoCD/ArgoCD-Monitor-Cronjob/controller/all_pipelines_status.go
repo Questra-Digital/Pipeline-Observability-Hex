@@ -248,9 +248,8 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 	// check if redis DBSIZE if Zero
 	if redisClient.DBSize(context.Background()).Val() == 0 {
 		fmt.Println("******************************")
-		fmt.Println("       Redis Restarted        ")
+		fmt.Println("|      Redis Initialized     |")
 		fmt.Println("******************************")
-
 		InitializePipelineCounter()
 	}
 
