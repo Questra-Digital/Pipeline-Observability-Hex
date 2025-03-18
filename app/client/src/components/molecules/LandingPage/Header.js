@@ -35,7 +35,7 @@ function Header() {
       <div className="flex justify-center sm:justify-between flex-wrap items-center w-full px-5 my-5 z-10">
         <div>
           <ImageAtom
-            src={logoSource}
+            src="http://localhost:1337/uploads/small_logo_51f23fb97c.png"
             width={60}
             height={60}
             alt={"Logo"}
