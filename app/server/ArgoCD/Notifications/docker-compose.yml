@@ -1,6 +1,0 @@
-version: '3.8'
-
-services:
-  nats:
-    image: nats:latest
-    network_mode: host  # Use the host network mode

@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 services:
   cms:
     build:
@@ -7,6 +7,7 @@ services:
     ports:
       - "1337:1337"
     network_mode: host
+    
   client:
     build:
       context: ./client
@@ -16,3 +17,75 @@ services:
     network_mode: host
     depends_on:
       - cms
+      
+  argocd-web-app:
+    build:
+      context: ./server/ArgoCD/ArgoCD-Web-App
+      dockerfile: Dockerfile
+    network_mode: "host"
+    restart: always
+    depends_on:
+      - mongo
+    
+  argocd-monitor-cronjob:
+    build:
+      context: ./server/ArgoCD/ArgoCD-Monitor-Cronjob
+      dockerfile: Dockerfile
+    restart: always
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - redis
+
+  notification:
+    build:
+      context: ./server/Notifications
+      dockerfile: Dockerfile
+    restart: always
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
+  
+  slack:
+    build:
+      context: ./server/Slack
+      dockerfile: Dockerfile
+    restart: always
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
+    
+  email:
+    build:
+      context: ./server/Email
+      dockerfile: Dockerfile
+    restart: always
+    network_mode: "host"
+    depends_on:
+      - mongo
+      - nats
+
+  mongo:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    volumes:
+      - mongo_data:/data/db
+    restart: always
+    network_mode: host
+    
+  redis:
+    image: "redis:7.2.3-alpine"
+    restart: always
+    network_mode: host
+    
+  nats:
+    image: nats:latest
+    restart: always
+    network_mode: host
+    
+volumes:
+  mongo_data:
