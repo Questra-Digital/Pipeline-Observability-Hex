@@ -106,6 +106,18 @@ func main() {
 		controller.StoreDeviationValue(c, deviation_value)
 	})
 
+	r.POST("/api/custom-message", func(c *gin.Context) {
+		// Parse request body to get the "token" value
+		var requestBody map[string]string
+		if err := c.BindJSON(&requestBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		custom_message := requestBody["custom_message"]
+		controller.StoreCustomMessage(c, custom_message)
+	})
+
 	r.POST("/api/signin", func(c *gin.Context) {
 		// call the signin function from controller
 		controller.Signin(c)
@@ -174,6 +186,10 @@ func main() {
 	// get deviation value
 	r.GET("/api/deviation-value", func(c *gin.Context) {
 		controller.GetDeviationValue(c)
+	})
+
+	r.GET("/api/custom-message", func(c *gin.Context) {
+		controller.GetCustomMessage(c)
 	})
 
 	// store the notifier email in the db

@@ -281,7 +281,12 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 
 		if val == deviationValue {
 			fmt.Println("Sending Notification..........")
-			notificationClient.TriggerNotificationService()
+			collection := mongoClient.Database("admin").Collection("custom_messages")
+	        ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+			filter := bson.M{"value": bson.M{"$exists": true}}
+			var result bson.M
+			collection.FindOne(ctx, filter).Decode(&result)
+			notificationClient.TriggerNotificationService(result["value"].(string))
 		}
 	} else {
 		// Check if the counter is 10

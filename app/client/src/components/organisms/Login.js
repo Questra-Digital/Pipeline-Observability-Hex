@@ -23,7 +23,10 @@ const Login = () => {
             loop
             className=" object-cover rounded-xl"
           >
-            <source src="http://localhost:1337/uploads/animation_c2236a7f7e.webm" type="video/webm" />
+            <source
+              src="http://localhost:1337/uploads/animation_8ada309af0.webm"
+              type="video/webm"
+            />
             Your browser does not support the video tag.
           </video>
         </div>

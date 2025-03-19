@@ -12,7 +12,7 @@ const (
 	address = "localhost:50055"
 )
 
-func TriggerNotificationService() {
+func TriggerNotificationService(customMessage string) {
 	// Set up a connection to the server
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -24,7 +24,8 @@ func TriggerNotificationService() {
 	client := notifications.NewNotificationsClient(conn)
 
 	// Replace the following lines with your notification data
-	message := "ArgoCD pipeline is out of sync!"
+	// message := "ArgoCD pipeline is out of sync!"
+	message := customMessage
 
 	// Send the notification
 	response, err := client.SendNotification(context.Background(), &notifications.NotificationRequest{
