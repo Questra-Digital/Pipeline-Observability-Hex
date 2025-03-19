@@ -139,6 +139,50 @@ func (s *server) GetCronjobStatus(ctx context.Context, in *grpc_cronjob_controll
 	return &grpc_cronjob_controller.CronjobStatusResponse{Running: false}, nil
 }
 
+// Define Observer interface
+
+type Observer interface {
+	Update(eventData string)
+}
+
+// Define EventManager struct
+
+type EventManager struct {
+	observers []Observer
+}
+
+// Attach a new observer
+func (em *EventManager) Attach(observer Observer) {
+	em.observers = append(em.observers, observer)
+}
+
+// Detach an observer
+func (em *EventManager) Detach(observer Observer) {
+	for i, obs := range em.observers {
+		if obs == observer {
+			em.observers = append(em.observers[:i], em.observers[i+1:]...)
+			break
+		}
+	}
+}
+
+// Notify all observers
+func (em *EventManager) Notify(eventData string) {
+	for _, observer := range em.observers {
+		observer.Update(eventData)
+	}
+}
+
+// Implement CronjobService as an Observer
+
+type CronjobService struct{}
+
+func (cs *CronjobService) Update(eventData string) {
+	// Logic to handle cronjob event
+	log.Println("CronjobService received event:", eventData)
+	// Call runAllPipelinesStatusCronJob or similar function
+}
+
 func main() {
 	// Start gRPC server
 	initMongoDBClient()
@@ -158,6 +202,17 @@ func main() {
 		// Start the cron job
 		go runAllPipelinesStatusCronJob()
 	}
+
+	// Create an EventManager
+	eventManager := &EventManager{}
+
+	// Create a CronjobService and attach it to the EventManager
+	cronjobService := &CronjobService{}
+	eventManager.Attach(cronjobService)
+
+	// Example event notification
+	eventData := "New Cronjob Event"
+	eventManager.Notify(eventData)
 
 	grpc_cronjob_controller.RegisterCronjobControllerServer(grpc_server, s)
 

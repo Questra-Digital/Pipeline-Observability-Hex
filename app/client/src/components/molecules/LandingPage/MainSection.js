@@ -23,7 +23,11 @@ export default function MainSection() {
       try {
         const response = await strapiInstance.get(
           "/api/global-item?populate=*",
-          {}
+          {
+            // Headers: {
+            //   Authorization: `Bearer token`,
+            // },
+          }
         );
         console.log(response);
         setHeroImage(
@@ -77,7 +81,7 @@ export default function MainSection() {
         </section>
         <section className="w-[100%] flex items-center justify-center mt-10 sm:mt-0">
           <ImageAtom
-            src={heroImage}
+            src="http://localhost:1337/uploads/hero_35ea658625.png"
             alt=""
             height={550}
             width={500}

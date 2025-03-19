@@ -5,18 +5,17 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	mongoconnection "github.com/QuestraDigital/goServices/Email/mongoConnection"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"gopkg.in/gomail.v2"
 
-	// import dotenv
-
 	_ "github.com/joho/godotenv/autoload"
 )
 
-// check is the notification status is enabled
+// check if the notification status is enabled
 func isNotificationEnabled() (bool, error) {
 	// connect to MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
@@ -106,7 +105,7 @@ func sendEmailToUser(messageText string) error {
 		return err
 	}
 
-	subject := "Pipeline-Staus"
+	subject := "Pipeline-Status"
 	// Create a new message
 	mail := gomail.NewMessage()
 	mail.SetHeader("From", senderEmail)
@@ -135,13 +134,30 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Subscribe to a email subject
+	// Register as an observer with the Notifications service
+	log.Println("Registering as an observer with the Notifications service...")
+
+	// Wait for Notifications service to be ready
+	time.Sleep(2 * time.Second)
+
+	// Send registration request
+	msg, err := nc.Request("observer_email", []byte("register"), 5*time.Second)
+	if err != nil {
+		log.Printf("Failed to register with Notifications service: %v", err)
+	} else {
+		log.Printf("Registration response: %s", string(msg.Data))
+	}
+
+	// Subscribe to the email subject to receive notifications
 	nc.Subscribe("email", func(msg *nats.Msg) {
+		log.Printf("Received notification: %s", string(msg.Data))
 		err := sendEmailToUser(string(msg.Data))
 		if err != nil {
-			log.Println("Error sending message to Email:", err)
+			log.Println("Error sending email:", err)
 		}
 	})
+
+	log.Println("Email service is running...")
 
 	// Keep the subscriber running
 	select {}

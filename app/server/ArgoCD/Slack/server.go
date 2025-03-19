@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	mongoconnection "github.com/QuestraDigital/goServices/Slack/mongoConnection"
 	"github.com/nats-io/nats.go"
@@ -10,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// check is the notification status is enabled
+// check if the notification status is enabled
 func isNotificationEnabled() (bool, error) {
 	// connect to MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
@@ -78,14 +79,30 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Subscribe to a slack subject
+	// Register as an observer with the Notifications service
+	log.Println("Registering as an observer with the Notifications service...")
+
+	// Wait for Notifications service to be ready
+	time.Sleep(2 * time.Second)
+
+	// Send registration request
+	msg, err := nc.Request("observer_slack", []byte("register"), 5*time.Second)
+	if err != nil {
+		log.Printf("Failed to register with Notifications service: %v", err)
+	} else {
+		log.Printf("Registration response: %s", string(msg.Data))
+	}
+
+	// Subscribe to the slack subject to receive notifications
 	nc.Subscribe("slack", func(msg *nats.Msg) {
-		log.Printf("Received message: %s\n", string(msg.Data))
+		log.Printf("Received notification: %s", string(msg.Data))
 		err := sendMessageToSlack(string(msg.Data))
 		if err != nil {
 			log.Println("Error sending message to Slack:", err)
 		}
 	})
+
+	log.Println("Slack service is running...")
 
 	// Keep the subscriber running
 	select {}
