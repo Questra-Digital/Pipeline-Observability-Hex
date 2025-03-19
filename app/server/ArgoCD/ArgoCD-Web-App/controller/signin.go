@@ -22,12 +22,12 @@ type Credentials struct {
 	Password string `json:"password" binding:"required"`
 }
 
-func isUserExists(email string, password string) bool {
+func isUserExists(email string, password string) (bool, bson.M) {
 	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return false
+		return false, bson.M{}
 	}
 	defer mongoClient.Disconnect(context.TODO())
 
@@ -39,7 +39,7 @@ func isUserExists(email string, password string) bool {
 	err = collection.FindOne(context.TODO(), bson.D{{Key: "email", Value: email}}).Decode(&result)
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return false
+		return false, bson.M{}
 	}
 
 	log.Println("User found: ", result)
@@ -49,10 +49,10 @@ func isUserExists(email string, password string) bool {
 	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return false
+		return false, bson.M{}
 	}
 
-	return true
+	return true, result
 }
 
 func generateToken(email string) (string, error) {
@@ -84,7 +84,12 @@ func Signin(c *gin.Context) {
 		return
 	}
 	// Check if the user exists
-	if !isUserExists(credentials.Email, credentials.Password) {
+	// if !isUserExists(credentials.Email, credentials.Password) {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+	// 	return
+	// }
+	isExist,result := isUserExists(credentials.Email, credentials.Password);
+	if !isExist {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -103,5 +108,8 @@ func Signin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User signed in successfully",
 		"token":   token,
+		"name": result["name"].(string),
+		"companyname": result["companyname"].(string),
+		"email": result["email"].(string),
 	})
 }
