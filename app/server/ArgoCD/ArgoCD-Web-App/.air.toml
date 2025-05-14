@@ -1,0 +1,10 @@
+[build]
+  cmd = "go build -o ./tmp/main server.go"
+  bin = "tmp/main"
+  dir = "."
+  include_ext = ["go"]
+  exclude_dir = ["vendor", "tmp", "testdata"]
+  run_after_build = "chmod +x ./tmp/main"
+
+[log]
+  level = "debug"

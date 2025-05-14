@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     network_mode: "host"
     restart: always
+    volumes:
+      - ./server/ArgoCD/ArgoCD-Web-App:/app
     depends_on:
       - mongo
   cronjob:

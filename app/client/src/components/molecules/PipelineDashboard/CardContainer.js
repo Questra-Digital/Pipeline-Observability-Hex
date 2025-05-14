@@ -17,6 +17,7 @@ function CardContainer({ data }) {
     "/assets/Images/svc.png",
     "/assets/Images/deploy.png",
     "/assets/Images/rs.png",
+    "/assets/Images/rs.png",
   ];
 
   return (

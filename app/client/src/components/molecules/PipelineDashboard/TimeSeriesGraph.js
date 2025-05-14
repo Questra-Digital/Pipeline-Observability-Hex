@@ -24,12 +24,16 @@ const TimeSeriesGraph = ({ data }) => {
     const keys = ["Pod", "Service", "Deployment", "ReplicaSet"];
 
     const valueMap = {};
-    const uniqueValues = Array.from(new Set(slicedData.flatMap((item) => keys.map((key) => item[key]))));
+    const uniqueValues = Array.from(
+      new Set(slicedData.flatMap((item) => keys.map((key) => item[key])))
+    );
     uniqueValues.forEach((value, index) => {
       valueMap[value] = index + 1;
     });
 
-    const reverseValueMap = Object.fromEntries(Object.entries(valueMap).map(([key, value]) => [value, key]));
+    const reverseValueMap = Object.fromEntries(
+      Object.entries(valueMap).map(([key, value]) => [value, key])
+    );
 
     const colors = ["#FF1436", "#EADE00", "#726FAF", "#81000B"];
 

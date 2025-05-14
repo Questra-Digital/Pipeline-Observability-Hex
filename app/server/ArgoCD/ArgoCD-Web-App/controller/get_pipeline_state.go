@@ -23,6 +23,7 @@ type HealthSummary struct {
 	Service    string
 	Deployment string
 	ReplicaSet string
+	Status     interface{}
 }
 
 type Message struct {
@@ -150,6 +151,67 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	return responseData, nil
 }
 
+func FetchPipelineMetrics(pipelineName string) (map[string]interface{}, error) {
+	// fetch the url from the database
+	// Connect to the MongoDB
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	defer mongoClient.Disconnect(context.TODO())
+	collection := mongoClient.Database("admin").Collection("argocd_api")
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	url := result["argocdURL"].(string) + "/" + pipelineName
+	// fmt.Printf("%v", url)
+
+	// get the token from the database
+	collection = mongoClient.Database("admin").Collection("argocdToken")
+	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	if err != nil {
+		log.Println("Error: ", err)
+		return nil, err
+	}
+	token := result["value"].(string)
+
+	fmt.Println("Token: ", token)
+
+	bearer := "Bearer " + token
+
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", bearer)
+	req.Header.Add("Accept", "application/json")
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read and parse the JSON response
+	var responseData map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&responseData)
+	if err != nil {
+		return nil, err
+	}
+
+	return responseData, nil
+}
+
 // ParsePipelineData parses the pipeline data and updates the HealthSummary.
 func ParsePipelineData(data []interface{}) HealthSummary {
 	var summary HealthSummary
@@ -224,6 +286,16 @@ func DataPipelineState(c *gin.Context) {
 					return
 				}
 				summary := ParsePipelineData(responseData["nodes"].([]interface{}))
+
+				metrics, err := FetchPipelineMetrics(pipeline_name)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+
+				// summary.ProjectExecutions = len(metrics["status"].(map[string]interface{})["history"].([]interface{}))
+				summary.Status = metrics["status"]
+
 				// send summary to frontend
 				err = WriteJSONToWebSocket(conn, summary)
 				if err != nil {
