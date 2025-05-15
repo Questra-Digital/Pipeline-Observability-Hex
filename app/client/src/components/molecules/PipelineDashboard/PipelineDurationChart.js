@@ -28,8 +28,6 @@ const PipelineDurationChart = ({ history }) => {
       };
     });
 
-    console.log("Durations: ", durations);
-
     const data = {
       labels: durations?.map((d) => d.label),
       datasets: [
@@ -121,7 +119,7 @@ const PipelineDurationChart = ({ history }) => {
 
   return (
     <div
-      className="bg-[#1e1e2f] rounded-xl p-4 shadow-md"
+      className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-md"
       style={{ height: "435px" }}
     >
       <canvas ref={canvasRef}></canvas>

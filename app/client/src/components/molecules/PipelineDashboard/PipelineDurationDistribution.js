@@ -68,11 +68,23 @@ const PipelineDurationDistribution = ({ history }) => {
           x: {
             ticks: { color: "white" },
             grid: { color: "rgba(255,255,255,0.1)" },
+            title: {
+              display: true,
+              text: "Duration Buckets",
+              color: "white",
+              font: { size: 14 },
+            },
           },
           y: {
             beginAtZero: true,
             ticks: { color: "white", stepSize: 1 },
             grid: { color: "rgba(255,255,255,0.1)" },
+            title: {
+              display: true,
+              text: "Number of Executions",
+              color: "white",
+              font: { size: 14 },
+            },
           },
         },
       },
@@ -94,9 +106,9 @@ const PipelineDurationDistribution = ({ history }) => {
 
   return (
     <div
+      className="bg-gray-900 border border-gray-700"
       style={{
         height: "432px",
-        backgroundColor: "#1e1e2f",
         padding: "1rem",
         borderRadius: "12px",
       }}

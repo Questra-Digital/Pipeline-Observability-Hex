@@ -44,7 +44,7 @@ const PipelineSuccessRate = ({ history }) => {
     total === 0 ? 0 : ((successCount / total) * 100).toFixed(2);
 
   return (
-    <div style={styles.container}>
+    <div className="border border-gray-700 bg-red-500" style={styles.container}>
       <div style={styles.title}>Pipeline overall success rate</div>
       <div style={styles.percentage}>{successRate}%</div>
     </div>
@@ -53,7 +53,6 @@ const PipelineSuccessRate = ({ history }) => {
 
 const styles = {
   container: {
-    backgroundColor: "#e53935",
     borderRadius: "8px",
     padding: "16px",
     height: "100%",

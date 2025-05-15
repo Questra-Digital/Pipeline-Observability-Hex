@@ -10,6 +10,7 @@ import PipelineSuccessRate from "../molecules/PipelineDashboard/Pipeline-Overall
 import instance from "@/axios/axios";
 import PipelineDurationChart from "../molecules/PipelineDashboard/PipelineDurationChart";
 import PipelineDurationDistribution from "../molecules/PipelineDashboard/PipelineDurationDistribution";
+import TopSlowPipelines from "../molecules/PipelineDashboard/TopSlowPipelines";
 
 function Dashboard() {
   const searchParams = useSearchParams();
@@ -102,16 +103,19 @@ function Dashboard() {
           <TimeSeriesGraph data={pipelineData} />
         </div>
         <div>
-          <PipelineExecutionGraph historyData={status.history} />
-        </div>
-        <div>
           <PipelineSuccessRate history={history} />
         </div>
         <div>
-          <PipelineDurationChart history={status.history} />
+          <PipelineExecutionGraph historyData={status?.history} />
         </div>
         <div>
-          <PipelineDurationDistribution history={status.history} />
+          <PipelineDurationChart history={status?.history} />
+        </div>
+        <div>
+          <PipelineDurationDistribution history={status?.history} />
+        </div>
+        <div>
+          <TopSlowPipelines executions={status?.history} />
         </div>
       </div>
     </div>

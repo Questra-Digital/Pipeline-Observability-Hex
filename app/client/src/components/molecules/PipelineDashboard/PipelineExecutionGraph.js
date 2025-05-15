@@ -59,6 +59,14 @@ const PipelineExecutionsChart = ({ historyData }) => {
               color: "#fff",
               font: { size: 12 },
             },
+            title: {
+              display: true,
+              text: "Time",
+              color: "white",
+              font: {
+                size: 14,
+              },
+            },
           },
           y: {
             beginAtZero: true,
@@ -69,6 +77,14 @@ const PipelineExecutionsChart = ({ historyData }) => {
               font: { size: 12 },
             },
             grid: { color: "rgba(255, 255, 255, 0.1)" },
+            title: {
+              display: true,
+              text: "No. of Executions",
+              color: "white",
+              font: {
+                size: 14,
+              },
+            },
           },
         },
       },
@@ -77,7 +93,7 @@ const PipelineExecutionsChart = ({ historyData }) => {
 
   return (
     <div
-      className="bg-[#1e1e2f] rounded-xl p-4"
+      className="bg-gray-900 rounded-xl p-4 border border-gray-700"
       style={{ height: "435px", width: "100%" }}
     >
       <canvas ref={chartRef} />
