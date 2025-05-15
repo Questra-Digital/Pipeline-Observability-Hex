@@ -1,6 +1,6 @@
 import React from "react";
 
-const PipelineSuccessRate = ({ history }) => {
+const PipelineFailRate = ({ history }) => {
   const calculateSuccessCount = () => {
     let successCount = 0;
     history?.forEach((data) => {
@@ -41,11 +41,11 @@ const PipelineSuccessRate = ({ history }) => {
   console.log("Failure Count: ", failureCount);
 
   const successRate =
-    total === 0 ? 0 : ((successCount / total) * 100).toFixed(2);
+    total === 0 ? 0 : ((failureCount / total) * 100).toFixed(2);
 
   return (
-    <div className="border border-gray-700 bg-green-500" style={styles.container}>
-      <div style={styles.title}>Pipeline overall success rate</div>
+    <div className="border border-gray-700 bg-red-500" style={styles.container}>
+      <div style={styles.title}>Pipeline overall failure rate</div>
       <div style={styles.percentage}>{successRate}%</div>
     </div>
   );
@@ -74,4 +74,4 @@ const styles = {
   },
 };
 
-export default PipelineSuccessRate;
+export default PipelineFailRate;
