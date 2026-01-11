@@ -45,24 +45,34 @@ const LoginForm = ({children}) => {
   };
 
   return (
-    <div className="w-[100%] xl:w-[70] lg:w-[50%] flex flex-col justify-center items-center px-5 lg:px-15 xl:px-20">
-      <div className="font-Ubuntu self-start">
-        <h1 className="text-3xl font-semibold">Get Started Now</h1>
-        <p className="text-gray-400">
+    // Removed overly complex width classes. Inherit width from parent.
+    // Adjusted padding for a cleaner look.
+    <div className="w-full flex flex-col justify-center items-center px-0">
+      
+      {/* Header text updated for dark theme */}
+      <div className="font-Ubuntu self-start mb-6 w-full">
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Get Started Now
+        </h1>
+        <p className="text-gray-400 mt-1">
           Enter your credentials to access your account
         </p>
       </div>
+      
       <form
-        action=""
         onSubmit={handleSubmit}
-        className="flex flex-col mt-5 w-[100%] items-center font-Ubuntu"
+        className="flex flex-col w-full items-center font-Ubuntu"
       >
-        <div className="w-[100%] flex flex-col my-3">
-          <label htmlFor="email" className="my-2">
+        <div className="w-full flex flex-col my-3">
+          {/* Label updated to be light gray */}
+          <label htmlFor="email" className="my-2 text-gray-300 font-semibold text-sm">
             Email
           </label>
           <input
-            className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
+            // Input styling updated for dark background, subtle border, and white text
+            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
             placeholder="example@gmail.com"
             type="email"
             name="email"
@@ -71,33 +81,44 @@ const LoginForm = ({children}) => {
           />
         </div>
 
-        <div className="w-[100%] flex flex-col my-3">
-          <label htmlFor="password" className="my-2">
+        <div className="w-full flex flex-col my-3">
+          {/* Label updated to be light gray */}
+          <label htmlFor="password" className="my-2 text-gray-300 font-semibold text-sm">
             Password
           </label>
           <input
-            className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
-            placeholder="********"
+            // Input styling updated for dark background, subtle border, and white text
+            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+            placeholder="••••••••"
             type="password"
             name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <div className="w-full flex justify-end">
+        
+        {/* Forget Password link styling fix */}
+        <div className="w-full flex justify-end mb-4">
           <LinkAtom
             link={"/resetPassword"}
             text={"Forget Password?"}
-            properties="underline"
+            // Updated link color for visibility against the dark background
+            properties="text-blue-400 hover:text-cyan-300 transition underline"
           />
         </div>
+        
         <input
-          className="bg-gradient-to-br from-blue-600 to-purple-700 w-full text-white text-lg px-7 py-2 my-5 rounded cursor-pointer"
+          // Button styling updated for hover effect and gradient color match
+          className="bg-gradient-to-r from-blue-600 to-cyan-500 w-full text-white 
+                     text-lg px-7 py-3 my-5 rounded-lg font-semibold 
+                     hover:opacity-90 transition cursor-pointer"
           type="submit"
           value="LOGIN"
         />
       </form>
-        {children}
+      {children}
     </div>
   );
 };

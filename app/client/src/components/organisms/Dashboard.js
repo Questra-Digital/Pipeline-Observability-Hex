@@ -164,19 +164,7 @@ function Dashboard() {
   }, []);
 
   // --- Failure Metrics ---
-  // Extract failure and success metrics from status.history
   const historyData = status?.history || [];
-  const failedExecutions = historyData.filter(item => item.phase === "Failed");
-  const successExecutions = historyData.filter(item => item.phase === "Succeeded");
-  const totalExecutions = historyData.length;
-  const failureCount = failedExecutions.length;
-  const successCount = successExecutions.length;
-  const failureRate = totalExecutions > 0 ? ((failureCount / totalExecutions) * 100).toFixed(2) : "0.00";
-  const successRate = totalExecutions > 0 ? ((successCount / totalExecutions) * 100).toFixed(2) : "0.00";
-  const lastFailed = failedExecutions.length > 0 ? failedExecutions[failedExecutions.length - 1] : null;
-
-  // --- UI for Failed Pipeline and Top Failed Pipelines ---
-  // You can extract more info from lastFailed if needed (e.g., timestamp, id)
 
   return (
     <div className="w-full p-5">
@@ -186,39 +174,83 @@ function Dashboard() {
           <span className="text-gray-400">Pipelines</span>
         </TextAtom>
       </div>
-      {/* --- New Metrics Row --- */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        {/* Failed Pipeline Card */}
-        <div className="border border-gray-700 bg-red-600 rounded-lg p-6 flex-1 min-w-[250px] flex flex-col items-center justify-center text-white shadow-md">
-          <div className="text-lg font-semibold mb-2">Failed Pipeline</div>
-          {loading ? (
-            <div>Loading...</div>
-          ) : mostRecentFailed && mostRecentFailed.failedExecution ? (
-            <>
-              <div className="text-2xl font-bold">{mostRecentFailed.pipeline}</div>
-              <div className="text-sm mt-1">Phase: {mostRecentFailed.failedExecution.phase}</div>
-              <div className="text-xs mt-1">{mostRecentFailed.failedExecution.timestamp || mostRecentFailed.failedExecution.time || mostRecentFailed.failedExecution.createdAt || ""}</div>
-            </>
-          ) : (
-            <div className="text-md">No recent failures</div>
-          )}
+
+      {/* --- NEW DESIGNED CARDS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        
+        {/* Card 1: Most Recent Failed - THE RED CARD (Solid, Intense, Alert Style) */}
+        <div className="relative overflow-hidden rounded-2xl min-h-[200px] shadow-lg transform transition-transform hover:scale-[1.01]">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-600 via-red-700 to-red-900"></div>
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                <svg width="100" height="100" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            </div>
+            
+            <div className="relative z-10 p-6 flex flex-col justify-between h-full text-white">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <span className="font-bold text-red-100 tracking-wider uppercase text-sm">Most Recent Failure</span>
+                </div>
+
+                <div>
+                    {loading ? (
+                        <div className="h-8 bg-white/20 rounded animate-pulse w-2/3"></div>
+                    ) : mostRecentFailed && mostRecentFailed.failedExecution ? (
+                        <>
+                            <h2 className="text-3xl font-extrabold truncate mb-2 drop-shadow-sm">{mostRecentFailed.pipeline}</h2>
+                            <div className="flex items-center justify-between text-sm text-red-100 bg-red-800/30 p-2 rounded border border-red-500/30">
+                                <span>Phase: {mostRecentFailed.failedExecution.phase}</span>
+                                <span>{new Date(mostRecentFailed.failedExecution.timestamp || mostRecentFailed.failedExecution.time || mostRecentFailed.failedExecution.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-xl font-medium opacity-90">No recent failures detected</div>
+                    )}
+                </div>
+            </div>
         </div>
-        {/* Top Failed Pipeline Card */}
-        <div className="border border-gray-700 bg-yellow-600 rounded-lg p-6 flex-1 min-w-[250px] flex flex-col items-center justify-center text-white shadow-md">
-          <div className="text-lg font-semibold mb-2">Top Failed Pipeline</div>
-          {loading ? (
-            <div>Loading...</div>
-          ) : topFailedPipeline ? (
-            <>
-              <div className="text-2xl font-bold">{topFailedPipeline.pipeline}</div>
-              <div className="text-sm mt-1">Total Failures: {topFailedPipeline.count}</div>
-            </>
-          ) : (
-            <div className="text-md">No failures found</div>
-          )}
+
+        {/* Card 2: Top Failed Pipelines - THE DARK CARD (Neon, Tech, Grid Style) */}
+        <div className="relative overflow-hidden rounded-2xl min-h-[200px] shadow-lg bg-gray-950 border border-gray-800 group hover:border-red-500/50 transition-colors duration-500">
+            {/* Subtle Grid Background */}
+            <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#ef4444 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+            {/* Glowing orb */}
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-600 rounded-full blur-[60px] opacity-20 group-hover:opacity-40 transition-opacity"></div>
+
+            <div className="relative z-10 p-6 flex flex-col justify-between h-full">
+                <div className="flex items-center justify-between mb-4">
+                    <span className="font-bold text-gray-400 tracking-wider uppercase text-sm group-hover:text-red-400 transition-colors">Statistical Analysis</span>
+                    <div className="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-500">All Time</div>
+                </div>
+
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-4 group-hover:text-red-50 transition-colors">Top Failed Pipelines</h3>
+                    
+                    {loading ? (
+                         <div className="h-8 bg-gray-800 rounded animate-pulse w-1/2"></div>
+                    ) : topFailedPipeline ? (
+                        <div className="flex items-end justify-between border-t border-gray-800 pt-4">
+                             <div className="flex flex-col">
+                                <span className="text-2xl font-bold text-white truncate max-w-[180px]">{topFailedPipeline.pipeline}</span>
+                                <span className="text-xs text-gray-500">Target Pipeline</span>
+                             </div>
+                             <div className="text-right">
+                                <span className="block text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-red-400 to-red-600 drop-shadow-sm">{topFailedPipeline.count}</span>
+                                <span className="text-xs text-red-500 font-bold uppercase">Total Crashes</span>
+                             </div>
+                        </div>
+                    ) : (
+                        <div className="text-gray-500 font-medium">No data available</div>
+                    )}
+                </div>
+            </div>
         </div>
+
       </div>
-      {/* --- Existing Cards and Graphs --- */}
+      {/* --- End Cards --- */}
+
       <CardContainer data={currentData} />
       <div className="grid grid-cols-4 gap-4 mt-5 grid-rows-2">
         <div className="col-span-2">

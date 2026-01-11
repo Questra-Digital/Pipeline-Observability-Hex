@@ -12,6 +12,7 @@ const SignupForm = ({ children }) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
 
+  // --- API and Validation Logic (Unchanged) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password && companyName && name && confirmPassword) {
@@ -55,6 +56,7 @@ const SignupForm = ({ children }) => {
 
   const validateFields = () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    // NOTE: This is a strict password regex requiring letters, numbers, and symbols.
     const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*_=+-]).{8,}$/;
     const nameRegex = /^[a-zA-Z ]*$/;
 
@@ -64,110 +66,146 @@ const SignupForm = ({ children }) => {
     }
 
     if (!passwordRegex.test(password)) {
-      ErrorToast('Password should be strong!');
+      ErrorToast('Password should be at least 8 characters long and contain at least one letter, one number, and one symbol!');
       return false;
     }
 
     if (!nameRegex.test(name)) {
-      ErrorToast('Name should contain letters only!');
+      ErrorToast('Name should contain letters and spaces only!');
       return false;
     }
 
     if (!nameRegex.test(companyName)) {
-      ErrorToast('Company Name should contain letters only!');
+      ErrorToast('Company Name should contain letters and spaces only!');
       return false;
     }
 
     return true;
   };
+  // --- End API and Validation Logic ---
 
   
   return (
-    <div className="w-[100%] lg:w-[50%] flex flex-col justify-center items-center px-5 lg:px-15 xl:px-20">
-      <div className="font-Ubuntu self-start">
-        <h1 className="text-3xl font-semibold">Join us Today!</h1>
-        <p className="text-gray-400">Create account to become a member</p>
+    // 1. WIDTH FIX: Removed restrictive width classes, setting it to full width.
+    <div className="w-full flex flex-col justify-center items-center px-0">
+      
+      {/* Header text updated for dark theme */}
+      <div className="font-Ubuntu self-start mb-6 w-full">
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Join us Today!
+        </h1>
+        <p className="text-gray-400 mt-1">
+          Create account to become a member
+        </p>
       </div>
+      
       <form
-        action=""
         onSubmit={handleSubmit}
-        className="flex flex-col mt-5 w-[100%] items-center font-Ubuntu"
+        className="flex flex-col w-full items-center font-Ubuntu"
       >
-        <div className="w-[100%] flex flex-col my-2">
-          <label htmlFor="email">Email</label>
+        {/* Email Field - Full Width */}
+        <div className="w-full flex flex-col my-3">
+          <label htmlFor="email" className="my-2 text-gray-300 font-semibold text-sm">
+            Email
+          </label>
           <input
-            className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
+            // Input styling updated for dark background, subtle border, and white text
+            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
             placeholder="example@gmail.com"
             type="email"
             name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            id=""
+            id="email" // Added missing ID for better accessibility
           />
         </div>
-        <div className="w-[100%] flex flex-col md:flex-row my-2">
-          <div className="w-full md:w-[50%] mr-3">
-            <label htmlFor="name" className="my-2">
-              Name
+
+        {/* Name and Company Name - Split Row */}
+        <div className="w-full flex flex-col md:flex-row my-3 space-y-3 md:space-y-0 md:space-x-4">
+          
+          <div className="w-full md:w-1/2">
+            <label htmlFor="name" className="my-2 text-gray-300 font-semibold text-sm">
+              Full Name
             </label>
             <input
-              className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
+              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
               placeholder="Full Name"
               type="text"
               name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              id=""
+              id="name"
             />
           </div>
-          <div className="w-full md:w-[50%]">
-            <label htmlFor="company" className="my-2">
+          
+          <div className="w-full md:w-1/2">
+            <label htmlFor="companyName" className="my-2 text-gray-300 font-semibold text-sm">
               Company Name
             </label>
             <input
-              className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
+              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
               placeholder="Datalogs"
               type="text"
               name="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              id=""
+              id="companyName"
             />
           </div>
         </div>
 
-        <div className="w-[100%] flex flex-col md:flex-row my-2">
-          <div className="w-full md:w-[50%] mr-3">
-            <label htmlFor="password" className="my-2">
+        {/* Password and Confirm Password - Split Row */}
+        <div className="w-full flex flex-col md:flex-row my-3 space-y-3 md:space-y-0 md:space-x-4">
+          
+          <div className="w-full md:w-1/2">
+            <label htmlFor="password" className="my-2 text-gray-300 font-semibold text-sm">
               Password
             </label>
             <input
-              className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
-              placeholder="********"
+              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+              placeholder="••••••••"
               type="password"
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              id="password"
             />
           </div>
-          <div className="w-full md:w-[50%]">
-            <label htmlFor="confirmPassword" className="my-2">
+          
+          <div className="w-full md:w-1/2">
+            <label htmlFor="confirmPassword" className="my-2 text-gray-300 font-semibold text-sm">
               Confirm Password
             </label>
             <input
-              className="border-2 w-full p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
-              placeholder="********"
+              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
+                       bg-gray-900/80 border border-gray-800 text-white 
+                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+              placeholder="••••••••"
               type="password"
-              name=""
+              name="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              id="confirmPassword"
             />
           </div>
         </div>
+        
+        {/* Submit Button */}
         <input
-          className="bg-gradient-to-br from-blue-600 to-purple-700 w-full text-white text-lg px-7 py-2 my-5 rounded cursor-pointer"
+          // Button styling updated for hover effect and gradient color match
+          className="bg-gradient-to-r from-blue-600 to-cyan-500 w-full text-white 
+                     text-lg px-7 py-3 mt-8 mb-5 rounded-lg font-semibold 
+                     hover:opacity-90 transition cursor-pointer"
           type="submit"
-          value="SIGNUP"
+          value="SIGN UP"
         />
       </form>
       {children}

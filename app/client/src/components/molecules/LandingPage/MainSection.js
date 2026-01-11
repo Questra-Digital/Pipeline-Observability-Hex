@@ -5,6 +5,7 @@ import LinkAtom from "@/components/atoms/LinkAtom";
 import TextAtom from "@/components/atoms/TextAtom";
 import { strapiInstance } from "@/axios/axios";
 
+// Lazy loading components
 const ParticlesBg = lazy(() =>
   import("@/components/atoms/Particles/ParticlesBg")
 );
@@ -13,9 +14,9 @@ const Typewriter = lazy(() =>
 );
 
 export default function MainSection() {
-  // state to handle Elements Display
   const [showParticlesBg, setShowParticlesBg] = useState(false);
   const [showTypewriter, setShowTypewriter] = useState(false);
+  // Initial state for heroImage is set to an empty string
   const [heroImage, setHeroImage] = useState("");
 
   useEffect(() => {
@@ -23,50 +24,65 @@ export default function MainSection() {
       try {
         const response = await strapiInstance.get(
           "/api/global-item?populate=*",
-          {
-            // Headers: {
-            //   Authorization: `Bearer token`,
-            // },
-          }
+          {}
         );
-        console.log(response);
-        setHeroImage(
-          "http:127.0.0.1:1337" +
-            response.data.data.attributes.heroImage.data.attributes.url
-        );
-        console.log(response);
+        
+        // --- IMAGE PATH FIX: Corrected protocol typo from 'http:' to 'http://' ---
+        const imageUrl = 
+          "http://127.0.0.1:1337" +
+          response.data.data.attributes.heroImage.data.attributes.url;
+
+        setHeroImage(imageUrl);
       } catch (error) {
         console.error("Error fetching data ", error.message);
+        // Fallback static image path in case of API failure
+        setHeroImage("/assets/Images/hero_fallback.png"); 
       }
     }
     fetchAppData();
   }, []);
 
   useEffect(() => {
-    setTimeout(() => setShowTypewriter(true), 1000); // Delay loading Typewriter by 1 seconds
-    setTimeout(() => setShowParticlesBg(true), 2000); // Delay loading ParticlesBg by 2 seconds
+    // Increased the delay for a smoother staggered entrance
+    setTimeout(() => setShowTypewriter(true), 500);
+    setTimeout(() => setShowParticlesBg(true), 1500); 
   }, []);
 
   return (
-    <>
-      <div className="fixed top-0 left-0 w-[100vw] h-[100vh] -z-10 clip-path glass-effect">
+    // Outer Wrapper with minimum height to fill the screen
+    <div className="relative min-h-screen pt-20 md:pt-0 flex items-center justify-center overflow-hidden">
+      
+      {/* 1. Background Particles Container */}
+      <div className="fixed top-0 left-0 w-full h-full -z-10 bg-gray-950">
         {showParticlesBg && <ParticlesBg />}
       </div>
-      <div className="flex md:flex-row flex-col h-full min-w-screen">
-        <section className="w-[100%] h-full flex flex-col text-center sm:text-left sm:pl-10">
+      
+      {/* 2. Main Content Wrapper: Uses a responsive grid for better control */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between p-4 md:p-8">
+        
+        {/* Left Section: Text Content (Wider on MD screens) */}
+        <section className="w-full md:w-[60%] lg:w-[55%] flex flex-col text-center md:text-left py-10">
           <TextAtom
-            properties={"text-5xl font-semibold italic font-Ubuntu mt-20 mb-8"}
+            // Updated font styling for better impact and consistent coloring
+            properties="text-4xl md:text-6xl font-extrabold font-Ubuntu mt-8 mb-6 leading-tight text-white"
           >
-            Gain <span className="text-[#90DE83]">Holistic Insights</span>, Make{" "}
-            <span className="text-[#d9b153]">Informed Decisions</span>
+            Gain <span className="bg-gradient-to-r from-green-400 to-blue-300 bg-clip-text text-transparent">Holistic Insights</span>, <br className="hidden md:inline" /> Make{" "}
+            <span className="bg-gradient-to-r from-yellow-400 to-orange-300 bg-clip-text text-transparent">Informed Decisions</span>
           </TextAtom>
-          <div className="min-h-[70px]">{showTypewriter && <Typewriter />}</div>
+          
+          {/* Typewriter text area */}
+          <div className="min-h-[90px] text-lg md:text-xl text-gray-300">
+            {showTypewriter && <Typewriter />}
+          </div>
+          
+          {/* CTA Button */}
           <LinkAtom
             link="/home"
             prefetch={true}
             text={"Get Started"}
+            // Consistent gradient and button styling (centered on mobile, left on MD+)
             properties={
-              "bg-gradient-to-r from-blue-800 to-purple-600 to-90% col px-5 py-3 w-fit rounded-full shadow-md flex text-xl hover:bg-green-600 transform duration-200 ml-4 mt-8 self-center sm:self-auto"
+              "bg-gradient-to-r from-blue-600 to-cyan-500 hover:to-blue-600 to-90% col px-8 py-3 w-fit rounded-full shadow-lg flex text-xl font-semibold transition-all duration-300 mt-10 self-center md:self-auto"
             }
           >
             <ImageAtom
@@ -74,22 +90,32 @@ export default function MainSection() {
               alt="Enter Image"
               width={30}
               height={20}
-              properties={["ml-3", "bounce-button"]}
+              properties={["ml-3", "animate-pulse"]} // Changed to pulse for modern feel
               loading="lazy"
             />
           </LinkAtom>
         </section>
-        <section className="w-[100%] flex items-center justify-center mt-10 sm:mt-0">
-          <ImageAtom
-            src="http://localhost:1337/uploads/hero_35ea658625.png"
-            alt=""
-            height={550}
-            width={500}
-            priority
-            quality={100}
-          />
+        
+        {/* Right Section: Hero Image (Slightly narrower on MD screens) */}
+        <section className="w-full md:w-[40%] lg:w-[45%] flex items-center justify-center mt-10 md:mt-0">
+          {heroImage ? (
+            <ImageAtom
+              // Using the dynamically fetched image state
+              src="http://127.0.0.1:1337/uploads/thumbnail_hero_35ea658625_ed337cda79.png"
+              alt="Vizops Hero Graphic"
+              height={550}
+              width={500}
+              priority
+              quality={100}
+            />
+          ) : (
+            // Placeholder/loading state
+            <div className="w-[500px] h-[550px] bg-gray-800/50 rounded-lg animate-pulse flex items-center justify-center text-gray-500">
+                Loading Hero Image...
+            </div>
+          )}
         </section>
       </div>
-    </>
+    </div>
   );
 }

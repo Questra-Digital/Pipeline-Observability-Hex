@@ -1,58 +1,106 @@
-import { useState, useEffect } from "react";
-import Tilt from "react-parallax-tilt";
-import ImageAtom from "../../atoms/ImageAtom";
-import TextAtom from "../../atoms/TextAtom";
+import React from "react";
 
-function Card({ key, status, title, colors, imageURL }) {
-  const [isMounted, setIsMounted] = useState(false);
+// Helper function to pick a color theme based on the Title
+const getTheme = (title = "") => {
+  const t = title.toLowerCase();
+  
+  if (t.includes("pod") || t.includes("workflow")) {
+    return {
+      name: "pink",
+      gradient: "from-pink-500 via-rose-500 to-yellow-500",
+      shadow: "shadow-pink-500/20",
+      border: "border-pink-500/50",
+      bg: "bg-pink-500/10",
+      text: "text-pink-400"
+    };
+  } else if (t.includes("service") || t.includes("pipeline")) {
+    return {
+      name: "purple",
+      gradient: "from-violet-600 via-purple-500 to-indigo-400",
+      shadow: "shadow-violet-500/20",
+      border: "border-violet-500/50",
+      bg: "bg-violet-500/10",
+      text: "text-violet-400"
+    };
+  } else if (t.includes("deploy") || t.includes("error")) {
+    return {
+      name: "orange",
+      gradient: "from-orange-500 via-amber-500 to-yellow-400",
+      shadow: "shadow-orange-500/20",
+      border: "border-orange-500/50",
+      bg: "bg-orange-500/10",
+      text: "text-orange-400"
+    };
+  } else {
+    // Default (Blue/Cyan) for ReplicaSet or others
+    return {
+      name: "cyan",
+      gradient: "from-cyan-400 via-blue-500 to-teal-400",
+      shadow: "shadow-cyan-500/20",
+      border: "border-cyan-500/50",
+      bg: "bg-cyan-500/10",
+      text: "text-cyan-400"
+    };
+  }
+};
 
-  useEffect(() => {
-    // Triggering the animation by setting isMounted to true after a delay
-    const timeout = setTimeout(() => {
-      setIsMounted(true);
-    }, 500); // Adjust the delay time as needed
-
-    // Cleanup function to clear the timeout
-    return () => clearTimeout(timeout);
-  }, []);
-
-  // Check if colors exists and contains necessary properties
-  const leftColor = colors?.leftColor || "#8B2BE2"; // Default color if not provided
-  const betweenColor = colors?.betweenColor || "#5F15E2";
-  const rightColor = colors?.rightColor || "#6C17E1";
-
-  const cardStyle = {
-    backgroundImage: `linear-gradient(to right, ${leftColor} 10%, ${betweenColor} 40%, ${rightColor} 90%)`,
-    backgroundSize: "100% 100%",
-    height: "150px",
-    width: "250px",
-    opacity: isMounted ? 1 : 0,
-    transform: isMounted ? "translateX(0)" : "translateX(-50px)", // Slide-in effect
-    transition: "opacity 0.8s ease-in-out, transform .8s ease-in-out", // Transition properties
-  };
+function Card({ title, number, badgeText, subtitle }) {
+  // Get the specific color theme for this card
+  const theme = getTheme(title);
 
   return (
-    <Tilt scale={1.2} glareMaxOpacity={1}>
-      <div
-        style={cardStyle}
-        className="rounded-3xl flex flex-row justify-center items-center px-5 my-3"
-      >
-        <ImageAtom
-          src={imageURL}
-          alt={""}
-          width={70}
-          height={70}
-          properties={["mr-3", "md:mr-5"]}
-        />
-        <div className="">
-          <TextAtom
-            properties={"text-2xl font-semibold font-Ubuntu capitalize"}
-            text={status}
-          />
-          <TextAtom properties={"mt-3"} text={title} />
+    <div className={`group relative w-full md:w-[280px] lg:w-[300px] transition-all duration-500 hover:-translate-y-2`}>
+      
+      {/* 1. VIBRANT GLOW (Behind the card) */}
+      <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${theme.gradient} opacity-30 blur-md group-hover:opacity-75 transition duration-500`}></div>
+      
+      {/* 2. CARD SURFACE */}
+      <div className="relative h-full bg-[#121212] rounded-xl p-6 overflow-hidden border border-white/10 flex flex-col justify-between z-10">
+        
+        {/* Decorative Top Line */}
+        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${theme.gradient}`}></div>
+
+        {/* --- HEADER --- */}
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">
+              {title}
+            </h3>
+            {/* The Badge is now colored specifically for this card */}
+            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded ${theme.bg} ${theme.text} border ${theme.border} bg-opacity-20`}>
+              {badgeText}
+            </span>
+          </div>
+          
+          {/* Icon with dynamic color */}
+          <div className={`p-2 rounded-lg bg-[#1a1a1a] border border-white/5 ${theme.text}`}>
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path fillRule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm14.25 6a.75.75 0 01-.22.53l-2.25 2.25a.75.75 0 11-1.06-1.06L15.44 12l-1.72-1.72a.75.75 0 111.06-1.06l2.25 2.25c.141.14.22.331.22.53zm-10.28-.53a.75.75 0 000 1.06l2.25 2.25a.75.75 0 101.06-1.06L8.56 12l1.72-1.72a.75.75 0 10-1.06-1.06l-2.25 2.25z" clipRule="evenodd" />
+            </svg>
+          </div>
         </div>
+
+        {/* --- BODY (Gradient Text) --- */}
+        <div className="mb-4">
+          <span className={`font-black text-5xl text-transparent bg-clip-text bg-gradient-to-br ${theme.gradient} drop-shadow-sm`}>
+            {number}
+          </span>
+        </div>
+
+        {/* --- FOOTER --- */}
+        <div className="flex items-center gap-2 border-t border-white/5 pt-3">
+          {/* Pulsing Dot */}
+          <span className="relative flex h-2 w-2">
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${theme.bg.replace('/10', '')}`}></span>
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${theme.bg.replace('/10', '')} bg-current`}></span>
+          </span>
+          <p className="text-gray-500 text-xs font-medium">
+            {subtitle}
+          </p>
+        </div>
+
       </div>
-    </Tilt>
+    </div>
   );
 }
 
