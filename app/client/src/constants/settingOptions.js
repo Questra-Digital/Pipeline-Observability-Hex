@@ -9,6 +9,10 @@ import UpdatePassword from "@/components/molecules/Settings/UpdatePassword";
 import UpdatePipelineObservability from "@/components/molecules/Settings/UpdatePipelineObservability";
 import UpdateSenderEmail from "@/components/molecules/Settings/UpdateSenderEmail";
 import UpdateToken from "@/components/molecules/Settings/UpdateToken";
+import UpdateGitHubStatus from "@/components/molecules/Settings/UpdateGitHubStatus";
+import UpdateGitHubLimit from "@/components/molecules/Settings/UpdateGitHubLimit";
+import GitHubRepoSelector from "@/components/molecules/Settings/GitHubRepoSelector";
+import GitHubAccountList from "@/components/molecules/Settings/GitHubAccountList";
 
 export const settingsOptions = [
   {
@@ -87,6 +91,32 @@ export const settingsOptions = [
         name: "Gmail",
         state: "gmail",
         component: ToggleGmailNotification,
+      },
+    ],
+  },
+  {
+    name: "GitHub Actions",
+    state: "github_actions",
+    childOptions: [
+      {
+        name: "GitHub Status",
+        state: "githubStatus",
+        component: UpdateGitHubStatus,
+      },
+      {
+        name: "Monitoring Limit",
+        state: "githubLimit",
+        component: UpdateGitHubLimit,
+      },
+      {
+        name: "Manage Repositories",
+        state: "githubRepos",
+        component: GitHubRepoSelector,
+      },
+      {
+        name: "Total Accounts",
+        state: "githubAccounts",
+        component: GitHubAccountList,
       },
     ],
   },

@@ -32,7 +32,6 @@ const Integrations = () => {
     "email": "Forward alerts to email addresses",
     "gitlab": "Connect GitLab CI/CD pipelines",
     "jenkins": "Integrate Jenkins pipelines and jobs",
-    "github actions": "Monitor GitHub Actions workflows",
     "drone ci": "Connect Drone CI pipelines",
   };
 
@@ -70,66 +69,64 @@ const Integrations = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {allApps.map((app, idx) =>
             isConfigured(app.name) ? (
-<div
-  key={idx}
-  className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-5 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300"
->
-  {/* Top Section */}
-  <div className="flex items-center gap-5">
-    {/* Logo Box */}
-    <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#252525] flex items-center justify-center border border-[#303030]">
-      <ImageAtom
-        src={app.image}
-        alt={app.alt}
-        width={45}
-        height={45}
-        className="opacity-90"
-      />
-    </div>
+              <div
+                key={idx}
+                className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-5 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300"
+              >
+                {/* Top Section */}
+                <div className="flex items-center gap-5">
+                  {/* Logo Box */}
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#252525] flex items-center justify-center border border-[#303030]">
+                    <ImageAtom
+                      src={app.image}
+                      alt={app.alt}
+                      width={45}
+                      height={45}
+                      className="opacity-90"
+                    />
+                  </div>
 
-    {/* Title + Description + Tag */}
-    <div className="flex-1 flex flex-col">
-      <h3 className="text-base font-semibold text-gray-100 capitalize">
-        {app.name}
-      </h3>
+                  {/* Title + Description + Tag */}
+                  <div className="flex-1 flex flex-col">
+                    <h3 className="text-base font-semibold text-gray-100 capitalize">
+                      {app.name}
+                    </h3>
 
-      <p className="text-sm text-gray-400 mt-1">
-        {descriptions[app.name.toLowerCase()] ??
-          `Manage and integrate your ${app.name} workflows.`}
-      </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {descriptions[app.name.toLowerCase()] ??
+                        `Manage and integrate your ${app.name} workflows.`}
+                    </p>
 
-      {/* Status Tag */}
-      <span
-        className={`
+                    {/* Status Tag */}
+                    <span
+                      className={`
           mt-2 w-fit px-3 py-1 rounded-full text-xs font-medium border
-          ${
-            isConfigured(app.name)
-              ? "text-[#2ECC71] border-[#2ECC71]/40 bg-[#2ECC71]/10"
-              : "text-[#BDC3C7] border-[#444] bg-[#2C2C2C]"
-          }
+          ${isConfigured(app.name)
+                          ? "text-[#2ECC71] border-[#2ECC71]/40 bg-[#2ECC71]/10"
+                          : "text-[#BDC3C7] border-[#444] bg-[#2C2C2C]"
+                        }
         `}
-      >
-        {isConfigured(app.name) ? "Connected" : "Disconnected"}
-      </span>
-    </div>
-  </div>
+                    >
+                      {isConfigured(app.name) ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+                </div>
 
-  {/* Full-Width Bottom Button */}
-  <button
-    onClick={() => openConfigModal(app)}
-    className={`
+                {/* Full-Width Bottom Button */}
+                <button
+                  onClick={() => openConfigModal(app)}
+                  className={`
       w-full py-2.5 rounded-lg text-sm font-semibold tracking-wide text-white
       transition-all duration-200
-      ${
-        isConfigured(app.name)
-          ? "bg-[#2ECC71] hover:bg-[#27AE60]"
-          : "bg-[#3498DB] hover:bg-[#2C81BA]"
-      }
+      ${isConfigured(app.name)
+                      ? "bg-[#2ECC71] hover:bg-[#27AE60]"
+                      : "bg-[#3498DB] hover:bg-[#2C81BA]"
+                    }
     `}
-  >
-    {isConfigured(app.name) ? "Configured" : "Configure"}
-  </button>
-</div>
+                >
+                  {isConfigured(app.name) ? "Configured" : "Configure"}
+                </button>
+              </div>
 
 
             ) : null
@@ -149,66 +146,64 @@ const Integrations = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {allApps.map((app, idx) =>
             !isConfigured(app.name) ? (
-<div
-  key={idx}
-  className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-5 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300"
->
-  {/* Top Section */}
-  <div className="flex items-center gap-5">
-    {/* Logo Box */}
-    <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#252525] flex items-center justify-center border border-[#303030]">
-      <ImageAtom
-        src={app.image}
-        alt={app.alt}
-        width={45}
-        height={45}
-        className="opacity-90"
-      />
-    </div>
+              <div
+                key={idx}
+                className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-5 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300"
+              >
+                {/* Top Section */}
+                <div className="flex items-center gap-5">
+                  {/* Logo Box */}
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#252525] flex items-center justify-center border border-[#303030]">
+                    <ImageAtom
+                      src={app.image}
+                      alt={app.alt}
+                      width={45}
+                      height={45}
+                      className="opacity-90"
+                    />
+                  </div>
 
-    {/* Title + Description + Tag */}
-    <div className="flex-1 flex flex-col">
-      <h3 className="text-base font-semibold text-gray-100 capitalize">
-        {app.name}
-      </h3>
+                  {/* Title + Description + Tag */}
+                  <div className="flex-1 flex flex-col">
+                    <h3 className="text-base font-semibold text-gray-100 capitalize">
+                      {app.name}
+                    </h3>
 
-      <p className="text-sm text-gray-400 mt-1">
-        {descriptions[app.name.toLowerCase()] ??
-          `Manage and integrate your ${app.name} workflows.`}
-      </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {descriptions[app.name.toLowerCase()] ??
+                        `Manage and integrate your ${app.name} workflows.`}
+                    </p>
 
-      {/* Status Tag */}
-      <span
-        className={`
+                    {/* Status Tag */}
+                    <span
+                      className={`
           mt-2 w-fit px-3 py-1 rounded-full text-xs font-medium border
-          ${
-            isConfigured(app.name)
-              ? "text-[#2ECC71] border-[#2ECC71]/40 bg-[#2ECC71]/10"
-              : "text-[#BDC3C7] border-[#444] bg-[#2C2C2C]"
-          }
+          ${isConfigured(app.name)
+                          ? "text-[#2ECC71] border-[#2ECC71]/40 bg-[#2ECC71]/10"
+                          : "text-[#BDC3C7] border-[#444] bg-[#2C2C2C]"
+                        }
         `}
-      >
-        {isConfigured(app.name) ? "Connected" : "Disconnected"}
-      </span>
-    </div>
-  </div>
+                    >
+                      {isConfigured(app.name) ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+                </div>
 
-  {/* Full-Width Bottom Button */}
-  <button
-    onClick={() => openConfigModal(app)}
-    className={`
+                {/* Full-Width Bottom Button */}
+                <button
+                  onClick={() => openConfigModal(app)}
+                  className={`
       w-full py-2.5 rounded-lg text-sm font-semibold tracking-wide text-white
       transition-all duration-200
-      ${
-        isConfigured(app.name)
-          ? "bg-[#2ECC71] hover:bg-[#27AE60]"
-          : "bg-[#3498DB] hover:bg-[#2C81BA]"
-      }
+      ${isConfigured(app.name)
+                      ? "bg-[#2ECC71] hover:bg-[#27AE60]"
+                      : "bg-[#3498DB] hover:bg-[#2C81BA]"
+                    }
     `}
-  >
-    {isConfigured(app.name) ? "Configured" : "Configure"}
-  </button>
-</div>
+                >
+                  {isConfigured(app.name) ? "Configured" : "Configure"}
+                </button>
+              </div>
 
 
             ) : null

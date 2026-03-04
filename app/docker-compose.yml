@@ -4,15 +4,11 @@ services:
     build:
       context: ./cms
       dockerfile: Dockerfile
-    ports:
-      - "1337:1337"
     network_mode: host
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     network_mode: host
     volumes:
       - /app/node_modules

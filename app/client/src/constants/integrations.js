@@ -3,7 +3,7 @@
 import ArgoCD from "@/components/molecules/Forms/ConfigureApps/ArgoCD";
 import Gmail from "@/components/molecules/Forms/ConfigureApps/Gmail";
 import Slack from "@/components/molecules/Forms/ConfigureApps/Slack";
-import GithubActions from "@/components/molecules/Forms/ConfigureApps/GithubActions";
+import GitHubAuthForm from "@/components/molecules/Forms/ConfigureApps/GitHubAuthForm";
 
 export const allApps = [
   {
@@ -42,17 +42,17 @@ export const allApps = [
     component: null,
   },
   {
-    name: "github actions",
-    image: "http://127.0.0.1:1337/uploads/ghactions_58e6982f06.png",
-    alt: "GitHub Actions Icon",
-    status: false,
-    component: GithubActions, // ← Changed from null to GithubActions
-  },
-  {
     name: "drone CI",
     image: "http://127.0.0.1:1337/uploads/droneci_336077abe4.png",
     alt: "Drone CI Icon",
     status: false,
     component: null,
+  },
+  {
+    name: "github",
+    image: "http://127.0.0.1:1337/uploads/github_a9e0b14a0c.png",
+    alt: "GitHub Icon",
+    status: false,
+    component: GitHubAuthForm,
   },
 ];
