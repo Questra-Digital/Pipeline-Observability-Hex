@@ -44,11 +44,11 @@ const UpdateDeviationValue = () => {
     <div className="flex w-full flex-col p-2">
       <div className="self-end mb-2">
         <button
-          className="bg-purple-600 px-3 py-1 rounded-md"
+          className="bg-gradient-to-r from-red-600 to-red-900 px-6 py-2 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-red-950/20"
           onClick={handleSubmit}
           disabled={postDataLoading || deviationLoading}
         >
-          {(postDataLoading || deviationLoading) ? "Saving..." : "Save"}
+          {(postDataLoading || deviationLoading) ? "Calculating..." : "Update Deviation"}
         </button>
       </div>
       <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
@@ -61,7 +61,7 @@ const UpdateDeviationValue = () => {
             Deviation Value
           </label>
           <input
-            className="border-2 w-full sm:w-[70%] p-2 h-12 outline-none bg-transparent rounded-lg border-gray-400 focus:border-purple-600"
+            className="w-full sm:w-[80%] p-3 h-12 outline-none bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-red-600 transition-all"
             placeholder="10"
             type="number"
             name="deviation"

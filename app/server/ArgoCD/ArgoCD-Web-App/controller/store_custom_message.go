@@ -7,13 +7,23 @@ import (
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type CustomMessage struct {
-	Value string `json:"value"`
+	UserID string `bson:"userId" json:"userId"`
+	Value  string `bson:"value" json:"value"`
 }
 
 func StoreCustomMessage(c *gin.Context, custom_message string) {
+	// Get user email
+	userEmail := GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		fmt.Println("Error: ", err)
@@ -23,21 +33,16 @@ func StoreCustomMessage(c *gin.Context, custom_message string) {
 
 	collection := mongoClient.Database("admin").Collection("custom_messages")
 
-	// Drop the collection
-	err = collection.Drop(context.TODO())
+	// Update for specific user, or insert if not exists
+	filter := bson.M{"userId": userEmail}
+	update := bson.M{"$set": bson.M{"value": custom_message}}
+	opts := options.Update().SetUpsert(true)
+
+	_, err = collection.UpdateOne(context.TODO(), filter, update, opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store custom message"})
 		return
 	}
 
-	message := CustomMessage{Value: custom_message}
-
-	// Insert the new value
-	insertResult, err := collection.InsertOne(context.TODO(), message)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Custom Message inserted....", "insertedID": insertResult.InsertedID})
+	c.JSON(http.StatusOK, gin.H{"message": "Custom Message inserted...."})
 }

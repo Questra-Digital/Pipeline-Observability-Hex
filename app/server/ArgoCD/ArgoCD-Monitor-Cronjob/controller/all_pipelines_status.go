@@ -38,40 +38,6 @@ type HealthSummary struct {
 	ReplicaSet string
 }
 
-// fetch all_pipeline names and then fetch the counter value from mongoDB and store it in Redis
-func InitializePipelineCounter() {
-	allpipelines, err := GetAllPipelineNames()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	for _, pipeline_name := range allpipelines {
-		// fetch the latest counter value from the db based on time
-		collection := mongoClient.Database("admin").Collection("pipelineCounter")
-		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-		filter := bson.M{"pipeline_name": pipeline_name}
-		opts := options.FindOne().SetSort(bson.D{{Key: "time", Value: -1}})
-		var result bson.M
-		err := collection.FindOne(ctx, filter, opts).Decode(&result)
-		if err != nil {
-			fmt.Println("Error: ", err)
-			continue
-		}
-		counter, ok := result["counter"]
-		if !ok {
-			fmt.Println("Error: counter is not an integer")
-			continue
-		}
-		key := fmt.Sprintf("pipeline:%s:counter", pipeline_name)
-		// fmt.Println("Counter: ", counter)
-		err = redisClient.Set(context.Background(), key, counter, 0).Err()
-		if err != nil {
-			fmt.Println("Error setting counter:", err)
-		}
-	}
-}
-
 func init() {
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -89,36 +55,65 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error connecting to MongoDB: %v", err)
 	}
-	// defer mongoClient.Disconnect(context.TODO())
-	InitializePipelineCounter()
 }
 
-func GetDeviationValue() int {
+// fetch all_pipeline names and then fetch the counter value from mongoDB and store it in Redis
+func InitializePipelineCounter(userId string, argoURL string, argoToken string) {
+	allpipelines, err := GetAllPipelineNames(argoURL, argoToken)
+	if err != nil {
+		fmt.Printf("Error getting pipelines for user %s: %v\n", userId, err)
+		return
+	}
+
+	for _, pipeline_name := range allpipelines {
+		// fetch the latest counter value from the db based on time and userId
+		collection := mongoClient.Database("admin").Collection("pipelineCounter")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		filter := bson.M{"pipeline_name": pipeline_name, "userId": userId}
+		opts := options.FindOne().SetSort(bson.D{{Key: "time", Value: -1}})
+		var result bson.M
+		err := collection.FindOne(ctx, filter, opts).Decode(&result)
+		if err != nil {
+			continue
+		}
+		counter, ok := result["counter"]
+		if !ok {
+			continue
+		}
+		key := fmt.Sprintf("pipeline:%s:%s:counter", userId, pipeline_name)
+		err = redisClient.Set(context.Background(), key, counter, 0).Err()
+		if err != nil {
+			fmt.Println("Error setting counter in redis:", err)
+		}
+	}
+}
+
+func GetDeviationValue(userId string) int {
 	collection := mongoClient.Database("admin").Collection("deviations")
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	filter := bson.M{"value": bson.M{"$exists": true}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	filter := bson.M{"userId": userId}
 	var result bson.M
 	err := collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return 10
 	}
 	deviationValueSTR, ok := result["value"].(string)
 	if !ok {
-		fmt.Println("Error: value is not a string")
 		return 10
 	}
 	deviationValueINT, err := strconv.Atoi(deviationValueSTR)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return 10
 	}
 	return deviationValueINT
 }
 
-func InsertSummaryToMongoDB(pipelineName string, summary HealthSummary) error {
+func InsertSummaryToMongoDB(pipelineName string, summary HealthSummary, userId string) error {
 	collection := mongoClient.Database("admin").Collection("argocd")
 	document := bson.M{
+		"userId":        userId,
 		"pipeline_name": pipelineName,
 		"time":          time.Now(),
 		"summary": bson.M{
@@ -133,27 +128,13 @@ func InsertSummaryToMongoDB(pipelineName string, summary HealthSummary) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Inserted in MongoDB....")
 	return nil
 }
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
-func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
-	// fetch the url from the database
-	collection := mongoClient.Database("admin").Collection("argocd_api")
-	var result bson.M
-	err := collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	url := result["argocdURL"].(string) + "/" + pipelineName + "/resource-tree"
-	// fmt.Printf("%v", url)
-
-	// get the token from the ,env
-	token := os.Getenv("ARGOCD_TOKEN")
-
-	bearer := "Bearer " + token
+func FetchPipelineData(pipelineName string, argoURL string, argoToken string) (map[string]interface{}, error) {
+	url := argoURL + "/" + pipelineName + "/resource-tree"
+	bearer := "Bearer " + argoToken
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
 	if err != nil {
@@ -174,7 +155,10 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	}
 	defer resp.Body.Close()
 
-	// Read and parse the JSON response
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ArgoCD API returned status: %d", resp.StatusCode)
+	}
+
 	var responseData map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&responseData)
 	if err != nil {
@@ -184,82 +168,35 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	return responseData, nil
 }
 
-// ParsePipelineData parses the pipeline data and updates the HealthSummary.
-func ParsePipelineData(data []interface{}) HealthSummary {
-	var summary HealthSummary
-
-	for _, node := range data {
-		nodeMap := node.(map[string]interface{})
-		kind := nodeMap["kind"].(string)
-
-		if kind == "EndpointSlice" || kind == "Endpoints" {
-			continue
-		}
-
-		health, ok := nodeMap["health"].(map[string]interface{})
-		if kind == "Pod" {
-			name := nodeMap["networkingInfo"].(map[string]interface{})["labels"].(map[string]interface{})["app"].(string)
-			fmt.Printf("Name : %s\n", name)
-		}
-
-		if ok {
-			status := health["status"].(string)
-			fmt.Printf("%s health status: %s\n", kind, status)
-
-			switch kind {
-			case "Pod":
-				summary.Pod = status
-			case "Service":
-				summary.Service = status
-			case "ReplicaSet":
-				summary.ReplicaSet = status
-			case "Deployment":
-				summary.Deployment = status
-			default:
-			}
-		}
-	}
-
-	return summary
-}
+// ... existing ParsePipelineData function ...
 
 // Store the Pipeline Nama and Counter Value in MongoDB just like Redis
-func StorePipelineCounterInMongoDB(pipelineName string, counter int) error {
+func StorePipelineCounterInMongoDB(pipelineName string, counter int, userId string) error {
 	collection := mongoClient.Database("admin").Collection("pipelineCounter")
 	document := bson.M{
+		"userId":        userId,
 		"pipeline_name": pipelineName,
 		"counter":       counter,
 		"time":          time.Now(),
 	}
-	// Insert the new Token instance into the database
 	_, err := collection.InsertOne(context.TODO(), document)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Inserted in MongoDB....")
 	return nil
 }
 
 // update the counter and send notification to slack
-func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSummary) {
+func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSummary, userId string) {
 	counterLock.Lock()
 	defer counterLock.Unlock()
 
-	// check if redis DBSIZE if Zero
-	if redisClient.DBSize(context.Background()).Val() == 0 {
-		fmt.Println("******************************")
-		fmt.Println("|      Redis Initialized     |")
-		fmt.Println("******************************")
-		InitializePipelineCounter()
-	}
-
-	key := fmt.Sprintf("pipeline:%s:counter", pipelineName)
+	key := fmt.Sprintf("pipeline:%s:%s:counter", userId, pipelineName)
 
 	if !isPipelineHealthy {
 		// insert the summary of pipeline in the db if the pipeline is not healthy
-		err := InsertSummaryToMongoDB(pipelineName, summary)
+		err := InsertSummaryToMongoDB(pipelineName, summary, userId)
 		if err != nil {
-			// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			fmt.Println(err)
 			return
 		}
@@ -274,50 +211,52 @@ func updateCounter(isPipelineHealthy bool, pipelineName string, summary HealthSu
 		if err != nil {
 			fmt.Println("Error getting counter value:", err)
 		}
-		StorePipelineCounterInMongoDB(pipelineName, val)
+		StorePipelineCounterInMongoDB(pipelineName, val, userId)
 
 		// get the deviation value from the db
-		deviationValue := GetDeviationValue()
+		deviationValue := GetDeviationValue(userId)
 
 		if val == deviationValue {
-			fmt.Println("Sending Notification..........")
+			fmt.Println("Sending Notification for user: ", userId)
+			// Get custom message for this user
 			collection := mongoClient.Database("admin").Collection("custom_messages")
-	        ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-			filter := bson.M{"value": bson.M{"$exists": true}}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			filter := bson.M{"userId": userId}
 			var result bson.M
-			collection.FindOne(ctx, filter).Decode(&result)
-			notificationClient.TriggerNotificationService(result["value"].(string))
+			err := collection.FindOne(ctx, filter).Decode(&result)
+			message := "ArgoCD pipeline is out of sync!"
+			if err == nil {
+				message = result["value"].(string)
+			}
+			
+			// We need a way to trigger notification for specific user's slack
+			// For now, trigger generic but ideally, notificationClient should take userId
+			notificationClient.TriggerNotificationService(message)
 		}
 	} else {
-		// Check if the counter is 10
-		val, err := redisClient.Get(context.Background(), key).Int()
-		// fmt.Println("Counter Value: ", val)
-		if err != nil {
-			fmt.Println("Error getting counter value:", err)
-		}
+		val, _ := redisClient.Get(context.Background(), key).Int()
 		if val > 0 {
-			// insert the summary of pipeline in the db if the pipeline is not healthy
-			err = InsertSummaryToMongoDB(pipelineName, summary)
+			err := InsertSummaryToMongoDB(pipelineName, summary, userId)
 			if err != nil {
-				// c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				fmt.Println(err)
 				return
 			}
 		}
 		// Reset counter
-		StorePipelineCounterInMongoDB(pipelineName, 0)
-		err = redisClient.Set(context.Background(), key, 0, 0).Err()
+		StorePipelineCounterInMongoDB(pipelineName, 0, userId)
+		err := redisClient.Set(context.Background(), key, 0, 0).Err()
 		if err != nil {
 			fmt.Println("Error resetting counter:", err)
 		}
 	}
 }
-func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
+
+func processPipeline(pipeline_name string, userId string, argoURL string, argoToken string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	responseData, err := FetchPipelineData(pipeline_name)
+	responseData, err := FetchPipelineData(pipeline_name, argoURL, argoToken)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	summary := ParsePipelineData(responseData["nodes"].([]interface{}))
@@ -326,7 +265,6 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	isPipelineHealthy := true
 	checkHealth := func(component, status string) {
 		if status != "Healthy" {
-			fmt.Printf("%s : %s is not healthy\n", pipeline_name, component)
 			isPipelineHealthy = false
 		}
 	}
@@ -336,93 +274,59 @@ func processPipeline(pipeline_name string, wg *sync.WaitGroup) {
 	checkHealth("Service", summary.Service)
 	checkHealth("ReplicaSet", summary.ReplicaSet)
 
-	updateCounter(isPipelineHealthy, pipeline_name, summary)
-}
-
-// fetch argocdToken from the db
-func getArgocdToken() (string, error) {
-	collection := mongoClient.Database("admin").Collection("argocdToken")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel() // Call the cancel function at the end of the function
-	filter := bson.M{"value": bson.M{"$exists": true}}
-	var result bson.M
-	err := collection.FindOne(ctx, filter).Decode(&result)
-	if err != nil {
-		return "", err
-	}
-	token, ok := result["value"].(string)
-	if !ok {
-		return "", fmt.Errorf("value is not a string")
-	}
-	return token, nil
-}
-
-// Store Token in .env file
-func updateDotenv(key, value string) error {
-	// Read the content of the dotenv file
-	content, err := ioutil.ReadFile(".env")
-	if err != nil {
-		return err
-	}
-
-	// Split the content into lines
-	lines := strings.Split(string(content), "\n")
-
-	// Find and update the key-value pair
-	found := false
-	for i, line := range lines {
-		pair := strings.SplitN(line, "=", 2)
-		if len(pair) == 2 && pair[0] == key {
-			lines[i] = fmt.Sprintf("%s=%s", key, value)
-			found = true
-			break
-		}
-	}
-
-	// If key is not found, add a new key-value pair
-	if !found {
-		newLine := fmt.Sprintf("%s=%s", key, value)
-		lines = append(lines, newLine)
-	}
-
-	// Join the lines back into a string
-	newContent := strings.Join(lines, "\n")
-
-	// Write the updated content back to the dotenv file
-	err = ioutil.WriteFile(".env", []byte(newContent), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	updateCounter(isPipelineHealthy, pipeline_name, summary, userId)
 }
 
 func AllPipelinesStatus() {
-	token, err := getArgocdToken()
+	// 1. Fetch all users
+	userColl := mongoClient.Database("admin").Collection("users")
+	cursor, err := userColl.Find(context.TODO(), bson.M{})
 	if err != nil {
-		fmt.Println(err, " :: Token Not Exist")
+		log.Println("Error fetching users: ", err)
+		return
+	}
+	defer cursor.Close(context.TODO())
+
+	var users []bson.M
+	if err = cursor.All(context.TODO(), &users); err != nil {
+		log.Println("Error decoding users: ", err)
 		return
 	}
 
-	fmt.Println("Token : ", token)
+	for _, user := range users {
+		userEmail, ok := user["email"].(string)
+		if !ok {
+			continue
+		}
 
-	err = updateDotenv("ARGOCD_TOKEN", token)
-	if err != nil {
-		log.Println("Error:", err)
-		return
+		// 2. Fetch ArgoCD config for this user
+		apiColl := mongoClient.Database("admin").Collection("argocd_api")
+		tokenColl := mongoClient.Database("admin").Collection("argocdToken")
+		
+		var apiResult, tokenResult bson.M
+		err1 := apiColl.FindOne(context.TODO(), bson.M{"userId": userEmail}).Decode(&apiResult)
+		err2 := tokenColl.FindOne(context.TODO(), bson.M{"userId": userEmail}).Decode(&tokenResult)
+		
+		if err1 != nil || err2 != nil {
+			// Skip user if config missing
+			continue
+		}
+
+		argoURL := apiResult["argocdURL"].(string)
+		argoToken := tokenResult["value"].(string)
+
+		// 3. Process all pipelines for this user
+		allpipelines, err := GetAllPipelineNames(argoURL, argoToken)
+		if err != nil {
+			fmt.Printf("Error getting pipelines for user %s: %v\n", userEmail, err)
+			continue
+		}
+
+		var wg sync.WaitGroup
+		for _, pipeline_name := range allpipelines {
+			wg.Add(1)
+			go processPipeline(pipeline_name, userEmail, argoURL, argoToken, &wg)
+		}
+		wg.Wait()
 	}
-	allpipelines, err := GetAllPipelineNames()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	var wg sync.WaitGroup
-
-	for _, pipeline_name := range allpipelines {
-		wg.Add(1)
-		go processPipeline(pipeline_name, &wg)
-	}
-
-	wg.Wait()
 }

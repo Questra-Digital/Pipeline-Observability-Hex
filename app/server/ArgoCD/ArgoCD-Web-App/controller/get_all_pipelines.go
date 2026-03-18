@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -40,13 +39,7 @@ func parseJSONResponse(resp *http.Response) ([]string, error) {
 }
 
 // GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
-func GetAllPipelineNames() ([]string, error) {
-	err := godotenv.Load(".env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
+func GetAllPipelineNames(userId string) ([]string, error) {
 	// fetch thr url from mongoDB
 	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
@@ -55,25 +48,26 @@ func GetAllPipelineNames() ([]string, error) {
 		return nil, err
 	}
 	defer mongoClient.Disconnect(context.TODO())
+
+	filter := bson.M{"userId": userId}
+
 	collection := mongoClient.Database("admin").Collection("argocd_api")
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching ArgoCD URL: ", err)
 		return nil, err
 	}
 	url := result["argocdURL"].(string)
 
 	// get the token from the database
 	collection = mongoClient.Database("admin").Collection("argocdToken")
-	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching ArgoCD Token: ", err)
 		return nil, err
 	}
 	token := result["value"].(string)
-
-	fmt.Println("Token: ", token)
 
 	bearer := "Bearer " + token
 
@@ -95,6 +89,10 @@ func GetAllPipelineNames() ([]string, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ArgoCD API returned status: %d", resp.StatusCode)
+	}
 
 	pipelineNames, err := parseJSONResponse(resp)
 	return pipelineNames, err

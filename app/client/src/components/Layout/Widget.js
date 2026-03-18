@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import ImageAtom from "@/components/atoms/ImageAtom";
 
 const Widget = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -36,38 +35,27 @@ const Widget = () => {
 
       {/* Content */}
       <div className="relative z-10 p-6 flex flex-col space-y-6">
-        
+
         {/* Date */}
         <div className="flex justify-between items-center text-xs uppercase tracking-wider">
           <span className="text-[#a0a0a0]">{dayOfWeek}</span>
           <span className="text-[#c0c0c0]">{restOfDate}</span>
         </div>
 
-{/* Time */}
-<div className="text-center">
-  <div className="text-5xl font-bold text-white tracking-tight">
-    {formatTime(currentTime)}
-  </div>
-</div>
-
-{/* Timezone Right Aligned - No Box */}
-<div className="flex justify-end">
-  <span className="text-[#c0c0c0] text-xs uppercase tracking-wider">
-    {timezone}
-  </span>
-</div>
-
-
-        {/* Blueprint BG */}
-        <div className="absolute inset-0 -z-[1]">
-          <ImageAtom
-            src="http://127.0.0.1:1337/uploads/pc_blueprint_c7b5cafbe8.gif"
-            width={250}
-            height={250}
-            alt="Blueprint"
-            properties={["w-full h-full object-contain"]}
-          />
+        {/* Time */}
+        <div className="text-center">
+          <div className="text-5xl font-bold text-white tracking-tight">
+            {formatTime(currentTime)}
+          </div>
         </div>
+
+        {/* Timezone Right Aligned - No Box */}
+        <div className="flex justify-end">
+          <span className="text-[#c0c0c0] text-xs uppercase tracking-wider">
+            {timezone}
+          </span>
+        </div>
+
       </div>
     </div>
   );

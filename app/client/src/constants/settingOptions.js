@@ -13,6 +13,7 @@ import UpdateGitHubStatus from "@/components/molecules/Settings/UpdateGitHubStat
 import UpdateGitHubLimit from "@/components/molecules/Settings/UpdateGitHubLimit";
 import GitHubRepoSelector from "@/components/molecules/Settings/GitHubRepoSelector";
 import GitHubAccountList from "@/components/molecules/Settings/GitHubAccountList";
+import ConnectedRepos from "@/components/molecules/Settings/ConnectedRepos";
 
 export const settingsOptions = [
   {
@@ -98,6 +99,11 @@ export const settingsOptions = [
     name: "GitHub Actions",
     state: "github_actions",
     childOptions: [
+      {
+        name: "Connected Repos",
+        state: "connectedRepos",
+        component: ConnectedRepos,
+      },
       {
         name: "GitHub Status",
         state: "githubStatus",

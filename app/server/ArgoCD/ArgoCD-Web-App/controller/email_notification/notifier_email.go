@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func StoreNotifierEmail(c *gin.Context) {
@@ -19,28 +20,28 @@ func StoreNotifierEmail(c *gin.Context) {
 	email := emailCredentials["email"]
 	password := emailCredentials["password"]
 
-	fmt.Println("Email: ", email)
-	fmt.Println("Password: ", password)
-	// connect to MongoDB
+	// Get user email
+	userEmail := controller.GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer mongoClient.Disconnect(context.Background())
-	collection := mongoClient.Database("notification").Collection("email_notifier")
-	// delete existing email and password
-	_, err = collection.DeleteMany(context.Background(), bson.D{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 
-	// store email and password in MongoDB
-	_, err = collection.InsertOne(context.Background(), bson.D{
-		{Key: "email", Value: email},
-		{Key: "password", Value: password},
-	})
+	collection := mongoClient.Database("notification").Collection("email_notifier")
+
+	// Update for specific user, or insert if not exists
+	filter := bson.M{"userId": userEmail}
+	update := bson.M{"$set": bson.M{"email": email, "password": password}}
+	opts := options.Update().SetUpsert(true)
+
+	_, err = collection.UpdateOne(context.Background(), filter, update, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -49,17 +50,25 @@ func StoreNotifierEmail(c *gin.Context) {
 }
 
 func GetNotifierEmail(c *gin.Context) {
+	// Get user email
+	userEmail := controller.GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer mongoClient.Disconnect(context.Background())
+
 	collection := mongoClient.Database("notification").Collection("email_notifier")
 	var result bson.M
-	err = collection.FindOne(context.Background(), bson.D{}).Decode(&result)
+	err = collection.FindOne(context.Background(), bson.M{"userId": userEmail}).Decode(&result)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notifier email not found"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"email": result["email"], "password": result["password"]})

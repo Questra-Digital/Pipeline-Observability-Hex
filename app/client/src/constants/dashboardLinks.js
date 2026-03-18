@@ -1,26 +1,33 @@
+import {
+  HomeIcon,
+  DashboardIcon,
+  IntegrationsIcon,
+  SettingsIcon
+} from "@/components/atoms/AppIcons";
+
 export const dashboardTabs = [
   {
     name: "Home",
     link: "/home",
-    icon: "http://127.0.0.1:1337/uploads/home_a9e0b14a0c.png",
+    Icon: HomeIcon,
     alt: "Home Icon",
   },
   {
     name: "Dashboard",
     link: "/dashboard",
-    icon: "http://127.0.0.1:1337/uploads/dashboard_44d5fe0d57.png",
+    Icon: DashboardIcon,
     alt: "Dashboard Icon",
   },
   {
     name: "Integrations",
     link: "/integrations",
-    icon: "http://127.0.0.1:1337/uploads/integrations_e2d22ba313.png",
+    Icon: IntegrationsIcon,
     alt: "Integrations Icon",
   },
   {
     name: "Settings",
     link: "/dashboard/settings",
-    icon: "http://127.0.0.1:1337/uploads/settings_a783fbcdb7.png",
+    Icon: SettingsIcon,
     alt: "Settings Icon",
   },
 ];

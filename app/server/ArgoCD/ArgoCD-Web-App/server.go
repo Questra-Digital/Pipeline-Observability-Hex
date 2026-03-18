@@ -11,6 +11,7 @@ import (
 	cronjob "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/cronjob"
 	email_notifier "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/email_notification"
 	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
+	github_controller "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/github"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 
 	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
@@ -47,7 +48,12 @@ func main() {
 	// Define your routes here
 	// get all the pipelines
 	r.GET("/all_pipelines", func(c *gin.Context) {
-		availble_pipelines, err := controller.GetAllPipelineNames()
+		userId := controller.GetUserEmail(c)
+		if userId == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			return
+		}
+		availble_pipelines, err := controller.GetAllPipelineNames(userId)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"Error": "Token error"})
 			return
@@ -58,31 +64,11 @@ func main() {
 		})
 	})
 
-	// store token in .env file
-	r.POST("/api/token", func(c *gin.Context) {
-		// Parse request body to get the "token" value
-		var requestBody map[string]string
-		if err := c.BindJSON(&requestBody); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
+	// store token in the database
+	r.POST("/api/token", controller.StoreToken)
 
-		token := requestBody["token"]
-		controller.StoreToken(c, token)
-	})
-
-	// store token in .env file
-	r.POST("/api/email", func(c *gin.Context) {
-		// Parse request body to get the "token" value
-		var requestBody map[string]string
-		if err := c.BindJSON(&requestBody); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-
-		email := requestBody["email"]
-		controller.StoreEmail(c, email)
-	})
+	// store email in the database
+	r.POST("/api/email", controller.StoreEmail)
 
 	// get current state of pipeline
 	r.GET("/pipeline_state", func(c *gin.Context) {
@@ -211,8 +197,33 @@ func main() {
 	})
 
 	r.GET("test", func(c *gin.Context) {
-		controller.FetchPipelineData("test")
+		userId := controller.GetUserEmail(c)
+		controller.FetchPipelineData("test", userId)
 	})
+
+	// GitHub Actions Routes
+	github := r.Group("/api/github")
+	{
+		github.GET("/accounts", github_controller.GetGitHubAccounts)
+		github.POST("/auth", github_controller.ConnectGitHubAccount)
+		github.DELETE("/accounts/:id", github_controller.DisconnectGitHubAccount)
+		
+		github.GET("/repos", github_controller.GetGitHubRepos)
+		github.POST("/repos/toggle", github_controller.ToggleRepoMonitoring)
+		
+		github.GET("/status", github_controller.GetGitHubSettings)
+		github.POST("/status", github_controller.UpdateGitHubStatus)
+		
+		github.GET("/limit", github_controller.GetGitHubSettings) // Reusing same settings getter
+		github.POST("/limit", github_controller.UpdateGitHubLimit)
+
+		github.GET("/runs", github_controller.GetGitHubRuns)
+		github.GET("/analytics", github_controller.GetGitHubAnalytics)
+		github.GET("/alerts", github_controller.GetGitHubAlerts)
+		github.GET("/logs", github_controller.GetGitHubJobLogs)
+		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
+	}
+
 
 	// Run the server
 	if err := r.Run(":8000"); err != nil {

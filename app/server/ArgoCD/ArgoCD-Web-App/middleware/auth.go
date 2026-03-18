@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -21,54 +22,73 @@ type ErrorResponse struct {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Next()
-		// Extract the token from the Authorization header
 		// jwt from .env file
 		err := godotenv.Load(".env")
 		if err != nil {
-			fmt.Println("Error: ", err)
-			return
+			fmt.Println("Error loading .env: ", err)
 		}
 		jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			log.Printf("[Auth] 401: Missing Authorization header for path %s\n", c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Missing Authorization header"})
 			c.Abort()
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == authHeader {
+			log.Printf("[Auth] 401: Invalid header format (missing Bearer prefix) for path %s\n", c.Request.URL.Path)
+			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid Authorization header format"})
+			c.Abort()
+			return
+		}
+
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate the signing method
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Invalid signing method")
 			}
 			return jwtSecret, nil
 		})
 
-		if err != nil || !token.Valid {
+		if err != nil {
+			log.Printf("[Auth] 401: JWT Parse Error for path %s: %v\n", c.Request.URL.Path, err)
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid or expired token"})
 			c.Abort()
 			return
 		}
 
-		// Check token expiration
+		if !token.Valid {
+			log.Printf("[Auth] 401: Invalid token for path %s\n", c.Request.URL.Path)
+			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid token"})
+			c.Abort()
+			return
+		}
+
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
+			log.Printf("[Auth] 401: Invalid claims type for path %s\n", c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid token claims"})
 			c.Abort()
 			return
 		}
 
-		expirationTime := int64(claims["exp"].(float64))
-		if time.Now().Unix() > expirationTime {
+		expirationTime, ok := claims["exp"].(float64)
+		if !ok {
+			log.Printf("[Auth] 401: Missing exp claim for path %s\n", c.Request.URL.Path)
+			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Missing expiration claim"})
+			c.Abort()
+			return
+		}
+
+		if time.Now().Unix() > int64(expirationTime) {
+			log.Printf("[Auth] 401: Token expired at %v for path %s\n", time.Unix(int64(expirationTime), 0), c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Token has expired"})
 			c.Abort()
 			return
 		}
 
-		// Add the claims to the context for further use
-		// claims = token.Claims.(jwt.MapClaims)
+		log.Printf("[Auth] 200: Successfully authenticated path %s for user %v\n", c.Request.URL.Path, claims["email"])
 		c.Set("claims", claims)
 		c.Next()
 	}

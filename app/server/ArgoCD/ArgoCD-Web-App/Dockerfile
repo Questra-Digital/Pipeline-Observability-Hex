@@ -4,6 +4,9 @@ FROM golang:1.22.1
 # Set the Current Working Directory inside the Docker container
 WORKDIR /app
 
+# Use a more reliable proxy for dependencies
+ENV GOPROXY=https://proxy.golang.org,direct
+
 RUN go install github.com/air-verse/air@v1.52.3
 
 # Copy go mod and sum files

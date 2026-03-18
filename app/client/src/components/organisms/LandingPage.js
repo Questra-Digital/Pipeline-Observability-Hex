@@ -4,7 +4,7 @@ import MainSection from "../molecules/LandingPage/MainSection";
 const LandingPage = () => {
   return (
     <>
-      <main className="flex min-w-screen h-screen flex-col  ">
+      <main className="flex w-full flex-col bg-[#050505]">
         <Header />
         <MainSection />
       </main>

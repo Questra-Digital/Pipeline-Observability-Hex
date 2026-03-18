@@ -4,19 +4,20 @@ package controller
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"strings"
 
-	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
+	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Email struct {
-	Email string `json:"email"`
+type UserEmailConfig struct {
+	UserID string `bson:"userId" json:"userId"`
+	Email  string `bson:"email" json:"email"`
 }
 
-func StoreEmailInMongoDB(c *gin.Context, email string) {
+func StoreEmailInMongoDB(c *gin.Context, email string, userId string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		fmt.Println("Error: ", err)
@@ -26,72 +27,35 @@ func StoreEmailInMongoDB(c *gin.Context, email string) {
 
 	collection := mongoClient.Database("admin").Collection("emails")
 
-	// Drop the collection
-	err = collection.Drop(context.TODO())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	// Update for specific user, or insert if not exists
+	filter := bson.M{"userId": userId}
+	update := bson.M{"$set": bson.M{"email": email}}
+	opts := options.Update().SetUpsert(true)
 
-	// Create a new Email instance
-	emailDocument := Email{Email: email}
-
-	// Insert the new Email instance into the database
-	_, err = collection.InsertOne(context.TODO(), emailDocument)
+	_, err = collection.UpdateOne(context.TODO(), filter, update, opts)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return
 	}
 }
 
-func updateDotenvEmail(key, value string) error {
-	// Read the content of the dotenv file
-	content, err := ioutil.ReadFile(".env")
-	if err != nil {
-		return err
+func StoreEmail(c *gin.Context) {
+	// Parse request body
+	var requestBody map[string]string
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
 	}
+	email := requestBody["email"]
 
-	// Split the content into lines
-	lines := strings.Split(string(content), "\n")
-
-	// Find and update the key-value pair
-	found := false
-	for i, line := range lines {
-		pair := strings.SplitN(line, "=", 2)
-		if len(pair) == 2 && pair[0] == key {
-			lines[i] = fmt.Sprintf("%s=%s", key, value)
-			found = true
-			break
-		}
-	}
-
-	// If key is not found, add a new key-value pair
-	if !found {
-		newLine := fmt.Sprintf("%s=%s", key, value)
-		lines = append(lines, newLine)
-	}
-
-	// Join the lines back into a string
-	newContent := strings.Join(lines, "\n")
-
-	// Write the updated content back to the dotenv file
-	err = ioutil.WriteFile(".env", []byte(newContent), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func StoreEmail(c *gin.Context, email string) {
-	//update the dotenv file
-	err := updateDotenvEmail("USER_EMAIL", email)
-	if err != nil {
-		fmt.Println("Error:", err)
+	// Get user email
+	userEmail := GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	StoreEmailInMongoDB(c, email)
+	StoreEmailInMongoDB(c, email, userEmail)
 	fmt.Println("Email Saved successfully")
 	c.JSON(http.StatusOK, gin.H{"message": "Email Saved successfully"})
 }

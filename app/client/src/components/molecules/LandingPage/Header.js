@@ -1,81 +1,41 @@
 "use client";
-import TitleAtom from "@/components/atoms/TitleAtom";
-import ImageAtom from "../../atoms/ImageAtom";
-import RoundBtnAtom from "../../atoms/RoundBtnAtom";
-import { useEffect, useState } from "react";
-import { strapiInstance } from "@/axios/axios";
+import { VizOpsLogo } from "@/components/atoms/AppIcons";
 import LinkAtom from "@/components/atoms/LinkAtom";
 
 function Header() {
-  const [logoSource, setLogoSource] = useState("");
-  const [title, setTitle] = useState("");
-
-  // NOTE: This effect logic remains unchanged as it handles data fetching.
-  useEffect(() => {
-    async function fetchAppData() {
-      try {
-        const response = await strapiInstance.get(
-          "/api/global-item?populate=*",
-          {}
-        );
-
-        // Updated URL string concatenation to use the title property name consistently with the original code
-        setLogoSource(
-          "http://127.0.0.1:1337" +
-            response.data.data.attributes.logo.data.attributes.url
-        );
-        console.log(response);
-        setTitle(response.data.data.attributes.title);
-      } catch (error) {
-        console.error("Error fetching data ", error.message);
-      }
-    }
-    fetchAppData();
-  }, []);
-
   return (
-    // Updated container to use a dark background for consistency
-    <div className="flex justify-center sm:justify-between flex-wrap items-center w-full px-5 py-3 z-20 bg-gray-900/50 backdrop-blur-sm border-b border-gray-800 absolute top-0">
-        
-        {/* Left Side: Logo and Title */}
-        <div className="flex items-center">
-            {/* VIZOPS Branding (Static placeholder for now, replace with dynamic source) */}
-            <h1 className="text-xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent tracking-tight">
-                VIZOPS
-            </h1>
-            {/* If you want to use the Image and TitleAtom logic, here is the structure:
-            <ImageAtom
-                // Using the static URL for now since the state setting has a typo
-                src="http://localhost:1337/uploads/small_logo_51f23fb97c.png"
-                width={30} // Reduced size for header
-                height={30}
-                alt={"Logo"}
-                properties={["mx-2", "self-center"]}
-            />
-            <TitleAtom text={title || "App Title"} />
-            */}
-        </div>
+    <div className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 py-4 bg-[#050505]/60 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
 
-        {/* Right Side: Single Login Button */}
-        <div className="my-2 md:my-0 flex justify-center md:justify-end">
-          <LinkAtom link={"/login"}>
-            <RoundBtnAtom
-              text={"Login"}
-              properties={[
-                // Updated styles to match the successful Login button gradient:
-                "bg-gradient-to-r", 
-                "from-blue-600",
-                "to-cyan-500",
-                "text-white",
-                "font-semibold",
-                "shadow-lg",
-                "hover:opacity-90",
-                "transition",
-              ]}
-            />
-          </LinkAtom>
-          {/* REMOVED: The redundant Sign Up button */}
+      {/* Left Side: Logo and Title */}
+      <div className="flex items-center gap-4 group cursor-pointer">
+        <div className="relative">
+          <div className="absolute inset-0 bg-red-600 blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
+          <VizOpsLogo size={36} className="text-red-600 relative z-10" />
         </div>
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-black text-white tracking-tighter uppercase italic leading-none">
+            VIZOPS
+          </h1>
+          <span className="text-[10px] text-red-600 font-black uppercase tracking-[0.3em] opacity-70 mt-0.5">
+            Enterprise Link
+          </span>
+        </div>
+      </div>
+
+      {/* Right Side: Navigation & Auth */}
+      <div className="flex items-center gap-6">
+        <LinkAtom link={"/login?form=signin"}>
+          <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors">
+            Sign In
+          </button>
+        </LinkAtom>
+
+        <LinkAtom link={"/login?form=signup"}>
+          <button className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-red-600/10 active:scale-95">
+            Create Account
+          </button>
+        </LinkAtom>
+      </div>
     </div>
   );
 }

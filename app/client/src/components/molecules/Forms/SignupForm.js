@@ -4,7 +4,7 @@ import instance from "@/axios/axios";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useRouter } from "next/navigation";
 
-const SignupForm = ({ children }) => {
+const SignupForm = () => {
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [name, setName] = useState("");
@@ -12,7 +12,34 @@ const SignupForm = ({ children }) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
 
-  // --- API and Validation Logic (Unchanged) ---
+  const validateFields = () => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*_=+-]).{8,}$/;
+    const nameRegex = /^[a-zA-Z ]*$/;
+
+    if (!emailRegex.test(email)) {
+      ErrorToast('Invalid email address.');
+      return false;
+    }
+
+    if (!passwordRegex.test(password)) {
+      ErrorToast('Password must be 8+ characters with a letter, number, and symbol.');
+      return false;
+    }
+
+    if (!nameRegex.test(name)) {
+      ErrorToast('Name must contain only letters and spaces.');
+      return false;
+    }
+
+    if (!nameRegex.test(companyName)) {
+      ErrorToast('Company Name must contain only letters and spaces.');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password && companyName && name && confirmPassword) {
@@ -26,189 +53,105 @@ const SignupForm = ({ children }) => {
               password,
             });
 
-            console.log(response);
             if (response.data.message === "User created successfully") {
-              SuccessToast("Account Created Successfully!");
+              SuccessToast("Registration Successful");
               setEmail("");
               setPassword("");
               setCompanyName("");
               setName("");
               setConfirmPassword("");
               setTimeout(() => {
-                router.push('/login');
+                window.location.reload(); // Reload to toggle back to signin or handled by parent state
               }, 2000);
             }
           } catch (error) {
             if (error?.response?.data?.error === "User already exists") {
-              ErrorToast('User Already Exist!')
+              ErrorToast('User already exists in our records.');
             } else {
-              ErrorToast('We are facing some issue. Try Again!')
+              ErrorToast('Registration failed. Please try again later.')
             }
           }
         }
       } else {
-        WarningToast("Password and Confirm Password must be same!");
+        WarningToast("Passwords do not match.");
       }
     } else {
-      WarningToast("Must fill all fields!");
+      WarningToast("Please complete all required fields.");
     }
   };
 
-  const validateFields = () => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    // NOTE: This is a strict password regex requiring letters, numbers, and symbols.
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*_=+-]).{8,}$/;
-    const nameRegex = /^[a-zA-Z ]*$/;
-
-    if (!emailRegex.test(email)) {
-      ErrorToast('Invalid Email!');
-      return false;
-    }
-
-    if (!passwordRegex.test(password)) {
-      ErrorToast('Password should be at least 8 characters long and contain at least one letter, one number, and one symbol!');
-      return false;
-    }
-
-    if (!nameRegex.test(name)) {
-      ErrorToast('Name should contain letters and spaces only!');
-      return false;
-    }
-
-    if (!nameRegex.test(companyName)) {
-      ErrorToast('Company Name should contain letters and spaces only!');
-      return false;
-    }
-
-    return true;
-  };
-  // --- End API and Validation Logic ---
-
-  
   return (
-    // 1. WIDTH FIX: Removed restrictive width classes, setting it to full width.
-    <div className="w-full flex flex-col justify-center items-center px-0">
-      
-      {/* Header text updated for dark theme */}
-      <div className="font-Ubuntu self-start mb-6 w-full">
-        <h1 className="text-3xl font-bold text-white tracking-tight">
-          Join us Today!
-        </h1>
-        <p className="text-gray-400 mt-1">
-          Create account to become a member
-        </p>
+    <div className="w-full flex flex-col font-Ubuntu">
+      <div className="mb-8">
+        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Create Account</h3>
+        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Register a new platform account</p>
       </div>
-      
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col w-full items-center font-Ubuntu"
-      >
-        {/* Email Field - Full Width */}
-        <div className="w-full flex flex-col my-3">
-          <label htmlFor="email" className="my-2 text-gray-300 font-semibold text-sm">
-            Email
-          </label>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Email Address</label>
           <input
-            // Input styling updated for dark background, subtle border, and white text
-            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
-            placeholder="example@gmail.com"
+            className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500"
+            placeholder="NAME@COMPANY.COM"
             type="email"
-            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            id="email" // Added missing ID for better accessibility
           />
         </div>
 
-        {/* Name and Company Name - Split Row */}
-        <div className="w-full flex flex-col md:flex-row my-3 space-y-3 md:space-y-0 md:space-x-4">
-          
-          <div className="w-full md:w-1/2">
-            <label htmlFor="name" className="my-2 text-gray-300 font-semibold text-sm">
-              Full Name
-            </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Full Name</label>
             <input
-              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
-              placeholder="Full Name"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500 uppercase font-bold text-[10px]"
+              placeholder="YOUR NAME"
               type="text"
-              name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              id="name"
             />
           </div>
-          
-          <div className="w-full md:w-1/2">
-            <label htmlFor="companyName" className="my-2 text-gray-300 font-semibold text-sm">
-              Company Name
-            </label>
+          <div className="space-y-2">
+            <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Company</label>
             <input
-              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
-              placeholder="Datalogs"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500 uppercase font-bold text-[10px]"
+              placeholder="ORGANIZATION"
               type="text"
-              name="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              id="companyName"
             />
           </div>
         </div>
 
-        {/* Password and Confirm Password - Split Row */}
-        <div className="w-full flex flex-col md:flex-row my-3 space-y-3 md:space-y-0 md:space-x-4">
-          
-          <div className="w-full md:w-1/2">
-            <label htmlFor="password" className="my-2 text-gray-300 font-semibold text-sm">
-              Password
-            </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Password</label>
             <input
-              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500 font-mono"
               placeholder="••••••••"
               type="password"
-              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              id="password"
             />
           </div>
-          
-          <div className="w-full md:w-1/2">
-            <label htmlFor="confirmPassword" className="my-2 text-gray-300 font-semibold text-sm">
-              Confirm Password
-            </label>
+          <div className="space-y-2">
+            <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Confirm Password</label>
             <input
-              className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500 font-mono"
               placeholder="••••••••"
               type="password"
-              name="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              id="confirmPassword"
             />
           </div>
         </div>
-        
-        {/* Submit Button */}
-        <input
-          // Button styling updated for hover effect and gradient color match
-          className="bg-gradient-to-r from-blue-600 to-cyan-500 w-full text-white 
-                     text-lg px-7 py-3 mt-8 mb-5 rounded-lg font-semibold 
-                     hover:opacity-90 transition cursor-pointer"
+
+        <button
+          className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-xl shadow-red-600/10 active:scale-95 mt-6"
           type="submit"
-          value="SIGN UP"
-        />
+        >
+          Sign Up
+        </button>
       </form>
-      {children}
     </div>
   );
 };

@@ -3,12 +3,16 @@ import SettingsText from "@/components/atoms/SettingsText";
 import { ErrorToast, SuccessToast } from "@/components/atoms/toastUtils/Toast";
 import useFetch from "@/hooks/useFetch";
 import instance from "@/axios/axios";
-import { useSelector } from "react-redux";
+
+const getToken = () => {
+    try {
+        return JSON.parse(localStorage.getItem("userData"))?.token || "";
+    } catch { return ""; }
+};
 
 const UpdateGitHubLimit = () => {
     const [limit, setLimit] = useState(5);
     const [isSaving, setIsSaving] = useState(false);
-    const authToken = useSelector((state) => state.user.token);
 
     const { data, error, loading, fetchData } = useFetch("/api/github/limit");
 
@@ -30,7 +34,7 @@ const UpdateGitHubLimit = () => {
                 { limit },
                 {
                     headers: {
-                        Authorization: `Bearer ${authToken}`,
+                        Authorization: `Bearer ${getToken()}`,
                     },
                 }
             );
@@ -49,21 +53,21 @@ const UpdateGitHubLimit = () => {
         <div className="flex w-full flex-col p-2 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="self-end mb-4">
                 <button
-                    className="bg-purple-600 hover:bg-purple-700 h-fit px-6 py-2 rounded-lg text-white font-bold transition-all shadow-lg shadow-purple-900/40 active:scale-95 disabled:opacity-50"
+                    className="bg-gradient-to-r from-red-600 to-red-900 h-fit px-8 py-2.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-red-950/40 active:scale-95 disabled:opacity-50"
                     onClick={handleSave}
                     disabled={loading || isSaving}
                 >
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSaving ? "Updating..." : "Establish Limit"}
                 </button>
             </div>
-            <div className="flex w-full flex-col md:w-[85%] lg:w-[70%] border border-gray-800 self-center shadow-2xl shadow-purple-900/10 p-6 xs:p-10 rounded-2xl bg-[#141414]">
+            <div className="flex w-full flex-col md:w-[85%] lg:w-[70%] border border-red-900/20 self-center shadow-2xl shadow-red-900/10 p-6 xs:p-10 rounded-2xl bg-[#0a0a0a]">
                 <SettingsText
                     Heading={"Monitoring Limit"}
                     Description={
                         "Set the maximum number of GitHub Action pipelines to monitor. This helps manage performance and API quota usage."
                     }
                 />
-                <div className="w-full flex flex-col xs:flex-row items-center justify-between border border-gray-800 bg-[#1c1c1c] p-6 rounded-xl mt-10 hover:border-gray-700 transition-colors">
+                <div className="w-full flex flex-col xs:flex-row items-center justify-between border border-[#1a1a1a] bg-[#0d0d0d] p-6 rounded-xl mt-10 hover:border-red-900/30 transition-colors">
                     <div className="flex flex-col">
                         <p className="text-gray-100 font-bold text-lg tracking-tight">Maximum Pipelines</p>
                         <p className="text-sm text-gray-500">Number of pipelines to track across all accounts</p>
@@ -72,7 +76,7 @@ const UpdateGitHubLimit = () => {
                         <select
                             value={limit}
                             onChange={(e) => setLimit(Number(e.target.value))}
-                            className="w-full bg-[#252525] border border-gray-700 text-white text-sm rounded-xl focus:ring-purple-600 focus:border-purple-600 block p-4 outline-none appearance-none cursor-pointer transition-all hover:bg-[#2a2a2a]"
+                            className="w-full bg-[#0d0d0d] border border-[#1a1a1a] text-white text-[10px] font-bold uppercase tracking-widest rounded-xl focus:ring-2 focus:ring-red-600 block p-4 outline-none appearance-none cursor-pointer transition-all hover:bg-[#111]"
                             disabled={isSaving}
                         >
                             {[1, 5, 10, 20, 50, 100].map((val) => (

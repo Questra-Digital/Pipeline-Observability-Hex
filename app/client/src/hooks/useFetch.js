@@ -6,7 +6,7 @@ const useFetch = (url, optionalHeaderValue = true) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (queryParams = "") => {
     setLoading(true);
     setError(null);
     setData(null);
@@ -17,7 +17,7 @@ const useFetch = (url, optionalHeaderValue = true) => {
       const headers = {
         Authorization: `Bearer ${authToken}`,
       };
-      const response = await instance.get(url, { headers });
+      const response = await instance.get(`${url}${queryParams}`, { headers });
       if (response.status === 200) setData(response.data);
       else setError("Failed. Please try again!");
       console.log(response);

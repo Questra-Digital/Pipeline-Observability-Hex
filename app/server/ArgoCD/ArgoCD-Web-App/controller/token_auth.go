@@ -13,9 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
-func TokenAuth(token string) bool {
-
+// TokenAuth returns true if the token is valid for the given user's ArgoCD instance.
+func TokenAuth(token string, userId string) bool {
 	// fetch thr url from mongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
@@ -23,11 +22,14 @@ func TokenAuth(token string) bool {
 		return false
 	}
 	defer mongoClient.Disconnect(context.TODO())
+
+	filter := bson.M{"userId": userId}
+
 	collection := mongoClient.Database("admin").Collection("argocd_api")
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching ArgoCD URL for token auth: ", err)
 		return false
 	}
 	url := result["argocdURL"].(string)
@@ -51,6 +53,7 @@ func TokenAuth(token string) bool {
 		return false
 	}
 	defer resp.Body.Close()
+
 	// Check if the response status is not OK
 	if resp.StatusCode != http.StatusOK {
 		return false

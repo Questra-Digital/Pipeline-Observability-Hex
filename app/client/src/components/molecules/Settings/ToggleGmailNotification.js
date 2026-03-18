@@ -42,22 +42,22 @@ const ToggleGmailNotification = () => {
     <div className="flex w-full flex-col p-2">
       <div className="self-end">
         <button
-          className="bg-purple-600 h-fit px-3 py-1 rounded-md"
+          className="bg-gradient-to-r from-red-600 to-red-900 px-6 py-2 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-red-950/20"
           onClick={handleSave}
           disabled={loading}
         >
-          {loading ? "Saving..." : "Save"}
+          {loading ? "Syncing..." : "Apply Status"}
         </button>
       </div>
-      <div className="flex w-full flex-col md:w-[60%] border border-gray-800 self-center shadow shadow-blue-950 p-2 xs:p-10 rounded-lg">
+      <div className="flex w-full flex-col md:w-[60%] border border-red-900/10 self-center shadow-2xl shadow-red-900/5 p-6 xs:p-10 rounded-2xl bg-[#0a0a0a]">
         <SettingsText
           Heading={"Email Notifications"}
           Description={
             "Enhance your awareness: Enable Email Notifications to receive instant alerts and updates, ensuring you stay informed about critical developments and changes."
           }
         />
-        <div className="w-[100%] flex flex-col xs:flex-row items-center xs:justify-evenly border border-gray-700 rounded-lg mt-20">
-          <p className="my-2">Gmail Notifications</p>
+        <div className="w-[100%] flex flex-col xs:flex-row items-center xs:justify-evenly border border-[#1a1a1a] bg-[#0d0d0d] rounded-xl mt-20 p-6 hover:border-red-900/30 transition-colors">
+          <p className="my-2 text-gray-100 font-bold">Gmail Notifications</p>
           <label className="inline-flex items-center cursor-pointer">
             <input
               type="checkbox"

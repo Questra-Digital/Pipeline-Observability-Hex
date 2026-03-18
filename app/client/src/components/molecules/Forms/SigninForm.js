@@ -4,25 +4,22 @@ import LinkAtom from "@/components/atoms/LinkAtom";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import instance from "@/axios/axios";
 import { useRouter } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { addUser } from "@/redux/features/user/userSlice";
 
-const LoginForm = ({children}) => {
+const LoginForm = () => {
   const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
-  const user = useSelector((state) => state.user);
-  console.log(user);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password) {
       try {
-        const response = await instance.post('/api/signin', {email, password});
+        const response = await instance.post('/api/signin', { email, password });
         const token = response.data.token;
-        if(response.data.message === "User signed in successfully"){
+        if (response.data.message === "User signed in successfully") {
           setEmail("");
           setPassword("");
           const newUser = {
@@ -30,95 +27,64 @@ const LoginForm = ({children}) => {
             token: token
           }
           dispatch(addUser(newUser));
-          SuccessToast('Signin Successful!');
-            router.push('/home');
+          SuccessToast('Authentication Successful');
+          router.push('/home');
         }
       } catch (error) {
-        if(error?.response?.data?.error)
+        if (error?.response?.data?.error)
           ErrorToast(error.response.data.error);
         else
-          ErrorToast('We are facing some issue. Try Again!')
+          ErrorToast('Authentication failed. Please verify credentials.')
       }
     } else {
-      WarningToast("Must fill all fields!");
+      WarningToast("Please complete all required fields.");
     }
   };
 
   return (
-    // Removed overly complex width classes. Inherit width from parent.
-    // Adjusted padding for a cleaner look.
-    <div className="w-full flex flex-col justify-center items-center px-0">
-      
-      {/* Header text updated for dark theme */}
-      <div className="font-Ubuntu self-start mb-6 w-full">
-        <h1 className="text-3xl font-bold text-white tracking-tight">
-          Get Started Now
-        </h1>
-        <p className="text-gray-400 mt-1">
-          Enter your credentials to access your account
-        </p>
+    <div className="w-full flex flex-col font-Ubuntu">
+      <div className="mb-8">
+        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Welcome Back</h3>
+        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Please sign in to your accounts</p>
       </div>
-      
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col w-full items-center font-Ubuntu"
-      >
-        <div className="w-full flex flex-col my-3">
-          {/* Label updated to be light gray */}
-          <label htmlFor="email" className="my-2 text-gray-300 font-semibold text-sm">
-            Email
-          </label>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1">Email Address</label>
           <input
-            // Input styling updated for dark background, subtle border, and white text
-            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
-            placeholder="example@gmail.com"
+            className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500"
+            placeholder="NAME@COMPANY.COM"
             type="email"
-            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
-        <div className="w-full flex flex-col my-3">
-          {/* Label updated to be light gray */}
-          <label htmlFor="password" className="my-2 text-gray-300 font-semibold text-sm">
-            Password
-          </label>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center px-1">
+            <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Password</label>
+            <LinkAtom
+              link={"/resetPassword"}
+              text={"Recover Key"}
+              properties="text-[10px] text-red-600 hover:text-red-500 font-black uppercase tracking-widest transition-colors"
+            />
+          </div>
           <input
-            // Input styling updated for dark background, subtle border, and white text
-            className="w-full px-4 py-3 h-12 outline-none rounded-lg 
-                       bg-gray-900/80 border border-gray-800 text-white 
-                       placeholder-gray-600 focus:ring-2 focus:ring-blue-500 transition"
+            className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white placeholder-gray-700 outline-none focus:border-red-600/40 transition-all duration-500 font-mono"
             placeholder="••••••••"
             type="password"
-            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        
-        {/* Forget Password link styling fix */}
-        <div className="w-full flex justify-end mb-4">
-          <LinkAtom
-            link={"/resetPassword"}
-            text={"Forget Password?"}
-            // Updated link color for visibility against the dark background
-            properties="text-blue-400 hover:text-cyan-300 transition underline"
-          />
-        </div>
-        
-        <input
-          // Button styling updated for hover effect and gradient color match
-          className="bg-gradient-to-r from-blue-600 to-cyan-500 w-full text-white 
-                     text-lg px-7 py-3 my-5 rounded-lg font-semibold 
-                     hover:opacity-90 transition cursor-pointer"
+
+        <button
+          className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-xl shadow-red-600/10 active:scale-95 mt-4"
           type="submit"
-          value="LOGIN"
-        />
+        >
+          Sign In
+        </button>
       </form>
-      {children}
     </div>
   );
 };

@@ -13,7 +13,6 @@ import (
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -39,9 +38,8 @@ var upgrader = websocket.Upgrader{
 }
 
 // get all availble pipelines
-func getAvailblePipelineMap() (map[string]int, error) {
-	// Replace this with your actual implementation for retrieving pipeline names
-	allPipeline, err := GetAllPipelineNames()
+func getAvailblePipelineMap(userId string) (map[string]int, error) {
+	allPipeline, err := GetAllPipelineNames(userId)
 	if err != nil {
 		fmt.Println("Token Error")
 		return nil, err
@@ -90,35 +88,33 @@ func ReadMessageFromWebSocket(conn *websocket.Conn) (Message, error) {
 }
 
 // FetchPipelineData fetches data from the specified pipeline URL using the provided token.
-func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
-	// fetch the url from the database
-	// Connect to the MongoDB
+func FetchPipelineData(pipelineName string, userId string) (map[string]interface{}, error) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		log.Println("Error: ", err)
 		return nil, err
 	}
 	defer mongoClient.Disconnect(context.TODO())
+
+	filter := bson.M{"userId": userId}
+
 	collection := mongoClient.Database("admin").Collection("argocd_api")
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching argo api: ", err)
 		return nil, err
 	}
 	url := result["argocdURL"].(string) + "/" + pipelineName + "/resource-tree"
-	// fmt.Printf("%v", url)
 
 	// get the token from the database
 	collection = mongoClient.Database("admin").Collection("argocdToken")
-	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching argo token: ", err)
 		return nil, err
 	}
 	token := result["value"].(string)
-
-	fmt.Println("Token: ", token)
 
 	bearer := "Bearer " + token
 
@@ -151,35 +147,33 @@ func FetchPipelineData(pipelineName string) (map[string]interface{}, error) {
 	return responseData, nil
 }
 
-func FetchPipelineMetrics(pipelineName string) (map[string]interface{}, error) {
-	// fetch the url from the database
-	// Connect to the MongoDB
+func FetchPipelineMetrics(pipelineName string, userId string) (map[string]interface{}, error) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		log.Println("Error: ", err)
 		return nil, err
 	}
 	defer mongoClient.Disconnect(context.TODO())
+
+	filter := bson.M{"userId": userId}
+
 	collection := mongoClient.Database("admin").Collection("argocd_api")
 	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching argo api: ", err)
 		return nil, err
 	}
 	url := result["argocdURL"].(string) + "/" + pipelineName
-	// fmt.Printf("%v", url)
 
 	// get the token from the database
 	collection = mongoClient.Database("admin").Collection("argocdToken")
-	err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error fetching argo token: ", err)
 		return nil, err
 	}
 	token := result["value"].(string)
-
-	fmt.Println("Token: ", token)
 
 	bearer := "Bearer " + token
 
@@ -226,8 +220,13 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 
 		health, ok := nodeMap["health"].(map[string]interface{})
 		if kind == "Pod" {
-			name := nodeMap["networkingInfo"].(map[string]interface{})["labels"].(map[string]interface{})["app"].(string)
-			fmt.Printf("Name : %s\n", name)
+			if networkingInfo, ok := nodeMap["networkingInfo"].(map[string]interface{}); ok {
+				if labels, ok := networkingInfo["labels"].(map[string]interface{}); ok {
+					if app, ok := labels["app"].(string); ok {
+						fmt.Printf("Name : %s\n", app)
+					}
+				}
+			}
 		}
 
 		if ok {
@@ -253,10 +252,10 @@ func ParsePipelineData(data []interface{}) HealthSummary {
 
 // main function
 func DataPipelineState(c *gin.Context) {
-
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file")
+	userEmail := GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -269,7 +268,7 @@ func DataPipelineState(c *gin.Context) {
 	pipeline_name := "" // Default value if the parameter is not provided
 
 	// get all availble pipelines map
-	availble_pipeline, err := getAvailblePipelineMap()
+	availble_pipeline, err := getAvailblePipelineMap(userEmail)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -280,20 +279,24 @@ func DataPipelineState(c *gin.Context) {
 			_, isPipelineAvailble := availble_pipeline[string(pipeline_name)]
 			if isPipelineAvailble {
 				// get pipeline data
-				responseData, err := FetchPipelineData(pipeline_name)
+				responseData, err := FetchPipelineData(pipeline_name, userEmail)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				summary := ParsePipelineData(responseData["nodes"].([]interface{}))
+				
+				var nodes []interface{}
+				if n, ok := responseData["nodes"].([]interface{}); ok {
+					nodes = n
+				}
+				summary := ParsePipelineData(nodes)
 
-				metrics, err := FetchPipelineMetrics(pipeline_name)
+				metrics, err := FetchPipelineMetrics(pipeline_name, userEmail)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
 
-				// summary.ProjectExecutions = len(metrics["status"].(map[string]interface{})["history"].([]interface{}))
 				summary.Status = metrics["status"]
 
 				// send summary to frontend

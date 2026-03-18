@@ -4,12 +4,16 @@ import SettingsText from "@/components/atoms/SettingsText";
 import { ErrorToast, SuccessToast } from "@/components/atoms/toastUtils/Toast";
 import useFetch from "@/hooks/useFetch";
 import instance from "@/axios/axios";
-import { useSelector } from "react-redux";
+
+const getToken = () => {
+    try {
+        return JSON.parse(localStorage.getItem("userData"))?.token || "";
+    } catch { return ""; }
+};
 
 const GitHubAccountList = () => {
     const [accounts, setAccounts] = useState([]);
     const [isDeleting, setIsDeleting] = useState(null); // Track which ID is being deleted
-    const authToken = useSelector((state) => state.user.token);
 
     const { data, error, loading, fetchData } = useFetch("/api/github/accounts");
 
@@ -40,7 +44,7 @@ const GitHubAccountList = () => {
                 `/api/github/accounts/${accountId}`,
                 {
                     headers: {
-                        Authorization: `Bearer ${authToken}`,
+                        Authorization: `Bearer ${getToken()}`,
                     },
                 }
             );

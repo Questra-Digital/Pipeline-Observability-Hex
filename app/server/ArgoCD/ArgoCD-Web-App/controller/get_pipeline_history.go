@@ -3,23 +3,21 @@ package controller
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// IsPipelineAvailable checks if the requested pipeline is available
-func IsPipelineAvailable(pipelineName string, c *gin.Context) bool {
-	// Get all available pipelines
-	availblePipelines, err := GetAllPipelineNames()
+// IsPipelineAvailable checks if the requested pipeline is available for the given user
+func IsPipelineAvailable(pipelineName string, userId string) bool {
+	// Get all available pipelines for this user
+	availblePipelines, err := GetAllPipelineNames(userId)
 	if err != nil {
-		fmt.Println("Token Error")
+		fmt.Println("Error fetching pipeline names for availability check: ", err)
 		return false
 	}
 
@@ -34,8 +32,8 @@ func IsPipelineAvailable(pipelineName string, c *gin.Context) bool {
 	return _isPipelineAvailable
 }
 
-// FindPipelineHistory retrieves pipeline history documents from MongoDB
-func findPipelineHistory(pipelineName string) ([]map[string]interface{}, error) {
+// findPipelineHistory retrieves pipeline history documents from MongoDB for a specific user
+func findPipelineHistory(pipelineName string, userId string) ([]map[string]interface{}, error) {
 	client, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		return nil, err
@@ -44,10 +42,10 @@ func findPipelineHistory(pipelineName string) ([]map[string]interface{}, error) 
 
 	collection := client.Database("admin").Collection("argocd")
 
-	filter := bson.M{"pipeline_name": pipelineName}
-	options := options.Find().SetSort(bson.D{{Key: "time", Value: -1}})
+	filter := bson.M{"pipeline_name": pipelineName, "userId": userId}
+	opts := options.Find().SetSort(bson.D{{Key: "time", Value: -1}})
 
-	cursor, err := collection.Find(context.TODO(), filter, options)
+	cursor, err := collection.Find(context.TODO(), filter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +66,10 @@ func findPipelineHistory(pipelineName string) ([]map[string]interface{}, error) 
 }
 
 func PipelineHistory(c *gin.Context) {
-
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file")
+	userEmail := GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
 	}
 
 	// Get the pipeline parameter from the query string
@@ -83,15 +81,16 @@ func PipelineHistory(c *gin.Context) {
 		return
 	}
 
-	isPipelineAvailable := IsPipelineAvailable(pipelineName, c)
+	isPipelineAvailable := IsPipelineAvailable(pipelineName, userEmail)
 	if !isPipelineAvailable {
 		c.JSON(http.StatusNoContent, gin.H{"message": "Requested pipeline is not available"})
 		return
 	}
 
-	history, err := findPipelineHistory(pipelineName)
+	history, err := findPipelineHistory(pipelineName, userEmail)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to MongoDB"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching history from MongoDB"})
+		return
 	}
 
 	// Send the array of documents as a JSON response

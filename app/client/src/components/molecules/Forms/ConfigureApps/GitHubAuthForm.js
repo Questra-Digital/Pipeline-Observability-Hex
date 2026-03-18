@@ -2,9 +2,15 @@
 import instance from "@/axios/axios";
 import { ErrorToast, SuccessToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import { useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import { addApp } from "@/redux/features/apps/appsSlice";
 import { useRouter } from "next/navigation";
+
+const getToken = () => {
+    try {
+        return JSON.parse(localStorage.getItem("userData"))?.token || "";
+    } catch { return ""; }
+};
 
 const GitHubAuthForm = ({ closeModal }) => {
     const dispatch = useDispatch();
@@ -12,7 +18,6 @@ const GitHubAuthForm = ({ closeModal }) => {
     const [pat, setPat] = useState("");
     const [accountName, setAccountName] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const authToken = useSelector((state) => state.user.token);
 
     const handleConfigure = async (e) => {
         e.preventDefault();
@@ -28,7 +33,7 @@ const GitHubAuthForm = ({ closeModal }) => {
                 { pat, label: accountName },
                 {
                     headers: {
-                        Authorization: `Bearer ${authToken}`,
+                        Authorization: `Bearer ${getToken()}`,
                     },
                 }
             );

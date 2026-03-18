@@ -41,35 +41,7 @@ func parseJSONResponse(resp *http.Response) ([]string, error) {
 }
 
 // GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
-func GetAllPipelineNames() ([]string, error) {
-	err := godotenv.Load(".env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
-	// fetch thr url from mongoDB
-	// Connect to the MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	defer mongoClient.Disconnect(context.TODO())
-	collection := mongoClient.Database("admin").Collection("argocd_api")
-	var result bson.M
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&result)
-	if err != nil {
-		log.Println("Error: ", err)
-		return nil, err
-	}
-	url := result["argocdURL"].(string)
-
-	// get the token from the .env
-	token := os.Getenv("ARGOCD_TOKEN")
-
-	// fmt.Println("Token: ", token)
-
+func GetAllPipelineNames(url string, token string) ([]string, error) {
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
@@ -90,6 +62,10 @@ func GetAllPipelineNames() ([]string, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ArgoCD API returned status: %d", resp.StatusCode)
+	}
 
 	pipelineNames, err := parseJSONResponse(resp)
 	return pipelineNames, err
