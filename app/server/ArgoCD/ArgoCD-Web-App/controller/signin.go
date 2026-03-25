@@ -55,6 +55,19 @@ func isUserExists(email string, password string) (bool, bson.M) {
 	return true, result
 }
 
+// safeString safely extracts a string field from a bson.M document, returning "" if missing or wrong type.
+func safeString(m bson.M, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
 func generateToken(email string) (string, error) {
 	// Load .env file
 	err := godotenv.Load(".env")
@@ -106,10 +119,10 @@ func Signin(c *gin.Context) {
 
 	// Send token and message in response body
 	c.JSON(http.StatusOK, gin.H{
-		"message": "User signed in successfully",
-		"token":   token,
-		"name": result["name"].(string),
-		"companyname": result["companyname"].(string),
-		"email": result["email"].(string),
+		"message":     "User signed in successfully",
+		"token":       token,
+		"name":        safeString(result, "name"),
+		"companyname": safeString(result, "companyname"),
+		"email":       safeString(result, "email"),
 	})
 }

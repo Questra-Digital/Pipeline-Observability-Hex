@@ -46,7 +46,7 @@ const GitHubRepoSelector = () => {
                 if (acc.id === accountId) {
                     return {
                         ...acc,
-                        repositories: acc.repositories.map(repo => {
+                        repositories: (acc.repositories || []).map(repo => {
                             if (repo.repoId === repoId) {
                                 return { ...repo, enabled: !repo.enabled };
                             }

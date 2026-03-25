@@ -68,12 +68,15 @@ const Pipelines = () => {
 
   const fetchLogs = async (job) => {
     try {
-      const resp = await fetch(`/api/github/logs?owner=${job.owner}&repo=${job.repo}&jobId=${job.id}`);
+      const token = JSON.parse(localStorage.getItem("userData"))?.token || "";
+      const resp = await fetch(`http://127.0.0.1:8000/api/github/logs?owner=${job.owner}&repo=${job.repo}&jobId=${job.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await resp.json();
       if (data.url) setLogUrl(data.url);
-      else ErrorToast("Failed to fetch log direct link");
+      else ErrorToast("Failed to fetch log URL");
     } catch (err) {
-      ErrorToast("Error connecting to log service");
+      ErrorToast("Error fetching logs");
     }
   };
 
@@ -483,12 +486,24 @@ const Pipelines = () => {
     );
   };
 
+
+
   const renderGitHubRunDetails = () => {
     if (!selectedRepo) return null;
     const repoRuns = ghRuns?.filter(run => run.repoId === selectedRepo.repoId) || [];
 
+    // Status tab computed values
+    const total = repoRuns.length;
+    const successes = repoRuns.filter(r => r.conclusion === 'success').length;
+    const failures = repoRuns.filter(r => r.conclusion === 'failure').length;
+    const successRate = total > 0 ? ((successes / total) * 100).toFixed(1) : null;
+    const avgDurSec = total > 0 ? Math.round(repoRuns.reduce((s, r) => s + (r.duration || 0), 0) / total) : 0;
+    const fmtDur = (s) => { if (!s) return '—'; const m = Math.floor(s / 60), sec = s % 60; return m > 0 ? `${m}m ${sec}s` : `${sec}s`; };
+    const latestRun = repoRuns[0];
+    const statusColor = successRate >= 80 ? 'text-emerald-500' : successRate >= 50 ? 'text-amber-500' : 'text-red-500';
+
     return (
-      <div className="w-full max-w-7xl px-4 mb-24 relative z-10 flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+      <div className="w-full max-w-7xl px-4 mb-24 relative z-10 flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-x-hidden">
 
         {/* DETAIL NAVIGATION HEADER */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 pb-10 border-b border-red-900/20">
@@ -501,26 +516,26 @@ const Pipelines = () => {
             </button>
             <div className="flex flex-col">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] text-red-600 font-black tracking-[0.4em] uppercase opacity-60">Stream Distribution</span>
+                <span className="text-[10px] text-gray-600 font-bold tracking-widest uppercase">GitHub Actions</span>
                 <span className="text-[10px] text-gray-700 font-black">/</span>
-                <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{selectedRepo.accountOwner}</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{selectedRepo.accountOwner}</span>
               </div>
               <h2 className="text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{selectedRepo.name}</h2>
             </div>
           </div>
 
-          <div className="flex items-center bg-[#050505] p-1.5 rounded-2xl border border-white/5 backdrop-blur-3xl shadow-2xl">
+          <div className="flex items-center bg-[#050505] p-1.5 rounded-2xl border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto no-scrollbar">
             {[
-              { id: 'runs', label: 'Telemetry' },
-              { id: 'status', label: 'Diagnostics' },
-              { id: 'monitoring', label: 'Neural Trace' },
-              { id: 'analytics', label: 'Performance' },
-              { id: 'settings', label: 'Control' }
+              { id: 'runs', label: 'Run History' },
+              { id: 'status', label: 'Status' },
+              { id: 'monitoring', label: 'Job Trace' },
+              { id: 'analytics', label: 'Analytics' },
+              { id: 'settings', label: 'Settings' }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setDetailTab(tab.id)}
-                className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${detailTab === tab.id ? "bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]" : "text-gray-600 hover:text-gray-300"}`}
+                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap ${detailTab === tab.id ? "bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]" : "text-gray-600 hover:text-gray-300"}`}
               >
                 {tab.label}
               </button>
@@ -533,54 +548,49 @@ const Pipelines = () => {
         ) : detailTab === 'settings' ? (
           renderGitHubSettings()
         ) : detailTab === 'monitoring' ? (
-          <div className="grid grid-cols-1 gap-10">
-            <div className="glass-card rounded-[3rem] p-12 overflow-hidden relative group">
+          <div className="grid grid-cols-1 gap-8">
+            <div className="glass-card rounded-[2rem] p-8 overflow-hidden relative group">
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/40 to-transparent"></div>
-              <div className="absolute -right-20 -top-20 w-80 h-80 bg-red-600/5 blur-[120px] rounded-full group-hover:bg-red-600/10 transition-colors duration-1000"></div>
 
-              <div className="relative z-10 mb-12 flex items-center justify-between">
+              <div className="relative z-10 mb-8 flex items-center justify-between">
                 <div>
-                  <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Neural Trace Flow</h3>
-                  <p className="text-[10px] text-red-600 font-black uppercase tracking-[0.4em] mt-2">Active Logic Distribution</p>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight">Job Trace — Latest Run</h3>
+                  <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mt-1">Step-by-step execution breakdown for the most recent workflow run</p>
                 </div>
-                <div className="flex items-center gap-3 px-5 py-2 rounded-full bg-emerald-500/5 border border-emerald-500/20">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                  <span className="text-[9px] text-emerald-500 font-black uppercase tracking-widest">Live Link Established</span>
-                </div>
+                {repoRuns[0] && (
+                  <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-emerald-500/5 border border-emerald-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[9px] text-emerald-500 font-black uppercase tracking-widest">Run #{String(repoRuns[0].runId).slice(-6)}</span>
+                  </div>
+                )}
               </div>
 
               {repoRuns[0] ? (
-                <div className="relative z-10 flex flex-col gap-12">
+                <div className="relative z-10 flex flex-col gap-6">
                   {repoRuns[0].jobs?.map((job, jIdx) => (
                     <div key={job.id} className="relative">
-                      {/* Connection Line to next job */}
                       {jIdx < repoRuns[0].jobs.length - 1 && (
-                        <div className="absolute left-8 top-full h-12 w-[2px] bg-gradient-to-b from-red-600/20 to-transparent"></div>
+                        <div className="absolute left-7 top-full h-6 w-[2px] bg-gradient-to-b from-red-600/20 to-transparent"></div>
                       )}
-
-                      <div className="p-10 bg-black/40 rounded-[2.5rem] border border-white/5 hover:border-red-600/20 transition-all duration-500 group/job">
-                        <div className="flex items-center justify-between mb-8">
-                          <div className="flex items-center gap-5">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all ${job.conclusion === 'success' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-red-600/5 border-red-600/30 text-red-600'}`}>
+                      <div className="p-6 bg-black/40 rounded-2xl border border-white/5 hover:border-red-600/20 transition-all duration-300 group/job">
+                        <div className="flex items-center justify-between mb-5">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base border transition-all ${job.conclusion === 'success' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-red-600/5 border-red-600/30 text-red-600'}`}>
                               {job.conclusion === 'success' ? '✓' : '!'}
                             </div>
                             <div>
-                              <h4 className="text-xl font-black text-white uppercase tracking-tight group-hover/job:text-red-500 transition-colors uppercase">{job.name}</h4>
-                              <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest">Cluster 0{jIdx + 1} • {job.conclusion || 'Running'}</span>
+                              <h4 className="text-sm font-black text-white uppercase tracking-tight group-hover/job:text-red-400 transition-colors">{job.name}</h4>
+                              <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Job {jIdx + 1} · {job.conclusion || 'running'}</span>
                             </div>
                           </div>
-                          <button className="text-[10px] text-gray-600 font-black uppercase tracking-widest hover:text-red-500 transition-colors">Parameters →</button>
                         </div>
-
-                        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                           {job.steps?.map((step, sIdx) => (
-                            <div key={sIdx} className="bg-[#050505] p-5 rounded-2xl border border-white/5 hover:border-red-600/30 transition-all group/step relative overflow-hidden">
-                              <div className={`absolute left-0 top-0 bottom-0 w-1 ${step.conclusion === 'success' ? 'bg-emerald-500' : 'bg-red-600'}`}></div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-[8px] text-gray-800 font-black">0{step.number}</span>
-                                {step.conclusion !== 'success' && <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>}
-                              </div>
-                              <p className="text-[10px] font-black text-gray-500 group-hover/step:text-white transition-colors uppercase truncate">{step.name}</p>
+                            <div key={sIdx} className="bg-[#050505] p-3 rounded-xl border border-white/5 hover:border-red-600/20 transition-all group/step relative overflow-hidden">
+                              <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${step.conclusion === 'success' ? 'bg-emerald-500' : step.conclusion === 'failure' ? 'bg-red-600' : 'bg-gray-700'}`}></div>
+                              <span className="text-[8px] text-gray-700 font-bold block mb-1">Step {step.number}</span>
+                              <p className="text-[10px] font-bold text-gray-400 group-hover/step:text-white transition-colors truncate" title={step.name}>{step.name}</p>
+                              <span className={`text-[8px] font-black uppercase mt-1 block ${step.conclusion === 'success' ? 'text-emerald-500' : 'text-red-500'}`}>{step.conclusion || 'pending'}</span>
                             </div>
                           ))}
                         </div>
@@ -589,72 +599,74 @@ const Pipelines = () => {
                   ))}
                 </div>
               ) : (
-                <div className="h-64 flex flex-col items-center justify-center bg-black/20 rounded-[2.5rem] border-2 border-dashed border-white/5">
-                  <span className="text-gray-800 font-black text-sm uppercase tracking-[0.5em]">No Trace Data Ingested</span>
+                <div className="h-48 flex flex-col items-center justify-center bg-black/20 rounded-2xl border-2 border-dashed border-white/5">
+                  <p className="text-gray-700 font-bold text-sm uppercase tracking-widest">No run data available</p>
+                  <p className="text-gray-800 text-xs font-bold uppercase tracking-widest mt-2">Enable monitoring and wait for runs to sync</p>
                 </div>
               )}
             </div>
           </div>
         ) : detailTab === 'status' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* STABILITY INDEX */}
-            <div className="lg:col-span-2 glass-card rounded-[3rem] p-12 relative overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 glass-card rounded-2xl p-8 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent"></div>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-12">Stream Stability Matrix</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div className="flex flex-col items-center justify-center p-12 bg-black/40 rounded-[2.5rem] border border-white/5 relative">
-                  <svg className="w-48 h-48 -rotate-90">
-                    <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-white/5" />
-                    <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={502} strokeDashoffset={502 * (1 - 0.94)} className="text-red-600 shadow-[0_0_20px_#dc2626]" />
+              <h3 className="text-sm font-black text-white uppercase tracking-tight mb-6">Repository Status Overview</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex flex-col items-center justify-center p-8 bg-black/40 rounded-2xl border border-white/5 relative">
+                  <svg className="w-40 h-40 -rotate-90">
+                    <circle cx="80" cy="80" r="68" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-white/5" />
+                    <circle cx="80" cy="80" r="68" stroke="currentColor" strokeWidth="10" fill="transparent"
+                      strokeDasharray={427} strokeDashoffset={total > 0 ? 427 * (1 - successes / total) : 427}
+                      className={successRate >= 80 ? 'text-emerald-500' : successRate >= 50 ? 'text-amber-500' : 'text-red-500'} />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-white">94%</span>
-                    <span className="text-[9px] text-red-600 font-black uppercase tracking-widest mt-1">Accuracy</span>
+                    <span className={`text-3xl font-black ${statusColor}`}>{successRate !== null ? `${successRate}%` : '—'}</span>
+                    <span className="text-[8px] text-gray-600 font-black uppercase tracking-widest mt-1">Success Rate</span>
                   </div>
                 </div>
-
-                <div className="space-y-6">
+                <div className="space-y-3">
                   {[
-                    { l: "Success Rate", v: "98.2%", c: "text-emerald-500" },
-                    { l: "Avg Duration", v: "4m 12s", c: "text-white" },
-                    { l: "Anomaly Count", v: "2", c: "text-red-600" },
-                    { l: "Node Health", v: "OPTIMAL", c: "text-emerald-500" }
+                    { l: 'Total Runs', v: total || '—', c: 'text-white' },
+                    { l: 'Successful', v: successes || '—', c: 'text-emerald-500' },
+                    { l: 'Failed', v: failures || '—', c: failures > 0 ? 'text-red-500' : 'text-gray-500' },
+                    { l: 'Avg Build Time', v: fmtDur(avgDurSec), c: 'text-blue-400' },
+                    { l: 'Latest Status', v: latestRun?.conclusion?.toUpperCase() || '—', c: latestRun?.conclusion === 'success' ? 'text-emerald-500' : 'text-red-500' }
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-5 bg-black/40 border border-white/5 rounded-2xl">
-                      <span className="text-[10px] text-gray-600 font-black uppercase tracking-widest">{item.l}</span>
+                    <div key={i} className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded-xl">
+                      <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">{item.l}</span>
                       <span className={`text-xs font-black ${item.c}`}>{item.v}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-
-            {/* LIVE PULSE */}
-            <div className="glass-card rounded-[3rem] p-12 flex flex-col justify-between">
-              <div>
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter mb-2">Diagnostic Scan</h3>
-                <p className="text-[10px] text-red-600 font-black uppercase tracking-widest">Real-time Interference</p>
+            <div className="glass-card rounded-2xl p-8 flex flex-col gap-4">
+              <h3 className="text-sm font-black text-white uppercase tracking-tight">Recent Activity</h3>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                {repoRuns.slice(0, 10).map((run, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-black/30 rounded-xl border border-white/5">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${run.conclusion === 'success' ? 'bg-emerald-500' : run.conclusion === 'failure' ? 'bg-red-500' : 'bg-gray-600'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-gray-300 truncate">{run.workflowName}</p>
+                      <p className="text-[8px] text-gray-700 font-bold">{new Date(run.startedAt).toLocaleDateString()}</p>
+                    </div>
+                    <span className="text-[8px] font-black text-gray-500 shrink-0">{Math.round(run.duration || 0)}s</span>
+                  </div>
+                ))}
+                {repoRuns.length === 0 && (
+                  <p className="text-gray-700 text-xs font-bold uppercase tracking-widest text-center py-8">No runs yet</p>
+                )}
               </div>
-              <div className="flex-1 flex flex-col items-center justify-center gap-12 py-12">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full border-4 border-red-600/20 border-t-red-600 animate-spin"></div>
-                  <div className="absolute inset-4 rounded-full border-4 border-white/5 border-b-white/20 animate-[spin_3s_linear_infinite_reverse]"></div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs font-black text-white uppercase tracking-widest mb-2">Neural Engine</p>
-                  <p className="text-[10px] text-gray-700 font-black uppercase tracking-[0.3em]">Synchronising Stream...</p>
-                </div>
-              </div>
-              <button className="w-full py-4 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/20">Restart Engine</button>
             </div>
           </div>
+
+
         ) : (
-          /* TELEMETRY STREAM (RUNS) */
+          /* RUN HISTORY */
           <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between px-4">
-              <span className="text-[10px] text-red-600 font-black uppercase tracking-[0.4em]">Latest Neural Ingestions</span>
-              <span className="text-[10px] text-gray-700 font-black uppercase tracking-widest">{repoRuns.length} Total Telemetry Tracks</span>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-red-600 font-black uppercase tracking-widest">Workflow Run History</span>
+              <span className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">{repoRuns.length} runs</span>
             </div>
 
             <div className="grid grid-cols-1 gap-5">
@@ -686,20 +698,20 @@ const Pipelines = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 w-full lg:w-auto">
+                      <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
                         <button
                           onClick={() => handleLogClick({ id: run.runId, name: run.workflowName, repo: selectedRepo.name, owner: selectedRepo.accountOwner })}
-                          className="flex-1 lg:flex-none px-8 py-4 bg-black/60 border border-white/5 hover:border-red-600/30 text-gray-500 hover:text-red-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                          className="flex-1 lg:flex-none px-6 py-3 bg-black/60 border border-white/5 hover:border-red-600/30 text-gray-500 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                         >
-                          Log Vault
+                          View Logs
                         </button>
                         <a
                           href={run.htmlUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex-1 lg:flex-none px-8 py-4 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/10 active:scale-95 text-center"
+                          className="flex-1 lg:flex-none px-6 py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/10 active:scale-95 text-center"
                         >
-                          Trace Sync
+                          Open on GitHub
                         </a>
                       </div>
                     </div>
@@ -755,9 +767,9 @@ const Pipelines = () => {
       {activeLogJob && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
           <div className="w-full max-w-4xl bg-[#0a0a0a] border border-red-600/30 rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(220,38,38,0.15)] flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
-            <div className="p-10 border-b border-white/5 flex items-center justify-between bg-red-600/5">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-red-600/5">
               <div className="flex flex-col">
-                <span className="text-[10px] text-red-600 font-black uppercase tracking-[0.5em] mb-1">Secure Log Vault</span>
+                <span className="text-[9px] text-red-600 font-black uppercase tracking-widest mb-1">Workflow Logs</span>
                 <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">{activeLogJob.name}</h3>
               </div>
               <button
@@ -767,32 +779,31 @@ const Pipelines = () => {
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            <div className="flex-1 p-12 bg-black/40 overflow-y-auto font-mono text-sm text-gray-500 leading-relaxed custom-scrollbar">
+            <div className="flex-1 p-8 bg-black/40 overflow-y-auto font-mono text-sm text-gray-500 leading-relaxed custom-scrollbar">
               {!logUrl ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-8">
-                  <div className="w-16 h-16 border-4 border-red-600/10 border-t-red-600 rounded-full animate-spin"></div>
-                  <p className="uppercase tracking-[0.4em] font-black text-xs animate-pulse">Establishing Secure Neural Link...</p>
+                <div className="flex flex-col items-center justify-center py-16 gap-6">
+                  <div className="w-12 h-12 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
+                  <p className="uppercase tracking-widest font-black text-xs text-gray-600 animate-pulse">Fetching log URL from GitHub…</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-10 items-center py-12 text-center">
-                  <div className="w-20 h-20 rounded-full bg-red-600/10 border border-red-600/20 flex items-center justify-center mb-2">
-                    <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <div className="flex flex-col gap-8 items-center py-10 text-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-gray-300 mb-2">Unified Trace Capture Complete</p>
-                    <p className="text-xs text-gray-600 uppercase font-black tracking-widest leading-relaxed max-w-md mx-auto">Trace logs are encapsulated via external secure stream. access the unified job telemetry on the GitHub neural interface.</p>
+                    <p className="text-lg font-bold text-gray-200 mb-2">Log URL Retrieved</p>
+                    <p className="text-xs text-gray-600 font-bold tracking-widest leading-relaxed max-w-sm mx-auto">
+                      GitHub provides logs as a secured download URL. Click below to open the raw log file directly.
+                    </p>
                   </div>
                   <a
                     href={logUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="group relative px-12 py-5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-[0.3em] overflow-hidden transition-all shadow-2xl shadow-red-600/20 active:scale-95"
+                    className="px-10 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 flex items-center gap-3"
                   >
-                    <span className="relative z-10 flex items-center gap-4">
-                      Open Unified Trace
-                      <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    Download / Open Logs
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </a>
                 </div>
               )}

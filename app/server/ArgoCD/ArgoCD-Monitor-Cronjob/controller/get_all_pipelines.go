@@ -3,17 +3,10 @@ package controller
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
-
-	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Monitor-Cronjob/mongoConnection"
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 // this function parse the Json reponse and returns the availble pipelines

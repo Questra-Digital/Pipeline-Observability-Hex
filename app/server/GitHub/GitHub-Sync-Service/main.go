@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/go-github/v60/github"
@@ -64,6 +65,8 @@ type WorkflowRun struct {
 	AnomalyReason string             `bson:"anomalyReason" json:"anomalyReason"`
 }
 
+const defaultSyncInterval = 3 // seconds
+
 func main() {
 	mongoURL := os.Getenv("MONGO_URL")
 	if mongoURL == "" {
@@ -76,26 +79,20 @@ func main() {
 	}
 	defer client.Disconnect(context.TODO())
 
-	// Create TTL Index for 14-day retention
+	// Create TTL Index for 14-day data retention
 	ensureTTLIndex(client)
 
 	log.Println("⚡ GitHub Real-Time Sync Service Started...")
 
-	// Global loop: Check for accounts and repositories
-	// In a real production scenario, we might use a pool of workers per user.
-	// For this implementation, we poll all enabled repos every 3 seconds (default).
-	for {
-		pollGitHub(client)
-		time.Sleep(3 * time.Second)
-	}
+	// Run a per-account polling loop that respects each account's syncInterval
+	runPollingLoop(client)
 }
 
 func ensureTTLIndex(client *mongo.Client) {
 	coll := client.Database("admin").Collection("github_runs")
-	// Index expires after 14 days (1209600 seconds)
 	indexModel := mongo.IndexModel{
 		Keys:    bson.M{"updatedAt": 1},
-		Options: options.Index().SetExpireAfterSeconds(1209600),
+		Options: options.Index().SetExpireAfterSeconds(1209600), // 14 days
 	}
 	_, err := coll.Indexes().CreateOne(context.TODO(), indexModel)
 	if err != nil {
@@ -103,40 +100,102 @@ func ensureTTLIndex(client *mongo.Client) {
 	}
 }
 
-func pollGitHub(client *mongo.Client) {
+// runPollingLoop continuously loads all accounts and spawns per-account goroutines.
+// It refreshes the account list every 30 seconds to pick up new accounts.
+func runPollingLoop(client *mongo.Client) {
+	// Track which accounts already have a running goroutine
+	running := make(map[primitive.ObjectID]bool)
+	mu := sync.Mutex{}
+
+	for {
+		accounts := fetchAllAccounts(client)
+		for _, acc := range accounts {
+			mu.Lock()
+			if running[acc.ID] {
+				mu.Unlock()
+				continue
+			}
+			running[acc.ID] = true
+			mu.Unlock()
+
+			// Spawn a goroutine per account using its own syncInterval
+			go func(a GitHubAccount) {
+				defer func() {
+					mu.Lock()
+					delete(running, a.ID)
+					mu.Unlock()
+				}()
+
+				interval := a.SyncInterval
+				if interval < 1 {
+					interval = defaultSyncInterval
+				}
+				ticker := time.NewTicker(time.Duration(interval) * time.Second)
+				defer ticker.Stop()
+
+				log.Printf("[Sync] Started polling account %s (owner: %s) every %ds", a.ID.Hex(), a.Owner, interval)
+
+				// First sync immediately before waiting for ticker
+				syncAccount(client, a)
+				for range ticker.C {
+					syncAccount(client, a)
+				}
+			}(acc)
+		}
+
+		// Re-check for new accounts every 30 seconds
+		time.Sleep(30 * time.Second)
+	}
+}
+
+func fetchAllAccounts(client *mongo.Client) []GitHubAccount {
+	coll := client.Database("admin").Collection("github_accounts")
+	cursor, err := coll.Find(context.TODO(), bson.M{})
+	if err != nil {
+		log.Printf("[Sync] Error fetching accounts: %v", err)
+		return nil
+	}
+	var accounts []GitHubAccount
+	_ = cursor.All(context.TODO(), &accounts)
+	return accounts
+}
+
+// syncAccount fetches all enabled repos for one account and upserts their runs.
+func syncAccount(client *mongo.Client, acc GitHubAccount) {
 	db := client.Database("admin")
 	reposColl := db.Collection("github_repos")
-	accountsColl := db.Collection("github_accounts")
 	runsColl := db.Collection("github_runs")
 
-	cursor, err := reposColl.Find(context.TODO(), bson.M{"enabled": true})
+	cursor, err := reposColl.Find(context.TODO(), bson.M{"accountId": acc.ID, "enabled": true})
 	if err != nil {
 		return
 	}
 	var repos []Repository
 	_ = cursor.All(context.TODO(), &repos)
 
+	if len(repos) == 0 {
+		return
+	}
+
+	ghClient := github.NewClient(nil).WithAuthToken(acc.PAT)
+
 	for _, repo := range repos {
-		var acc GitHubAccount
-		err = accountsColl.FindOne(context.TODO(), bson.M{"_id": repo.AccountID}).Decode(&acc)
-		if err != nil {
-			continue
+		owner := repo.Owner
+		if owner == "" {
+			owner = acc.Owner
 		}
 
-		// Use dynamic interval if set, else default to 3s (handled by sleep in main)
-		// Note: Truly dynamic intervals would need a go-routine per account.
-		// For now, we follow the 3s requirement globally as a high-speed sync.
-
-		ghClient := github.NewClient(nil).WithAuthToken(acc.PAT)
-		workflowRuns, _, err := ghClient.Actions.ListRepositoryWorkflowRuns(context.TODO(), repo.Owner, repo.Name, &github.ListWorkflowRunsOptions{
-			ListOptions: github.ListOptions{PerPage: 5},
-		})
+		workflowRuns, _, err := ghClient.Actions.ListRepositoryWorkflowRuns(
+			context.TODO(), owner, repo.Name,
+			&github.ListWorkflowRunsOptions{ListOptions: github.ListOptions{PerPage: 10}},
+		)
 		if err != nil {
+			log.Printf("[Sync] Error fetching runs for %s/%s: %v", owner, repo.Name, err)
 			continue
 		}
 
 		for _, run := range workflowRuns.WorkflowRuns {
-			jobs, _, _ := ghClient.Actions.ListWorkflowJobs(context.TODO(), repo.Owner, repo.Name, run.GetID(), nil)
+			jobs, _, _ := ghClient.Actions.ListWorkflowJobs(context.TODO(), owner, repo.Name, run.GetID(), nil)
 			var dbJobs []Job
 			if jobs != nil {
 				for _, j := range jobs.Jobs {
@@ -168,23 +227,42 @@ func pollGitHub(client *mongo.Client) {
 				duration = run.GetUpdatedAt().Sub(run.GetCreatedAt().Time).Seconds()
 			}
 
+			// Anomaly detection
+			anomalyScore := 0.0
+			anomalyReason := ""
+			if run.GetConclusion() == "failure" {
+				anomalyScore = 0.5
+				anomalyReason = "Workflow Failure Detected"
+			}
+			if duration > 600 { // > 10 minutes
+				anomalyScore += 0.4
+				if anomalyReason != "" {
+					anomalyReason += " & Unusual Duration"
+				} else {
+					anomalyReason = "Unusual Execution Duration"
+				}
+			}
+
 			dbRun := WorkflowRun{
-				RunID:        run.GetID(),
-				RepoID:       repo.ID,
-				AccountID:    acc.ID,
-				Status:       run.GetStatus(),
-				Conclusion:   run.GetConclusion(),
-				StartedAt:    run.GetCreatedAt().Time,
-				UpdatedAt:    run.GetUpdatedAt().Time,
-				Duration:     duration,
-				HTMLURL:      run.GetHTMLURL(),
-				WorkflowName: run.GetName(),
-				Jobs:         dbJobs,
+				RunID:         run.GetID(),
+				RepoID:        repo.ID,
+				AccountID:     acc.ID,
+				Status:        run.GetStatus(),
+				Conclusion:    run.GetConclusion(),
+				StartedAt:     run.GetCreatedAt().Time,
+				UpdatedAt:     run.GetUpdatedAt().Time,
+				Duration:      duration,
+				HTMLURL:       run.GetHTMLURL(),
+				WorkflowName:  run.GetName(),
+				Jobs:          dbJobs,
+				AnomalyScore:  anomalyScore,
+				AnomalyReason: anomalyReason,
 			}
 
 			filter := bson.M{"runId": run.GetID()}
 			update := bson.M{"$set": dbRun}
 			_, _ = runsColl.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
 		}
+		log.Printf("[Sync] Synced %d runs for %s/%s (interval: %ds)", len(workflowRuns.WorkflowRuns), owner, repo.Name, acc.SyncInterval)
 	}
 }

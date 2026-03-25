@@ -2,211 +2,46 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
-	argocd_api "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/argocd_api"
-	apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
-	cronjob "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/cronjob"
-	email_notifier "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/email_notification"
-	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	github_controller "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/github"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
-
-	"github.com/gin-contrib/cors" // Import the cors package from gin-contrib
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	// import grpc client
 )
-
-type ErrorResponse struct {
-	Error   string `json:"error"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
 
 func main() {
 	r := gin.Default()
 
-	// Add CORS middleware
+	// Generic CORS configuration
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"} // Specify origins you want to allow
-	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	config.AllowCredentials = true // Allow cookies to be sent cross-origin
-
 	r.Use(cors.New(config))
 
-	// Apply the AuthMiddleware to routes that require authentication
-	r.Use(func(c *gin.Context) {
-		log.Println("path: ", c.FullPath())
-		if c.FullPath() != "/api/signin" && c.FullPath() != "/api/signup" && c.FullPath() != "/api/forgetpass" && c.FullPath() != "/pipeline_state" {
-			middleware.AuthMiddleware()(c)
-		}
-	})
-
-	// Define your routes here
-	// get all the pipelines
-	r.GET("/all_pipelines", func(c *gin.Context) {
-		userId := controller.GetUserEmail(c)
-		if userId == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-			return
-		}
-		availble_pipelines, err := controller.GetAllPipelineNames(userId)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"Error": "Token error"})
-			return
-		}
-		fmt.Println("Available Pipelines : ", availble_pipelines)
+	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"available_pipeline": availble_pipelines,
+			"message": "pong",
 		})
 	})
 
-	// store token in the database
-	r.POST("/api/token", controller.StoreToken)
+	// User authentication and management
+	r.POST("/api/signup", controller.Signup)
+	r.POST("/api/signin", controller.Signin)
 
-	// store email in the database
-	r.POST("/api/email", controller.StoreEmail)
+	// Application management
+	r.GET("/all_pipelines", controller.GetAllPipelines)
+	r.GET("/pipeline_details/:name", controller.GetPipelineDetails)
+	r.POST("/api/apps/toggle", controller.ToggleApp)
+	r.GET("/api/apps/status", controller.GetAppsStatus)
 
-	// get current state of pipeline
-	r.GET("/pipeline_state", func(c *gin.Context) {
-		controller.DataPipelineState(c)
-	})
-
-	// get the history of pipeline
-	r.GET("/pipeline_history", func(c *gin.Context) {
-		controller.PipelineHistory(c)
-	})
-
-	r.POST("/api/deviation-value", func(c *gin.Context) {
-		// Parse request body to get the "token" value
-		var requestBody map[string]string
-		if err := c.BindJSON(&requestBody); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-
-		deviation_value := requestBody["deviation_value"]
-		controller.StoreDeviationValue(c, deviation_value)
-	})
-
-	r.POST("/api/custom-message", func(c *gin.Context) {
-		// Parse request body to get the "token" value
-		var requestBody map[string]string
-		if err := c.BindJSON(&requestBody); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-
-		custom_message := requestBody["custom_message"]
-		controller.StoreCustomMessage(c, custom_message)
-	})
-
-	r.POST("/api/signin", func(c *gin.Context) {
-		// call the signin function from controller
-		controller.Signin(c)
-	})
-
-	r.POST("/api/signup", func(c *gin.Context) {
-		// call the signup function from controller
-		controller.Signup(c)
-	})
-
-	r.POST("/api/forgetpass", func(c *gin.Context) {
-		// call the forgetpass function from controller
-		controller.ForgetPass(c)
-	})
-
-	r.POST("/api/changepassword", func(c *gin.Context) {
-		// call the forgetpass function from controller
-		controller.ChangePassword(c)
-	})
-
-	r.POST("/api/slack", func(c *gin.Context) {
-		controller.StoreSlackBot(c)
-	})
-
-	r.GET("/api/runcronjob", func(c *gin.Context) {
-		// call the cronjob function from controller
-		controller.RunCronjob(c)
-	})
-
-	r.GET("/api/stopcronjob", func(c *gin.Context) {
-		// call the cronjob function from controller
-		controller.StopCronjob(c)
-	})
-
-	// notification routes for slack and email notification services
-	r.GET("/api/notification/slack", func(c *gin.Context) {
-		// call the cronjob function from controller
-		notificationtoggle.ReadSlackNotificationStatus(c)
-	})
-
-	r.POST("/api/notification/slack", func(c *gin.Context) {
-		// call the cronjob function from controller
-		notificationtoggle.UpdateSlackNotificationStatus(c)
-	})
-
-	r.GET("/api/notification/email", func(c *gin.Context) {
-		// call the cronjob function from controller
-		notificationtoggle.ReadEmailNotificationStatus(c)
-	})
-
-	r.POST("/api/notification/email", func(c *gin.Context) {
-		// call the cronjob function from controller
-		notificationtoggle.UpdateEmailNotificationStatus(c)
-	})
-
-	// get all configured apps data
-	r.GET("/api/apps/", func(c *gin.Context) {
-		apps.GetAllApps(c)
-	})
-
-	// get cronjob status
-	r.GET("/api/cronjob/status", func(c *gin.Context) {
-		cronjob.GetCronjobStatus(c)
-	})
-
-	// get deviation value
-	r.GET("/api/deviation-value", func(c *gin.Context) {
-		controller.GetDeviationValue(c)
-	})
-
-	r.GET("/api/custom-message", func(c *gin.Context) {
-		controller.GetCustomMessage(c)
-	})
-
-	// store the notifier email in the db
-	r.POST("/api/notifier-email", func(c *gin.Context) {
-		email_notifier.StoreNotifierEmail(c)
-	})
-
-	// get the notifier email from the db
-	r.GET("/api/notifier-email", func(c *gin.Context) {
-		email_notifier.GetNotifierEmail(c)
-	})
-
-	r.POST("/api/argocdurl", func(c *gin.Context) {
-		argocd_api.StoreArgoCDAPI(c)
-	})
-
-	r.GET("/api/argocdurl", func(c *gin.Context) {
-		argocd_api.GetArgoCDAPI(c)
-	})
-
-	r.GET("test", func(c *gin.Context) {
-		userId := controller.GetUserEmail(c)
-		controller.FetchPipelineData("test", userId)
-	})
-
-	// GitHub Actions Routes
-	github := r.Group("/api/github")
+	// GitHub Actions specific endpoints
+	github := r.Group("/api/github", middleware.AuthMiddleware())
 	{
-		github.GET("/accounts", github_controller.GetGitHubAccounts)
 		github.POST("/auth", github_controller.ConnectGitHubAccount)
-		github.DELETE("/accounts/:id", github_controller.DisconnectGitHubAccount)
+		github.GET("/accounts", github_controller.GetGitHubAccounts)
 		
 		github.GET("/repos", github_controller.GetGitHubRepos)
 		github.POST("/repos/toggle", github_controller.ToggleRepoMonitoring)
@@ -220,8 +55,10 @@ func main() {
 		github.GET("/runs", github_controller.GetGitHubRuns)
 		github.GET("/analytics", github_controller.GetGitHubAnalytics)
 		github.GET("/alerts", github_controller.GetGitHubAlerts)
+		github.GET("/insights", github_controller.GetGitHubInsights)
 		github.GET("/logs", github_controller.GetGitHubJobLogs)
 		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
+		github.DELETE("/account/:id", github_controller.DisconnectGitHubAccount)
 	}
 
 

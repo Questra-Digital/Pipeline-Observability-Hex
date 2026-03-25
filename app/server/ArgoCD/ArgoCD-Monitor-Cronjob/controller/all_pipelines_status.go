@@ -6,12 +6,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -168,7 +166,47 @@ func FetchPipelineData(pipelineName string, argoURL string, argoToken string) (m
 	return responseData, nil
 }
 
-// ... existing ParsePipelineData function ...
+func ParsePipelineData(nodes []interface{}) HealthSummary {
+	summary := HealthSummary{
+		Pod:        "Healthy",
+		Service:    "Healthy",
+		Deployment: "Healthy",
+		ReplicaSet: "Healthy",
+	}
+
+	for _, node := range nodes {
+		n := node.(map[string]interface{})
+		kind, okK := n["kind"].(string)
+		health, okH := n["health"].(map[string]interface{})
+		if !okK || !okH {
+			continue
+		}
+		status, okS := health["status"].(string)
+		if !okS {
+			continue
+		}
+
+		switch kind {
+		case "Pod":
+			if status != "Healthy" {
+				summary.Pod = status
+			}
+		case "Service":
+			if status != "Healthy" {
+				summary.Service = status
+			}
+		case "Deployment":
+			if status != "Healthy" {
+				summary.Deployment = status
+			}
+		case "ReplicaSet":
+			if status != "Healthy" {
+				summary.ReplicaSet = status
+			}
+		}
+	}
+	return summary
+}
 
 // Store the Pipeline Nama and Counter Value in MongoDB just like Redis
 func StorePipelineCounterInMongoDB(pipelineName string, counter int, userId string) error {

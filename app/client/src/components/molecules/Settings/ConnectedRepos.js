@@ -18,7 +18,7 @@ const ConnectedRepos = () => {
         if (data && Array.isArray(data)) {
             // Flatten and filter for enabled repos only
             const enabled = data.flatMap(acc =>
-                acc.repositories
+                (acc.repositories || [])
                     .filter(repo => repo.enabled)
                     .map(repo => ({ ...repo, accountId: acc.id, accountOwner: acc.owner }))
             );
@@ -85,7 +85,7 @@ const ConnectedRepos = () => {
                             key={repo.repoId}
                             className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 flex items-center justify-between transition-all hover:border-red-600/50 hover:shadow-[0_0_20px_rgba(220,38,38,0.1)]"
                         >
-                                                       <div className="flex flex-col">
+                            <div className="flex flex-col">
                                 <span className="text-[10px] text-purple-400 font-bold uppercase tracking-widest">{repo.accountOwner}</span>
                                 <p className="text-xl font-bold text-gray-100 uppercase tracking-tight">{repo.name}</p>
                                 <p className="text-sm text-gray-500 line-clamp-1">{repo.description}</p>

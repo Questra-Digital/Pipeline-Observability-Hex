@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -12,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"strconv"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -483,19 +483,23 @@ func GetGitHubAnalytics(c *gin.Context) {
 	var failures []bson.M
 	_ = cursor.All(context.TODO(), &failures)
 
-	// 4. Time Series Trend
+	// 4. Time Series Trend (with failures count per day)
 	durationPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: matchStage}},
-		{{Key: "$sort", Value: bson.D{{Key: "startedAt", Value: 1}}}},
 		{{Key: "$group", Value: bson.M{
 			"_id":         bson.M{"$dateToString": bson.M{"format": "%Y-%m-%d", "date": "$startedAt"}},
 			"avgDuration": bson.M{"$avg": "$duration"},
 			"totalRuns":   bson.M{"$sum": 1},
+			"failures": bson.M{"$sum": bson.M{
+				"$cond": bson.A{bson.M{"$eq": bson.A{"$conclusion", "failure"}}, 1, 0},
+			}},
 		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 	}
 	cursor, _ = runsColl.Aggregate(context.TODO(), durationPipeline)
 	var trends []bson.M
 	_ = cursor.All(context.TODO(), &trends)
+
 
 	c.JSON(http.StatusOK, gin.H{
 		"conclusions": conclusions,
@@ -587,4 +591,216 @@ func GetGitHubJobLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"url": url.String()})
+}
+// GetGitHubInsights computes advanced intelligence metrics:
+// - MTTR per workflow (time from failure to next success)
+// - Build cost estimate (build minutes × GitHub Actions pricing)
+// - Day-of-week failure heatmap
+// - Build time regression (last 7 days vs prior 7 days)
+func GetGitHubInsights(c *gin.Context) {
+	userEmail := controller.GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		return
+	}
+	defer mongoClient.Disconnect(context.TODO())
+
+	runsColl := mongoClient.Database("admin").Collection("github_runs")
+	accountsColl := mongoClient.Database("admin").Collection("github_accounts")
+
+	var accounts []GitHubAccount
+	cursor, _ := accountsColl.Find(context.TODO(), bson.M{"userId": userEmail})
+	_ = cursor.All(context.TODO(), &accounts)
+
+	accountIDs := []primitive.ObjectID{}
+	for _, acc := range accounts {
+		accountIDs = append(accountIDs, acc.ID)
+	}
+
+	repoIDStr := c.Query("repoId")
+	matchStage := bson.M{"accountId": bson.M{"$in": accountIDs}}
+	if repoIDStr != "" {
+		repoID, _ := strconv.ParseInt(repoIDStr, 10, 64)
+		matchStage = bson.M{"repoId": repoID}
+	}
+
+	// ── 1. Fetch all runs sorted by (workflowName, startedAt) for MTTR ──
+	type RunSlim struct {
+		WorkflowName string    `bson:"workflowName"`
+		Conclusion   string    `bson:"conclusion"`
+		StartedAt    primitive.DateTime `bson:"startedAt"`
+		Duration     float64   `bson:"duration"`
+	}
+
+	opts := options.Find().SetSort(bson.D{{Key: "workflowName", Value: 1}, {Key: "startedAt", Value: 1}})
+	cursor, _ = runsColl.Find(context.TODO(), matchStage, opts)
+	var allRuns []RunSlim
+	_ = cursor.All(context.TODO(), &allRuns)
+
+	// ── 2. Compute MTTR per workflow ──
+	type MTTREntry struct {
+		Workflow string  `json:"workflow"`
+		AvgMTTR  float64 `json:"avgMttr"` // seconds
+		Count    int     `json:"count"`
+	}
+	mttrByWorkflow := map[string][]float64{}
+	// Group by workflow
+	workflowRuns := map[string][]RunSlim{}
+	for _, r := range allRuns {
+		workflowRuns[r.WorkflowName] = append(workflowRuns[r.WorkflowName], r)
+	}
+	for wf, runs := range workflowRuns {
+		for i := 0; i < len(runs)-1; i++ {
+			if runs[i].Conclusion == "failure" {
+				// Find next success after this failure
+				for j := i + 1; j < len(runs); j++ {
+					if runs[j].Conclusion == "success" {
+						failTime := runs[i].StartedAt.Time()
+						recoverTime := runs[j].StartedAt.Time()
+						mttrSecs := recoverTime.Sub(failTime).Seconds()
+						if mttrSecs > 0 {
+							mttrByWorkflow[wf] = append(mttrByWorkflow[wf], mttrSecs)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	var mttrList []MTTREntry
+	overallMTTRSum := 0.0
+	overallMTTRCount := 0
+	for wf, vals := range mttrByWorkflow {
+		if len(vals) == 0 {
+			continue
+		}
+		sum := 0.0
+		for _, v := range vals {
+			sum += v
+		}
+		avg := sum / float64(len(vals))
+		overallMTTRSum += avg
+		overallMTTRCount++
+		mttrList = append(mttrList, MTTREntry{Workflow: wf, AvgMTTR: avg, Count: len(vals)})
+	}
+	overallMTTR := 0.0
+	if overallMTTRCount > 0 {
+		overallMTTR = overallMTTRSum / float64(overallMTTRCount)
+	}
+
+	// ── 3. Build Cost Estimate (GitHub Actions Linux: $0.008/min) ──
+	totalDurationSecs := 0.0
+	for _, r := range allRuns {
+		totalDurationSecs += r.Duration
+	}
+	totalMinutes := totalDurationSecs / 60.0
+	costEstimateUSD := totalMinutes * 0.008
+
+	// ── 4. Day-of-week failure heatmap ──
+	// MongoDB aggregation: group by day-of-week
+	dowPipeline := mongo.Pipeline{
+		{{Key: "$match", Value: matchStage}},
+		{{Key: "$group", Value: bson.M{
+			"_id": bson.M{"$dayOfWeek": "$startedAt"}, // 1=Sun, 2=Mon ... 7=Sat
+			"total":    bson.M{"$sum": 1},
+			"failures": bson.M{"$sum": bson.M{
+				"$cond": bson.A{bson.M{"$eq": bson.A{"$conclusion", "failure"}}, 1, 0},
+			}},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+	}
+	cursor, _ = runsColl.Aggregate(context.TODO(), dowPipeline)
+	var dowData []bson.M
+	_ = cursor.All(context.TODO(), &dowData)
+
+	dayNames := []string{"", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+	type DowEntry struct {
+		Day      string `json:"day"`
+		Total    int32  `json:"total"`
+		Failures int32  `json:"failures"`
+	}
+	var heatmap []DowEntry
+	for _, d := range dowData {
+		idx, _ := d["_id"].(int32)
+		if idx >= 1 && int(idx) < len(dayNames) {
+			total, _ := d["total"].(int32)
+			failures, _ := d["failures"].(int32)
+			heatmap = append(heatmap, DowEntry{Day: dayNames[idx], Total: total, Failures: failures})
+		}
+	}
+
+	// ── 5. Build Time Regression: last 7 days vs prior 7 days avg duration ──
+	now := primitive.NewDateTimeFromTime(primitive.NewObjectID().Timestamp()) // approximate now
+	_ = now
+	// Use aggregation with date math
+	regressionPipeline := mongo.Pipeline{
+		{{Key: "$match", Value: matchStage}},
+		{{Key: "$addFields", Value: bson.M{
+			"period": bson.M{
+				"$cond": bson.A{
+					bson.M{"$gte": bson.A{"$startedAt", bson.M{"$dateSubtract": bson.M{
+						"startDate": "$$NOW", "unit": "day", "amount": 7,
+					}}}},
+					"recent",
+					bson.M{"$cond": bson.A{
+						bson.M{"$gte": bson.A{"$startedAt", bson.M{"$dateSubtract": bson.M{
+							"startDate": "$$NOW", "unit": "day", "amount": 14,
+						}}}},
+						"prior",
+						"older",
+					}},
+				},
+			},
+		}}},
+		{{Key: "$match", Value: bson.M{"period": bson.M{"$in": []string{"recent", "prior"}}}}},
+		{{Key: "$group", Value: bson.M{
+			"_id":         "$period",
+			"avgDuration": bson.M{"$avg": "$duration"},
+			"count":       bson.M{"$sum": 1},
+		}}},
+	}
+	cursor, _ = runsColl.Aggregate(context.TODO(), regressionPipeline)
+	var regressionRaw []bson.M
+	_ = cursor.All(context.TODO(), &regressionRaw)
+
+	type RegressionResult struct {
+		RecentAvg    float64 `json:"recentAvg"`
+		PriorAvg     float64 `json:"priorAvg"`
+		ChangePercent float64 `json:"changePercent"`
+		IsRegression  bool    `json:"isRegression"`
+		RecentCount  int32   `json:"recentCount"`
+		PriorCount   int32   `json:"priorCount"`
+	}
+	regression := RegressionResult{}
+	for _, r := range regressionRaw {
+		period, _ := r["_id"].(string)
+		avg, _ := r["avgDuration"].(float64)
+		count, _ := r["count"].(int32)
+		if period == "recent" {
+			regression.RecentAvg = avg
+			regression.RecentCount = count
+		} else if period == "prior" {
+			regression.PriorAvg = avg
+			regression.PriorCount = count
+		}
+	}
+	if regression.PriorAvg > 0 {
+		regression.ChangePercent = ((regression.RecentAvg - regression.PriorAvg) / regression.PriorAvg) * 100
+		regression.IsRegression = regression.ChangePercent > 20 // >20% slower = regression
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"mttr":          mttrList,
+		"overallMTTR":   overallMTTR,
+		"totalMinutes":  totalMinutes,
+		"costEstimateUSD": costEstimateUSD,
+		"heatmap":       heatmap,
+		"regression":    regression,
+	})
 }

@@ -1,361 +1,641 @@
 "use client";
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    PieChart,
-    Pie,
-    Cell,
-    AreaChart,
-    Area,
-    RadarChart,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
-    Radar,
-    ScatterChart,
-    Scatter,
-    ZAxis,
-    ComposedChart,
-    Line,
-    LineChart,
-    Legend
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
+    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+    ComposedChart, Line, ScatterChart, Scatter, ZAxis
 } from "recharts";
 import useFetch from "@/hooks/useFetch";
 
-const SUCCESS_COLORS = ["#10b981", "#ef4444", "#3b82f6", "#f59e0b", "#8b5cf6"];
+/* ─────────────── Constants ─────────────── */
+const PIE_PALETTE = ["#10b981", "#ef4444", "#f59e0b", "#6366f1", "#8b5cf6", "#ec4899"];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// High-Fidelity Mock Data for "Working Position"
-const MOCK_DATA = {
-    conclusions: [
-        { _id: 'success', count: 42 },
-        { _id: 'failure', count: 8 },
-        { _id: 'cancelled', count: 3 },
-        { _id: 'skipped', count: 5 },
-        { _id: 'timed_out', count: 2 }
-    ],
-    trends: [
-        { _id: '10:00', avgDuration: 240, totalRuns: 12, failures: 1 },
-        { _id: '11:00', avgDuration: 310, totalRuns: 15, failures: 2 },
-        { _id: '12:00', avgDuration: 280, totalRuns: 10, failures: 0 },
-        { _id: '13:00', avgDuration: 450, totalRuns: 18, failures: 4 },
-        { _id: '14:00', avgDuration: 220, totalRuns: 9, failures: 1 },
-        { _id: '15:00', avgDuration: 350, totalRuns: 22, failures: 3 },
-        { _id: '16:00', avgDuration: 290, totalRuns: 14, failures: 1 }
-    ],
-    bottlenecks: [
-        { _id: 'Production Deploy', avgDuration: 520, maxDuration: 840 },
-        { _id: 'Integration Tests', avgDuration: 410, maxDuration: 620 },
-        { _id: 'Container Build', avgDuration: 320, maxDuration: 510 },
-        { _id: 'Security Audit', avgDuration: 280, maxDuration: 450 },
-        { _id: 'Lint / Format', avgDuration: 120, maxDuration: 180 }
-    ],
-    scatter: [
-        { x: 120, y: 10, z: 200 }, { x: 150, y: 15, z: 250 }, { x: 200, y: 30, z: 400 },
-        { x: 250, y: 45, z: 500 }, { x: 300, y: 40, z: 450 }, { x: 350, y: 55, z: 600 },
-        { x: 400, y: 70, z: 800 }, { x: 450, y: 85, z: 900 }, { x: 500, y: 90, z: 1000 }
-    ],
-    heatmap: [
-        { time: '00:00', value: 2 }, { time: '04:00', value: 5 }, { time: '08:00', value: 45 },
-        { time: '12:00', value: 82 }, { time: '16:00', value: 64 }, { time: '20:00', value: 28 }
-    ]
+/* ─────────────── Utilities ─────────────── */
+const fmtSec = (s) => {
+    if (!s || s === 0) return "0s";
+    if (s < 60) return `${Math.round(s)}s`;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.round(s % 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m ${sec}s`;
+};
+const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return ""; } };
+const pct = (n, d) => d > 0 ? ((n / d) * 100).toFixed(1) : "0.0";
+
+/* ─────────────── Shared Tooltip ─────────────── */
+const GlassTooltip = ({ active, payload, label, suffix = "" }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-black/90 border border-white/10 p-4 rounded-2xl shadow-2xl text-xs backdrop-blur-xl min-w-[160px]">
+            {label && <p className="text-gray-500 font-bold uppercase tracking-[0.2em] mb-3">{label}</p>}
+            {payload.map((p, i) => (
+                <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full block shrink-0" style={{ background: p.color || p.fill || "#dc2626" }} />
+                        <span className="text-gray-400 font-semibold">{p.name}</span>
+                    </div>
+                    <span className="text-white font-black">{typeof p.value === "number" ? p.value.toFixed(1) : p.value}{suffix}</span>
+                </div>
+            ))}
+        </div>
+    );
 };
 
-const GitHubAnalytics = ({ onBack, repoId }) => {
-    const analyticsUrl = repoId ? `/api/github/analytics?repoId=${repoId}` : "/api/github/analytics";
-    const alertsUrl = repoId ? `/api/github/alerts?repoId=${repoId}` : "/api/github/alerts";
-
-    const { data: realData, loading, error } = useFetch(analyticsUrl);
-    const { data: realAlerts } = useFetch(alertsUrl);
-
-    // Dynamic Data Selection Logic
-    const isMock = !realData || (!realData.conclusions?.length && !realData.trends?.length);
-    const data = isMock ? MOCK_DATA : realData;
-    const alerts = isMock ? [
-        { workflowName: "Core-Engine-Sync", startedAt: new Date(), anomalyReason: "Latency spike in Cluster-Node-04" },
-        { workflowName: "Post-Deploy-Audit", startedAt: new Date(Date.now() - 3600000), anomalyReason: "Unknown identity detected during stream" },
-        { workflowName: "Security-Handshake", startedAt: new Date(Date.now() - 7200000), anomalyReason: "Handshake duration outside normal bounds" }
-    ] : (realAlerts || []);
-
-    const conclusionData = useMemo(() => data.conclusions?.map((c) => ({
-        name: c._id || "Unknown",
-        value: c.count,
-    })) || [], [data]);
-
-    const trendData = useMemo(() => data.trends?.map((t) => ({
-        date: t._id,
-        duration: Math.round(t.avgDuration),
-        runs: t.totalRuns,
-        failures: t.failures || 0
-    })) || [], [data]);
-
-    const bottleneckData = useMemo(() => data.bottlenecks?.map((b) => ({
-        name: b._id,
-        avg: Math.round(b.avgDuration),
-        max: Math.round(b.maxDuration),
-    })) || [], [data]);
-
-    const totalRuns = trendData.reduce((acc, curr) => acc + curr.runs, 0);
-    const successCount = conclusionData.find(c => c.name === 'success')?.value || 0;
-    const successRate = totalRuns > 0 ? ((successCount / totalRuns) * 100).toFixed(1) : 0;
-    const avgDuration = trendData.length > 0 ? (trendData.reduce((acc, curr) => acc + curr.duration, 0) / trendData.length).toFixed(0) : 0;
-
-    const radarData = [
-        { subject: 'Reliability', A: successRate, fullMark: 100 },
-        { subject: 'Speed', A: avgDuration < 400 ? 85 : 55, fullMark: 100 },
-        { subject: 'Stability', A: alerts.length < 5 ? 92 : 65, fullMark: 100 },
-        { subject: 'Density', A: totalRuns > 30 ? 88 : 45, fullMark: 100 },
-        { subject: 'Uptime', A: 99.9, fullMark: 100 },
-    ];
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-[#050505]/95 border border-red-600/30 p-5 rounded-2xl shadow-2xl backdrop-blur-2xl">
-                    <p className="text-[10px] text-red-600 font-black uppercase tracking-[0.2em] mb-4">{label}</p>
-                    <div className="space-y-3">
-                        {payload.map((p, i) => (
-                            <div key={i} className="flex items-center justify-between gap-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color || p.fill }}></div>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{p.name}</span>
-                                </div>
-                                <span className="text-xs font-black text-white italic">
-                                    {p.value}{p.name.includes('Duration') || p.name === 'duration' ? 's' : ''}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+/* ─────────────── KPI Card with animated border ─────────────── */
+const KpiCard = ({ label, value, sub, color = "text-white", accent = "#dc2626", trend, trendLabel, icon }) => (
+    <div className="relative rounded-2xl p-[1px] overflow-hidden group cursor-default"
+        style={{ background: `linear-gradient(135deg, ${accent}30, transparent 60%)` }}>
+        <div className="bg-[#0a0a0a] rounded-2xl p-5 h-full flex flex-col gap-2 hover:bg-[#111] transition-colors">
+            <div className="flex items-start justify-between">
+                <span className="text-[9px] text-gray-600 font-bold uppercase tracking-[0.25em]">{label}</span>
+                {icon && <span className="text-base opacity-70">{icon}</span>}
+            </div>
+            <span className={`text-2xl font-black tracking-tighter ${color} leading-none`}>{value}</span>
+            {sub && <span className="text-[9px] text-gray-700 font-bold uppercase tracking-widest">{sub}</span>}
+            {trend !== undefined && (
+                <div className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-widest ${trend > 0 ? "text-red-500" : "text-emerald-500"}`}>
+                    <span>{trend > 0 ? "▲" : "▼"}</span>
+                    <span>{Math.abs(trend).toFixed(1)}% {trendLabel}</span>
                 </div>
-            );
-        }
-        return null;
-    };
+            )}
+        </div>
+    </div>
+);
 
-    if (loading) return (
-        <div className="flex flex-col items-center justify-center p-32 gap-6 bg-[#050505] min-h-[600px]">
-            <div className="w-16 h-16 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
-            <span className="text-sm font-black text-red-600 uppercase tracking-[0.5em] animate-pulse font-sans">Accessing Performance Node...</span>
+/* ─────────────── Section wrapper ─────────────── */
+const Section = ({ title, sub, badge, children, accent = "#dc2626" }) => (
+    <div className="relative rounded-3xl overflow-hidden border border-white/5 bg-[#0a0a0a] group">
+        <div className="absolute top-0 left-0 w-full h-[1px]"
+            style={{ background: `linear-gradient(90deg,transparent,${accent}60,transparent)` }} />
+        <div className="p-7">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xs font-black text-white uppercase tracking-widest">{title}</h3>
+                        {badge && (
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border"
+                                style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10` }}>{badge}</span>
+                        )}
+                    </div>
+                    {sub && <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mt-0.5">{sub}</p>}
+                </div>
+            </div>
+            {children}
+        </div>
+    </div>
+);
+
+/* ═══════════════════════════ MAIN COMPONENT ═══════════════════════════ */
+const GitHubAnalytics = ({ repoId }) => {
+    const qp = repoId ? `?repoId=${repoId}` : "";
+
+    const { data: rawData, loading: loadingA, fetchData: fetchAnalytics } = useFetch(`/api/github/analytics${qp}`);
+    const { data: rawAlerts, fetchData: fetchAlerts } = useFetch(`/api/github/alerts${qp}`);
+    const { data: rawInsights, fetchData: fetchInsights } = useFetch(`/api/github/insights${qp}`);
+
+    useEffect(() => {
+        fetchAnalytics();
+        fetchAlerts();
+        fetchInsights();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [repoId]);
+
+    const hasData = rawData && (
+        rawData.conclusions?.length > 0 || rawData.trends?.length > 0 || rawData.bottlenecks?.length > 0
+    );
+
+    /* ── Derived analytics ── */
+    const a = useMemo(() => {
+        if (!hasData) return null;
+        const conclusions = rawData.conclusions || [];
+        const trends = rawData.trends || [];
+        const bottlenecks = rawData.bottlenecks || [];
+        const failures = rawData.failures || [];
+
+        const total = conclusions.reduce((s, c) => s + (c.count || 0), 0);
+        const successCount = conclusions.find(c => c._id === "success")?.count || 0;
+        const failureCount = conclusions.find(c => c._id === "failure")?.count || 0;
+        const successRate = pct(successCount, total);
+        const failureRate = pct(failureCount, total);
+
+        const totalRuns = trends.reduce((s, t) => s + (t.totalRuns || 0), 0);
+        const buildsPerDay = trends.length > 0 ? (totalRuns / trends.length).toFixed(1) : "0";
+
+        const avgDuration = bottlenecks.length > 0
+            ? bottlenecks.reduce((s, b) => s + (b.avgDuration || 0), 0) / bottlenecks.length : 0;
+
+        const flakyWorkflows = (() => {
+            const failSet = new Set((failures || []).map(f => f._id));
+            return bottlenecks.filter(b => failSet.has(b._id));
+        })();
+
+        const healthScore = Math.min(100, Math.round(
+            parseFloat(successRate) * 0.5 +
+            (avgDuration < 300 ? 30 : avgDuration < 600 ? 15 : 0) +
+            ((rawAlerts?.length || 0) === 0 ? 20 : (rawAlerts?.length || 0) < 3 ? 10 : 0)
+        ));
+
+        const radarData = [
+            { subject: "Success Rate", A: Math.min(100, parseFloat(successRate)) },
+            { subject: "Speed", A: avgDuration < 180 ? 100 : avgDuration < 360 ? 70 : avgDuration < 600 ? 40 : 20 },
+            { subject: "Alert-Free", A: (rawAlerts?.length || 0) === 0 ? 100 : Math.max(0, 100 - (rawAlerts?.length || 0) * 15) },
+            { subject: "Frequency", A: Math.min(100, parseFloat(buildsPerDay) * 10) },
+            { subject: "Stability", A: flakyWorkflows.length === 0 ? 100 : Math.max(0, 100 - flakyWorkflows.length * 20) },
+        ];
+
+        return {
+            total, successCount, failureCount, successRate, failureRate,
+            buildsPerDay, avgDuration, flakyWorkflows, healthScore, radarData,
+            conclusionData: conclusions.map(c => ({ name: c._id || "unknown", value: c.count })),
+            trendData: trends.map(t => ({
+                date: fmtDate(t._id),
+                duration: Math.round(t.avgDuration || 0),
+                runs: t.totalRuns || 0,
+                failures: t.failures || 0,
+            })),
+            bottleneckData: bottlenecks.slice(0, 8).map(b => ({
+                name: (b._id || "unknown").length > 20 ? b._id.slice(0, 20) + "…" : b._id,
+                avg: Math.round(b.avgDuration || 0),
+                max: Math.round(b.maxDuration || 0),
+            })),
+            failureData: failures.slice(0, 6).map(f => ({
+                name: (f._id || "unknown").length > 22 ? f._id.slice(0, 22) + "…" : f._id,
+                count: f.failureCount || 0,
+            })),
+        };
+    }, [rawData, rawAlerts, hasData]);
+
+    /* ── Insights ── */
+    const ins = rawInsights || {};
+    const regression = ins.regression || {};
+    const mttrList = (ins.mttr || []).slice(0, 5);
+    const heatmap = ins.heatmap || [];
+    const costUSD = (ins.costEstimateUSD || 0).toFixed(2);
+    const totalMins = Math.round(ins.totalMinutes || 0);
+    const overallMTTR = ins.overallMTTR || 0;
+
+    /* ── Loading ── */
+    if (loadingA) return (
+        <div className="flex flex-col items-center justify-center py-32 gap-5">
+            <div className="relative">
+                <div className="w-14 h-14 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin" />
+                <div className="absolute inset-2 border-2 border-white/5 border-b-white/20 rounded-full animate-[spin_2s_linear_infinite_reverse]" />
+            </div>
+            <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] animate-pulse">Loading Analytics</span>
         </div>
     );
 
+    /* ── Empty ── */
+    if (!hasData) return (
+        <div className="flex flex-col items-center justify-center py-28 gap-5 border-2 border-dashed border-white/5 rounded-3xl">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-3xl">📊</div>
+            <div className="text-center">
+                <p className="text-gray-400 font-black text-sm uppercase tracking-widest">No analytics data yet</p>
+                <p className="text-gray-700 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">
+                    Enable monitoring for at least one repository and wait for the sync service to collect run data.
+                </p>
+            </div>
+        </div>
+    );
+
+    const healthColor = a.healthScore >= 85 ? "#10b981" : a.healthScore >= 60 ? "#f59e0b" : "#ef4444";
+    const healthLabel = a.healthScore >= 85 ? "Healthy" : a.healthScore >= 60 ? "Degraded" : "Critical";
+
     return (
-        <div className="w-full max-w-[1600px] flex flex-col gap-10 pb-40 mt-12 px-6 relative z-10 animate-in fade-in slide-in-from-bottom-10 duration-1000 font-sans">
+        <div className="w-full flex flex-col gap-7 pb-20 animate-in fade-in duration-700">
 
-            {/* ULTRA-HD STAT HEADER */}
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-1 h-8 bg-red-600 rounded-full"></div>
-                        <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Performance Matrix v4.2</h2>
-                    </div>
-                    {isMock && (
-                        <div className="flex items-center gap-2 px-6 py-2 rounded-full bg-red-600/5 border border-red-600/20">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>
-                            <span className="text-[9px] text-red-600 font-black uppercase tracking-[0.3em]">Simulation Mode Active</span>
-                        </div>
-                    )}
+            {/* ── Top Header ── */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-tight">Pipeline Intelligence</h2>
+                    <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mt-0.5">
+                        {a.total} runs analysed · autonomous insights active
+                    </p>
                 </div>
-                <div className="h-px w-full bg-gradient-to-r from-red-600/40 via-transparent to-transparent mt-4 opacity-50"></div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all"
+                    style={{ borderColor: `${healthColor}30`, background: `${healthColor}08` }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: healthColor }} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: healthColor }}>
+                        {healthLabel} · {a.healthScore}/100
+                    </span>
+                </div>
             </div>
 
-            {/* BENTO HUD GRID */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {[
-                    { l: "Stream Volume", v: totalRuns, s: "Total", c: "text-white" },
-                    { l: "Neural Success", v: `${successRate}%`, s: "Optimal", c: "text-emerald-500" },
-                    { l: "Avg Latency", v: `${avgDuration}s`, s: "Speed", c: "text-red-600" },
-                    { l: "Active Alerts", v: alerts.length, s: "Incidents", c: "text-amber-500" },
-                    { l: "Network Health", v: isMock ? "99.8%" : "100%", s: "Uptime", c: "text-blue-500 font-italic" },
-                    { l: "Sync Frequency", v: isMock ? "3s" : "Dynamic", s: "Real-time", c: "text-purple-500" }
-                ].map((stat, i) => (
-                    <div key={i} className="glass-card p-8 rounded-[2rem] flex flex-col border border-white/5 hover:border-red-600/30 transition-all duration-700 group overflow-hidden relative">
-                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/20 transition-all"></div>
-                        <span className="text-[9px] text-gray-700 font-black uppercase tracking-[0.3em] mb-4 z-10">{stat.l}</span>
-                        <div className="flex items-end gap-2 z-10">
-                            <span className={`text-4xl font-black tracking-tighter ${stat.c}`}>{stat.v}</span>
-                        </div>
-                    </div>
-                ))}
+            {/* ── KPI Row ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <KpiCard icon="✅" label="Success Rate" value={`${a.successRate}%`}
+                    color={parseFloat(a.successRate) >= 80 ? "text-emerald-400" : "text-red-500"} accent="#10b981" />
+                <KpiCard icon="❌" label="Failure Rate" value={`${a.failureRate}%`}
+                    color={parseFloat(a.failureRate) > 20 ? "text-red-500" : "text-gray-300"} accent="#ef4444" />
+                <KpiCard icon="⏱️" label="Avg Build Time" value={fmtSec(a.avgDuration)} sub="per workflow" accent="#3b82f6" />
+                <KpiCard icon="📦" label="Builds / Day" value={a.buildsPerDay} color="text-blue-400" sub="avg frequency" accent="#3b82f6" />
+                <KpiCard icon="💰" label="Est. Cost" value={`$${costUSD}`} sub={`${totalMins} build mins`} color="text-amber-400" accent="#f59e0b" />
+                <KpiCard icon="🔄" label="Avg MTTR" value={overallMTTR > 0 ? fmtSec(overallMTTR) : "—"}
+                    sub="mean time to recovery" color={overallMTTR > 3600 ? "text-red-400" : overallMTTR > 0 ? "text-amber-400" : "text-emerald-400"} accent="#8b5cf6" />
             </div>
 
-            {/* MAIN DATA STREAM */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-
-                {/* 1. NEURAL SPECTRUM (RADAR) */}
-                <div className="lg:col-span-4 glass-card rounded-[3.5rem] p-12 flex flex-col items-center relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                    <div className="w-full flex justify-between items-start mb-12">
-                        <div>
-                            <h3 className="text-sm font-black text-white uppercase italic tracking-tighter">Neural Spectrum Health</h3>
-                            <p className="text-[9px] text-gray-700 font-black uppercase mt-1">Multi-dimensional Stability</p>
+            {/* ── Row 1: Outcome Donut + Radar ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Section title="Run Outcome Distribution" sub="Breakdown by conclusion status">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                        <div className="h-52 w-full sm:w-52 shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={a.conclusionData} cx="50%" cy="50%" outerRadius={90} innerRadius={55}
+                                        dataKey="value" paddingAngle={3} animationBegin={0} animationDuration={1200}>
+                                        {a.conclusionData.map((_, i) => (
+                                            <Cell key={i} fill={PIE_PALETTE[i]} stroke="transparent" />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<GlassTooltip />} />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
-                        <div className="w-10 h-10 rounded-full border border-red-600/20 flex items-center justify-center animate-spin-slow">
-                            <div className="w-2 h-2 rounded-full bg-red-600"></div>
-                        </div>
-                    </div>
-                    <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                                <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 900 }} />
-                                <Radar dataKey="A" stroke="#dc2626" fill="#dc2626" fillOpacity={0.45} animationDuration={2000} />
-                            </RadarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* 2. TEMPORAL WAVE (MULTI-AXIS COMPOSED) */}
-                <div className="lg:col-span-8 glass-card rounded-[3.5rem] p-12 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                    <div className="flex justify-between items-start mb-12">
-                        <div>
-                            <h3 className="text-sm font-black text-white uppercase italic tracking-tighter">Temporal Diagnostic Wave</h3>
-                            <p className="text-[9px] text-gray-700 font-black uppercase mt-1">Latency Trend vs Neural Volume</p>
-                        </div>
-                        <div className="flex gap-8">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
-                                <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest">Latency</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                                <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest">Volume</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={trendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                                <XAxis dataKey="date" hide />
-                                <YAxis yAxisId="left" stroke="rgba(255,255,255,0.05)" fontSize={10} fontWeight={900} />
-                                <YAxis yAxisId="right" orientation="right" hide />
-                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#dc2626', strokeOpacity: 0.3 }} />
-                                <Area yAxisId="left" type="monotone" dataKey="duration" name="Latency (s)" stroke="#dc2626" strokeWidth={5} fill="url(#colorWave)" fillOpacity={1} />
-                                <Bar yAxisId="right" dataKey="runs" name="Run Volume" fill="rgba(255,255,255,0.03)" radius={[5, 5, 0, 0]} barSize={50} />
-                                <Line yAxisId="left" type="monotone" dataKey="failures" name="Anomalies" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4, fill: '#f59e0b' }} />
-                                <defs>
-                                    <linearGradient id="colorWave" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                            </ComposedChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* 3. BOTTLENECK ANALYSIS */}
-                <div className="lg:col-span-7 glass-card rounded-[3.5rem] p-12 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                    <h3 className="text-sm font-black text-white uppercase italic tracking-tighter mb-12">Stream Bottleneck Matrix</h3>
-                    <div className="h-[450px] w-full mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={bottleneckData} layout="vertical" margin={{ left: 40 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" stroke="#4b5563" fontSize={10} fontWeight={900} width={160} />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="avg" name="Avg Speed" fill="#dc2626" radius={[0, 20, 20, 0]} barSize={40}>
-                                    {bottleneckData.map((_, i) => <Cell key={i} fillOpacity={1 - i * 0.15} fill="#dc2626" />)}
-                                </Bar>
-                                <Bar dataKey="max" name="Max Delay" fill="rgba(255,255,255,0.05)" radius={[0, 20, 20, 0]} barSize={10} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* 4. EXECUTION COMPLEXITY (SCATTER) */}
-                <div className="lg:col-span-5 glass-card rounded-[3.5rem] p-12 flex flex-col relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                    <h3 className="text-sm font-black text-white uppercase italic tracking-tighter mb-12">Execution Complexity Matrix</h3>
-                    <div className="h-[450px] w-full mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
-                                <XAxis type="number" dataKey="x" name="Duration" unit="s" stroke="rgba(255,255,255,0.05)" fontSize={10} fontWeight={900} />
-                                <YAxis type="number" dataKey="y" name="Nodes / Steps" stroke="rgba(255,255,255,0.05)" fontSize={10} fontWeight={900} />
-                                <ZAxis type="number" dataKey="z" range={[100, 1500]} name="Compute Power" />
-                                <Tooltip cursor={{ strokeDasharray: '5 5', stroke: '#dc2626' }} content={<CustomTooltip />} />
-                                <Scatter name="Workflow Nodes" data={MOCK_DATA.scatter} fill="#dc2626" fillOpacity={0.7} shape="circle" animationDuration={2500} />
-                            </ScatterChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* 5. HOURLY LOAD HEATMAP (NEW CUSTOME CHART) */}
-                <div className="lg:col-span-12 glass-card rounded-[3.5rem] p-12 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                    <div className="flex justify-between items-end mb-12">
-                        <div>
-                            <h3 className="text-sm font-black text-white uppercase italic tracking-tighter">Daily Stream Velocity Heatmap</h3>
-                            <p className="text-[9px] text-gray-700 font-black uppercase mt-1">24-Hour Cycle Activity Distribution</p>
-                        </div>
-                        <div className="flex gap-2">
-                            {[0, 20, 40, 60, 80].map(v => (
-                                <div key={v} className="w-8 h-8 rounded-lg flex items-center justify-center text-[8px] font-black" style={{ backgroundColor: `rgba(220, 38, 38, ${v / 100})`, color: v > 50 ? 'white' : '#4b5563' }}>{v}%</div>
+                        <div className="flex flex-col gap-3 w-full">
+                            {a.conclusionData.map((c, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-all">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_PALETTE[i] }} />
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase">{c.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                            <div className="h-full rounded-full" style={{ width: `${pct(c.value, a.total)}%`, background: PIE_PALETTE[i] }} />
+                                        </div>
+                                        <span className="text-xs font-black text-white w-8 text-right">{c.value}</span>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-6 sm:grid-cols-12 lg:grid-cols-24 gap-4">
-                        {Array.from({ length: 24 }).map((_, i) => {
-                            const val = MOCK_DATA.heatmap.find(h => parseInt(h.time) === i)?.value || Math.floor(Math.random() * 30);
-                            return (
-                                <div key={i} className="flex flex-col items-center gap-3">
-                                    <div
-                                        className="w-full aspect-square rounded-2xl border border-white/5 transition-all duration-700 hover:scale-110 shadow-lg"
-                                        style={{ backgroundColor: `rgba(220, 38, 38, ${val / 100})`, boxShadow: val > 60 ? '0 0 20px rgba(220, 38, 38, 0.2)' : 'none' }}
-                                    ></div>
-                                    <span className="text-[8px] text-gray-800 font-black uppercase">{i < 10 ? `0${i}` : i}h</span>
-                                </div>
-                            );
-                        })}
+                </Section>
+
+                <Section title="Pipeline Health Radar" sub="Multi-dimensional reliability score">
+                    <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart cx="50%" cy="50%" outerRadius="75%" data={a.radarData}>
+                                <PolarGrid stroke="rgba(255,255,255,0.04)" />
+                                <PolarAngleAxis dataKey="subject"
+                                    tick={{ fill: "#4b5563", fontSize: 9, fontWeight: 700 }} />
+                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                                <defs>
+                                    <linearGradient id="radarGrad" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stopColor="#dc2626" />
+                                        <stop offset="100%" stopColor="#8b5cf6" />
+                                    </linearGradient>
+                                </defs>
+                                <Radar dataKey="A" stroke="url(#radarGrad)" strokeWidth={2}
+                                    fill="url(#radarGrad)" fillOpacity={0.25} animationDuration={1500} />
+                            </RadarChart>
+                        </ResponsiveContainer>
                     </div>
+                </Section>
+            </div>
+
+            {/* ── Row 2: Build Timeline ── */}
+            <Section title="Build Timeline" sub="Daily run volume · avg duration · failures" accent="#3b82f6">
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={a.trendData} margin={{ left: 0, right: 0 }}>
+                            <defs>
+                                <linearGradient id="durGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#dc2626" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="runGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="2 8" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                            <XAxis dataKey="date" stroke="rgba(255,255,255,0.05)" tick={{ fill: "#374151", fontSize: 9, fontWeight: 700 }} />
+                            <YAxis yAxisId="l" stroke="rgba(255,255,255,0.03)" tick={{ fill: "#374151", fontSize: 9 }} />
+                            <YAxis yAxisId="r" orientation="right" hide />
+                            <Tooltip content={<GlassTooltip />} cursor={{ stroke: "#dc2626", strokeOpacity: 0.15, strokeWidth: 1 }} />
+                            <Area yAxisId="l" type="monotone" dataKey="duration" name="Avg Duration (s)"
+                                stroke="#dc2626" strokeWidth={2.5} fill="url(#durGrad)" />
+                            <Bar yAxisId="r" dataKey="runs" name="Run Volume"
+                                fill="rgba(59,130,246,0.12)" radius={[3, 3, 0, 0]} barSize={24} />
+                            <Line yAxisId="r" type="monotone" dataKey="failures" name="Failures"
+                                stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
+                                activeDot={{ r: 5 }} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="flex items-center gap-6 mt-3 flex-wrap">
+                    {[{ color: "#dc2626", label: "Avg Duration" }, { color: "rgba(59,130,246,0.5)", label: "Run Volume" }, { color: "#f59e0b", label: "Failures" }].map((l, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: l.color }} />
+                            <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">{l.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </Section>
+
+            {/* ── Row 3: Bottleneck + Failure Breakdown ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Section title="Slowest Workflows" sub="Average vs peak execution time (seconds)">
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={a.bottleneckData} layout="vertical" margin={{ left: 8 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={130}
+                                    tick={{ fill: "#4b5563", fontSize: 9, fontWeight: 700 }} />
+                                <Tooltip content={<GlassTooltip suffix="s" />} />
+                                {a.bottleneckData.map((_, i) => (
+                                    <defs key={i}>
+                                        <linearGradient id={`bGrad${i}`} x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#dc2626" stopOpacity={1 - i * 0.08} />
+                                            <stop offset="100%" stopColor="#7f1d1d" stopOpacity={0.6} />
+                                        </linearGradient>
+                                    </defs>
+                                ))}
+                                <Bar dataKey="avg" name="Avg (s)" radius={[0, 6, 6, 0]} barSize={16}>
+                                    {a.bottleneckData.map((_, i) => <Cell key={i} fill={`url(#bGrad${i})`} />)}
+                                </Bar>
+                                <Bar dataKey="max" name="Max (s)" fill="rgba(255,255,255,0.06)"
+                                    radius={[0, 4, 4, 0]} barSize={6} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Section>
+
+                <Section title="Top Failing Workflows" sub="Most frequent failure sources" accent="#ef4444">
+                    {a.failureData.length === 0 ? (
+                        <div className="h-64 flex flex-col items-center justify-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-2xl">🎉</div>
+                            <p className="text-emerald-400 font-black text-xs uppercase tracking-widest">No failures recorded</p>
+                        </div>
+                    ) : (
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={a.failureData} layout="vertical" margin={{ left: 8 }}>
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={130}
+                                        tick={{ fill: "#4b5563", fontSize: 9, fontWeight: 700 }} />
+                                    <Tooltip content={<GlassTooltip />} />
+                                    <Bar dataKey="count" name="Failures" fill="#ef4444"
+                                        radius={[0, 6, 6, 0]} barSize={16} fillOpacity={0.85} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Section>
+            </div>
+
+            {/* ════════════ INTELLIGENT AUTONOMOUS FEATURES ════════════ */}
+            <div className="pt-2">
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-red-600/30 to-transparent" />
+                    <span className="text-[9px] font-black text-red-600 uppercase tracking-[0.4em] px-2">
+                        Autonomous Intelligence Engine
+                    </span>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-red-600/30 to-transparent" />
                 </div>
 
-                {/* 6. DIAGNOSTIC INTERFERENCE LOG (GRID) */}
-                <div className="lg:col-span-12 glass-card rounded-[4.5rem] p-16 relative overflow-hidden bg-black/40 border-red-900/10 shadow-[0_0_100px_rgba(220,38,38,0.05)]">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/40 to-transparent"></div>
-                    <div className="flex items-center justify-between mb-16 px-4">
-                        <div className="flex items-center gap-6">
-                            <div className="w-4 h-4 rounded-full bg-red-600 animate-pulse ring-8 ring-red-600/10"></div>
-                            <div>
-                                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Diagnostic Interference Log</h3>
-                                <p className="text-[10px] text-gray-600 font-black uppercase mt-1 tracking-[0.2em]">Active Neural Channel Scan • Incidents: {alerts.length}</p>
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* ── Feature 1: Build Cost Estimator ── */}
+                    <Section title="Build Cost Estimator" sub="GitHub Actions Linux runner · $0.008/min" badge="LIVE" accent="#f59e0b">
+                        <div className="grid grid-cols-3 gap-3 mb-5">
+                            {[
+                                { l: "Total Minutes", v: `${totalMins}m`, color: "text-white" },
+                                { l: "Est. Cost", v: `$${costUSD}`, color: "text-amber-400" },
+                                { l: "Runs Tracked", v: a.total, color: "text-blue-400" },
+                            ].map((s, i) => (
+                                <div key={i} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl text-center hover:border-amber-500/20 transition-all">
+                                    <div className={`text-lg font-black ${s.color}`}>{s.v}</div>
+                                    <div className="text-[8px] text-gray-600 font-bold uppercase tracking-widest mt-1">{s.l}</div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex gap-4">
-                            <button className="px-8 py-3 rounded-full bg-red-600/5 border border-red-600/20 text-[10px] font-black text-red-600 uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Clear Stream</button>
-                            <button className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-gray-500 uppercase tracking-widest hover:text-white transition-all italic">Export CSV</button>
+                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/15">
+                            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest leading-relaxed">
+                                Based on actual collected build durations. Assumes GitHub-hosted Linux runners at standard rate.
+                                Upgrade to a private runner to reduce cost significantly.
+                            </p>
+                        </div>
+                        <div className="mt-4 h-16">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={a.trendData.map(t => ({ ...t, cost: ((t.duration * t.runs) / 60 * 0.008).toFixed(3) }))}>
+                                    <defs>
+                                        <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <Area type="monotone" dataKey="cost" name="Daily Cost ($)" stroke="#f59e0b"
+                                        strokeWidth={2} fill="url(#costGrad)" />
+                                    <Tooltip content={<GlassTooltip suffix="$" />} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Section>
+
+                    {/* ── Feature 2: MTTR Engine ── */}
+                    <Section title="Mean Time to Recovery" sub="Per workflow: failure → next success duration" badge="MTTR" accent="#8b5cf6">
+                        {mttrList.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl">✅</div>
+                                <p className="text-emerald-400 font-black text-[10px] uppercase tracking-widest">No recoveries needed</p>
+                                <p className="text-gray-700 text-[9px] font-bold uppercase text-center">All workflows are passing consistently</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-4 mb-5 p-4 bg-purple-500/5 border border-purple-500/15 rounded-2xl">
+                                    <div className="text-3xl font-black text-purple-400">{fmtSec(overallMTTR)}</div>
+                                    <div>
+                                        <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Overall Avg MTTR</div>
+                                        <div className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${overallMTTR < 1800 ? "text-emerald-500" : overallMTTR < 7200 ? "text-amber-500" : "text-red-500"}`}>
+                                            {overallMTTR < 1800 ? "🟢 Excellent recovery speed" : overallMTTR < 7200 ? "🟡 Acceptable — room to improve" : "🔴 High — review failing workflows"}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {mttrList.map((m, i) => {
+                                        const pctBar = Math.min(100, (m.avgMttr / (overallMTTR * 2)) * 100);
+                                        return (
+                                            <div key={i} className="flex items-center gap-3 group/m p-2 rounded-xl hover:bg-white/[0.03] transition-all">
+                                                <div className="w-24 shrink-0">
+                                                    <p className="text-[10px] font-bold text-gray-400 truncate" title={m.workflow}>{m.workflow}</p>
+                                                    <p className="text-[8px] text-gray-700 font-bold">{m.count} event{m.count > 1 ? "s" : ""}</p>
+                                                </div>
+                                                <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                    <div className="h-full rounded-full transition-all duration-700"
+                                                        style={{ width: `${pctBar}%`, background: `linear-gradient(90deg, #8b5cf6, #ec4899)` }} />
+                                                </div>
+                                                <span className="text-[10px] font-black text-purple-400 shrink-0 w-14 text-right">
+                                                    {fmtSec(m.avgMttr)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </Section>
+
+                    {/* ── Feature 3: Day-of-Week Failure Heatmap ── */}
+                    <Section title="Failure Heatmap" sub="Which days have the most pipeline failures" badge="Pattern" accent="#ec4899">
+                        {heatmap.length === 0 ? (
+                            <div className="py-10 text-center text-gray-700 font-bold text-xs uppercase tracking-widest">No pattern data yet</div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-7 gap-2 mb-4">
+                                    {DAYS.map(d => (
+                                        <div key={d} className="text-center text-[8px] text-gray-600 font-black uppercase">{d}</div>
+                                    ))}
+                                    {DAYS.map(day => {
+                                        const entry = heatmap.find(h => h.day === day);
+                                        const failRate = entry ? (entry.failures / Math.max(entry.total, 1)) : 0;
+                                        const intensity = Math.round(failRate * 9);
+                                        const colors = ["#1a1a1a", "#1f0a0a", "#2d0808", "#450808", "#5e0a0a", "#7a0c0c", "#982020", "#b83232", "#d44444", "#ef4444"];
+                                        return (
+                                            <div key={day} className="aspect-square rounded-xl border border-white/5 flex flex-col items-center justify-center cursor-default group/day relative transition-transform hover:scale-105"
+                                                style={{ background: colors[intensity] }}
+                                                title={entry ? `${day}: ${entry.failures} failures / ${entry.total} runs` : `${day}: no data`}>
+                                                {entry && (
+                                                    <div className="opacity-0 group-hover/day:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-black/90 border border-white/10 px-2 py-1 rounded-lg text-[8px] font-bold text-white whitespace-nowrap z-10 pointer-events-none transition-opacity">
+                                                        {entry.failures}/{entry.total} failed
+                                                    </div>
+                                                )}
+                                                <span className="text-[8px] font-black" style={{ color: intensity > 4 ? "#fca5a5" : "#6b7280" }}>
+                                                    {entry ? entry.failures : "—"}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[8px] text-gray-700 font-bold uppercase">Low failure rate</span>
+                                    <div className="flex gap-1">
+                                        {["#1a1a1a", "#2d0808", "#5e0a0a", "#982020", "#ef4444"].map((c, i) => (
+                                            <div key={i} className="w-4 h-2 rounded-sm" style={{ background: c }} />
+                                        ))}
+                                    </div>
+                                    <span className="text-[8px] text-gray-700 font-bold uppercase">High failure rate</span>
+                                </div>
+                                <div className="mt-4 h-28">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={heatmap} margin={{ left: 0, right: 0, bottom: 0, top: 0 }}>
+                                            <XAxis dataKey="day" tick={{ fill: "#4b5563", fontSize: 9, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                                            <Tooltip content={<GlassTooltip />} />
+                                            <Bar dataKey="total" name="Total" fill="rgba(255,255,255,0.07)" radius={[3, 3, 0, 0]} barSize={24} />
+                                            <Bar dataKey="failures" name="Failures" fill="#ec4899" radius={[3, 3, 0, 0]} barSize={12} fillOpacity={0.85} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </>
+                        )}
+                    </Section>
+
+                    {/* ── Feature 4: Build Time Regression Detector ── */}
+                    <Section title="Build Time Regression Detector" sub="Last 7 days vs prior 7 days average duration" badge="Auto-detect" accent="#10b981">
+                        {!regression.recentAvg && !regression.priorAvg ? (
+                            <div className="py-10 text-center text-gray-700 font-bold text-xs uppercase tracking-widest">Need 14+ days of data</div>
+                        ) : (
+                            <>
+                                <div className={`p-5 rounded-2xl border mb-5 flex items-center gap-4 ${regression.isRegression
+                                    ? "bg-red-600/5 border-red-600/20" : "bg-emerald-500/5 border-emerald-500/20"}`}>
+                                    <div className={`text-3xl font-black ${regression.isRegression ? "text-red-400" : "text-emerald-400"}`}>
+                                        {regression.isRegression ? "⚠️" : "✅"}
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-black uppercase tracking-tight ${regression.isRegression ? "text-red-400" : "text-emerald-400"}`}>
+                                            {regression.isRegression ? "Regression Detected" : "No Regression"}
+                                        </p>
+                                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                                            {regression.isRegression
+                                                ? `Builds are ${regression.changePercent?.toFixed(1)}% slower than last week — investigate recent commits`
+                                                : "Build performance is stable or improving"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mb-5">
+                                    {[
+                                        { l: "Recent Avg (7d)", v: fmtSec(regression.recentAvg), n: regression.recentCount, color: regression.isRegression ? "text-red-400" : "text-white" },
+                                        { l: "Prior Avg (7–14d)", v: fmtSec(regression.priorAvg), n: regression.priorCount, color: "text-gray-400" },
+                                    ].map((s, i) => (
+                                        <div key={i} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl">
+                                            <div className={`text-xl font-black ${s.color}`}>{s.v}</div>
+                                            <div className="text-[8px] text-gray-600 font-bold uppercase tracking-widest mt-1">{s.l}</div>
+                                            <div className="text-[8px] text-gray-700 font-bold mt-0.5">{s.n || 0} runs</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {regression.changePercent !== undefined && (
+                                    <div className="flex items-center gap-3 p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                                        <div className={`text-lg font-black ${regression.changePercent > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                                            {regression.changePercent > 0 ? "▲" : "▼"} {Math.abs(regression.changePercent).toFixed(1)}%
+                                        </div>
+                                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all"
+                                                style={{
+                                                    width: `${Math.min(100, Math.abs(regression.changePercent))}%`,
+                                                    background: regression.changePercent > 0 ? "#ef4444" : "#10b981"
+                                                }} />
+                                        </div>
+                                        <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">vs last week</span>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </Section>
+                </div>
+            </div>
+
+            {/* ── Anomaly Incidents ── */}
+            {(rawAlerts?.length > 0) && (
+                <Section title="Anomaly Incidents" sub={`${rawAlerts.length} run(s) flagged by automated detection`} badge="LIVE" accent="#ef4444">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {rawAlerts.map((alert, i) => (
+                            <div key={i} className="p-5 bg-red-600/5 border border-red-600/15 rounded-2xl hover:border-red-600/35 transition-all group/a">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[9px] text-red-400 font-black uppercase tracking-widest truncate flex-1">{alert.workflowName}</span>
+                                    <span className="text-[8px] text-red-600 border border-red-600/30 rounded px-1.5 py-0.5 font-black uppercase ml-2 shrink-0">
+                                        {((alert.anomalyScore || 0) * 10).toFixed(0)}/10
+                                    </span>
+                                </div>
+                                <p className="text-[10px] font-bold text-gray-300 leading-relaxed mb-3">{alert.anomalyReason}</p>
+                                <p className="text-[8px] text-gray-700 font-bold">{new Date(alert.startedAt).toLocaleString()}</p>
+                                {alert.duration > 0 && (
+                                    <p className="text-[8px] text-amber-500 font-black mt-1">⏱ {fmtSec(alert.duration)}</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
+            {/* ── Flaky Workflow Detector ── */}
+            <Section title="Flaky Workflow Detector" sub="Workflows with mixed pass/fail outcomes — non-deterministic" badge="Intelligent" accent="#f59e0b">
+                {a.flakyWorkflows.length === 0 ? (
+                    <div className="flex items-center gap-4 p-5 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-lg">✅</div>
+                        <div>
+                            <p className="text-emerald-400 font-black text-xs uppercase tracking-widest">All workflows deterministic</p>
+                            <p className="text-gray-700 text-[9px] font-bold uppercase tracking-widest mt-0.5">No flakiness detected across {a.total} runs</p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                        {alerts.map((alert, i) => (
-                            <div key={i} className="group glass-card p-10 rounded-[3rem] border border-white/5 hover:border-red-600/40 transition-all duration-1000 transform hover:-translate-y-2 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex items-center justify-between mb-8">
-                                    <span className="text-[10px] text-red-600 font-black uppercase tracking-[0.3em]">{alert.workflowName}</span>
-                                    <div className="px-3 py-1 rounded bg-black/60 border border-red-600/20 text-[8px] font-black text-red-600 uppercase">Critical</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {a.flakyWorkflows.map((w, i) => (
+                            <div key={i} className="flex items-center justify-between p-4 bg-amber-500/5 border border-amber-500/15 rounded-xl hover:border-amber-500/30 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                                    <span className="text-[10px] font-bold text-gray-300 truncate max-w-[180px]">{w.name || w._id}</span>
                                 </div>
-                                <p className="text-sm font-black text-white uppercase mb-8 leading-relaxed opacity-90">{alert.anomalyReason}</p>
-                                <div className="flex items-center justify-between pt-8 border-t border-white/5">
-                                    <div className="flex flex-col">
-                                        <span className="text-[8px] text-gray-700 font-black uppercase">Timestamp</span>
-                                        <span className="text-[10px] text-gray-400 font-black uppercase">{new Date(alert.startedAt).toLocaleTimeString()}</span>
-                                    </div>
-                                    <button className="h-10 w-10 rounded-full border border-white/5 flex items-center justify-center group-hover:bg-red-600 group-hover:border-red-600 transition-all">
-                                        <svg className="w-4 h-4 text-gray-700 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                                    </button>
+                                <div className="flex gap-1.5 shrink-0">
+                                    <span className="text-[8px] font-black text-emerald-400 border border-emerald-400/30 rounded px-1.5 py-0.5">passes</span>
+                                    <span className="text-[8px] font-black text-red-400 border border-red-400/30 rounded px-1.5 py-0.5">fails</span>
                                 </div>
                             </div>
                         ))}
                     </div>
-                </div>
-            </div>
+                )}
+            </Section>
+
         </div>
     );
 };

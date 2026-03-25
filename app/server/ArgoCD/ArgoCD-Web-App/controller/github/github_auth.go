@@ -161,6 +161,10 @@ func DisconnectGitHubAccount(c *gin.Context) {
 	reposColl := mongoClient.Database("admin").Collection("github_repos")
 	_, _ = reposColl.DeleteMany(context.TODO(), bson.M{"accountId": objID})
 
+	// Also delete associated runs
+	runsColl := mongoClient.Database("admin").Collection("github_runs")
+	_, _ = runsColl.DeleteMany(context.TODO(), bson.M{"accountId": objID})
+
 	c.JSON(http.StatusOK, gin.H{"message": "Account disconnected successfully"})
 }
 
