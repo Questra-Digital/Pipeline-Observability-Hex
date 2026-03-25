@@ -31,11 +31,11 @@ func main() {
 	r.POST("/api/signup", controller.Signup)
 	r.POST("/api/signin", controller.Signin)
 
-	// Application management
-	r.GET("/all_pipelines", controller.GetAllPipelines)
-	r.GET("/pipeline_details/:name", controller.GetPipelineDetails)
-	r.POST("/api/apps/toggle", controller.ToggleApp)
-	r.GET("/api/apps/status", controller.GetAppsStatus)
+	// Application management - Authenticated routes
+	auth := r.Group("/api", middleware.AuthMiddleware())
+	{
+		auth.GET("/dashboard/stats", controller.GetDashboardStats)
+	}
 
 	// GitHub Actions specific endpoints
 	github := r.Group("/api/github", middleware.AuthMiddleware())
