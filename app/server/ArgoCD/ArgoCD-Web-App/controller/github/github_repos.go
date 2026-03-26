@@ -86,6 +86,12 @@ func GetGitHubRepos(c *gin.Context) {
 	accountsColl := mongoClient.Database("admin").Collection("github_accounts")
 	reposColl := mongoClient.Database("admin").Collection("github_repos")
 
+	// Ensure unique index on (repoId, accountId) to prevent duplicates at DB level
+	_, _ = reposColl.Indexes().CreateOne(context.TODO(), mongo.IndexModel{
+		Keys:    bson.D{{Key: "repoId", Value: 1}, {Key: "accountId", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+
 	// Find all accounts for the user
 	var accounts []GitHubAccount
 	cursor, err := accountsColl.Find(context.TODO(), bson.M{"userId": userEmail})
@@ -110,14 +116,21 @@ func GetGitHubRepos(c *gin.Context) {
 
 		// If no repos found in DB, sync from GitHub (initial sync)
 		if len(repos) == 0 {
-			repos = syncReposFromGitHub(acc)
-			if len(repos) > 0 {
-				// Bulk insert into DB
-				var interfaceRepos []interface{}
-				for _, r := range repos {
-					interfaceRepos = append(interfaceRepos, r)
+			freshRepos := syncReposFromGitHub(acc)
+			if len(freshRepos) > 0 {
+				// Use upsert to prevent duplicates
+				for _, r := range freshRepos {
+					filter := bson.M{"repoId": r.ID, "accountId": r.AccountID}
+					update := bson.M{"$setOnInsert": r}
+					opts := options.Update().SetUpsert(true)
+					_, _ = reposColl.UpdateOne(context.TODO(), filter, update, opts)
 				}
-				_, _ = reposColl.InsertMany(context.TODO(), interfaceRepos)
+				// Re-read from DB to get the actual state (with _id fields)
+				repoCursor, err = reposColl.Find(context.TODO(), bson.M{"accountId": acc.ID})
+				if err == nil {
+					repos = nil
+					_ = repoCursor.All(context.TODO(), &repos)
+				}
 			}
 		}
 
@@ -145,31 +158,49 @@ func syncReposFromGitHub(acc GitHubAccount) []Repository {
 	for {
 		repos, resp, err := client.Repositories.List(ctx, "", opt)
 		if err != nil {
+			log.Printf("[SyncRepos] Failed to list repositories: %v\n", err)
 			break
 		}
 		for _, r := range repos {
 			repoOwner := r.GetOwner().GetLogin()
+			repoName := r.GetName()
+
 			// Check if repository has workflows
-			workflows, _, err := client.Actions.ListWorkflows(ctx, repoOwner, r.GetName(), &github.ListOptions{PerPage: 1})
-			if err != nil || workflows.GetTotalCount() == 0 {
-				continue // Skip repositories without workflows
+			workflows, wResp, err := client.Actions.ListWorkflows(ctx, repoOwner, repoName, &github.ListOptions{PerPage: 1})
+			
+			hasWorkflows := false
+			if err == nil && workflows.GetTotalCount() > 0 {
+				hasWorkflows = true
+			} else if err != nil {
+				// RESILIENCE: If we hit a rate limit (403) or error during the workflow check, 
+				// DO NOT skip the repo. It's safer to include it and let the sync service 
+				// deal with it later than to hide it from the user entirely.
+				if wResp != nil && wResp.StatusCode == 403 {
+					log.Printf("[SyncRepos] Rate limit during workflow check for %s/%s. Keeping repo as fallback.\n", repoOwner, repoName)
+					hasWorkflows = true // Assume it might have them
+				} else {
+					log.Printf("[SyncRepos] Error checking workflows for %s/%s: %v\n", repoOwner, repoName, err)
+				}
 			}
 
-			allRepos = append(allRepos, Repository{
-				ID:          r.GetID(),
-				AccountID:   acc.ID,
-				Name:        r.GetName(),
-				Owner:       repoOwner,
-				FullName:    r.GetFullName(),
-				Enabled:     false, // Disabled by default
-				Description: r.GetDescription(),
-			})
+			if hasWorkflows {
+				allRepos = append(allRepos, Repository{
+					ID:          r.GetID(),
+					AccountID:   acc.ID,
+					Name:        repoName,
+					Owner:       repoOwner,
+					FullName:    r.GetFullName(),
+					Enabled:     false, // Disabled by default
+					Description: r.GetDescription(),
+				})
+			}
 		}
 		if resp.NextPage == 0 {
 			break
 		}
 		opt.Page = resp.NextPage
 	}
+	log.Printf("[SyncRepos] Discovered %d potential repositories for %s\n", len(allRepos), acc.Owner)
 	return allRepos
 }
 

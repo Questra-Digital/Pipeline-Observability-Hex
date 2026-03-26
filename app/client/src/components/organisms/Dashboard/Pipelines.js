@@ -4,12 +4,15 @@ import { useRouter } from "next/navigation";
 import { ErrorToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import useFetch from "@/hooks/useFetch";
 import GitHubAnalytics from "./GitHubAnalytics";
+import RCAPanel from "./RCAPanel";
+import instance from "@/axios/axios";
 
 const Pipelines = () => {
   // --- State ---
   const [view, setView] = useState("selection"); // 'selection', 'argocd', 'github', 'github_details'
   const [detailTab, setDetailTab] = useState("runs"); // 'runs', 'status', 'monitoring', 'analytics'
   const [selectedRepo, setSelectedRepo] = useState(null);
+  const [rcaTarget, setRcaTarget] = useState(null); // { run, owner, repo }
   const [pipelines, setPipelines] = useState([]);
   const [filteredPipelines, setFilteredPipelines] = useState([]);
   const [ghSearchQuery, setGhSearchQuery] = useState("");
@@ -69,14 +72,17 @@ const Pipelines = () => {
   const fetchLogs = async (job) => {
     try {
       const token = JSON.parse(localStorage.getItem("userData"))?.token || "";
-      const resp = await fetch(`http://127.0.0.1:8000/api/github/logs?owner=${job.owner}&repo=${job.repo}&jobId=${job.id}`, {
+      const resp = await instance.get(`/api/github/logs?owner=${job.owner}&repo=${job.repo}&jobId=${job.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await resp.json();
-      if (data.url) setLogUrl(data.url);
-      else ErrorToast("Failed to fetch log URL");
+      if (resp.status === 200 && resp.data.url) setLogUrl(resp.data.url);
+      else {
+        const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
+        ErrorToastModule.ErrorToast("Failed to fetch log URL");
+      }
     } catch (err) {
-      ErrorToast("Error fetching logs");
+      const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
+      ErrorToastModule.ErrorToast("Error fetching logs");
     }
   };
 
@@ -402,15 +408,12 @@ const Pipelines = () => {
     const handleSaveSync = async () => {
       setIsSavingSync(true);
       try {
-        const resp = await fetch("/api/github/account/sync", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${JSON.parse(localStorage.getItem("userData"))?.token || ""}`
-          },
-          body: JSON.stringify({ accountId: selectedRepo.accountId, interval: parseInt(localSyncInterval) })
-        });
-        if (resp.ok) {
+        const token = JSON.parse(localStorage.getItem("userData"))?.token || "";
+        const resp = await instance.post("/api/github/account/sync",
+          { accountId: selectedRepo.accountId, interval: parseInt(localSyncInterval) },
+          { headers: { "Authorization": `Bearer ${token}` } }
+        );
+        if (resp.status === 200) {
           const SuccessToastModule = await import("@/components/atoms/toastUtils/Toast");
           SuccessToastModule.SuccessToast("Sync Interval Update Propagated to Microservice");
           fetchRepos(); // Refresh to get updated interval
@@ -503,28 +506,28 @@ const Pipelines = () => {
     const statusColor = successRate >= 80 ? 'text-emerald-500' : successRate >= 50 ? 'text-amber-500' : 'text-red-500';
 
     return (
-      <div className="w-full max-w-7xl px-4 mb-24 relative z-10 flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-x-hidden">
+      <div className="w-full max-w-7xl px-4 mb-24 relative z-10 flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden">
 
         {/* DETAIL NAVIGATION HEADER */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 pb-10 border-b border-red-900/20">
-          <div className="flex items-center gap-6">
+        <div className="flex flex-col gap-6 pb-10 border-b border-red-900/20">
+          <div className="flex items-center gap-6 min-w-0 flex-1">
             <button
               onClick={() => { setView("github"); setSelectedRepo(null); }}
-              className="group h-14 w-14 rounded-2xl bg-black/40 border border-white/10 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-xl active:scale-90"
+              className="group h-14 w-14 rounded-2xl bg-black/40 border border-white/10 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-xl active:scale-90 shrink-0"
             >
               <svg className="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"></path></svg>
             </button>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] text-gray-600 font-bold tracking-widest uppercase">GitHub Actions</span>
                 <span className="text-[10px] text-gray-700 font-black">/</span>
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{selectedRepo.accountOwner}</span>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest truncate">{selectedRepo.accountOwner}</span>
               </div>
-              <h2 className="text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{selectedRepo.name}</h2>
+              <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter uppercase italic leading-none truncate" title={selectedRepo.name}>{selectedRepo.name}</h2>
             </div>
           </div>
 
-          <div className="flex items-center bg-[#050505] p-1.5 rounded-2xl border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto no-scrollbar">
+          <div className="flex items-center bg-[#050505] p-1.5 rounded-2xl border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto no-scrollbar w-full">
             {[
               { id: 'runs', label: 'Run History' },
               { id: 'status', label: 'Status' },
@@ -698,7 +701,15 @@ const Pipelines = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
+                      <div className="flex items-center gap-3 w-full lg:w-auto shrink-0 flex-wrap">
+                        {isFailing && (
+                          <button
+                            onClick={() => setRcaTarget({ run, owner: selectedRepo.accountOwner, repo: selectedRepo.name })}
+                            className="flex-1 lg:flex-none px-6 py-3 bg-red-950/40 border border-red-600/40 text-red-400 hover:bg-red-600/20 hover:text-red-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                          >
+                            🧠 Diagnose
+                          </button>
+                        )}
                         <button
                           onClick={() => handleLogClick({ id: run.runId, name: run.workflowName, repo: selectedRepo.name, owner: selectedRepo.accountOwner })}
                           className="flex-1 lg:flex-none px-6 py-3 bg-black/60 border border-white/5 hover:border-red-600/30 text-gray-500 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
@@ -813,6 +824,15 @@ const Pipelines = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* ROOT CAUSE ANALYSIS PANEL */}
+      {rcaTarget && (
+        <RCAPanel
+          run={rcaTarget.run}
+          owner={rcaTarget.owner}
+          repo={rcaTarget.repo}
+          onClose={() => setRcaTarget(null)}
+        />
       )}
     </div>
   );

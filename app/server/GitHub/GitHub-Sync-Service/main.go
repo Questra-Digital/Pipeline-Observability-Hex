@@ -65,7 +65,7 @@ type WorkflowRun struct {
 	AnomalyReason string             `bson:"anomalyReason" json:"anomalyReason"`
 }
 
-const defaultSyncInterval = 3 // seconds
+const defaultSyncInterval = 60 // 60 seconds is safer for rate limits
 
 func main() {
 	mongoURL := os.Getenv("MONGO_URL")
@@ -90,20 +90,22 @@ func main() {
 
 func ensureTTLIndex(client *mongo.Client) {
 	coll := client.Database("admin").Collection("github_runs")
+	// First, try to drop the old dangerous TTL index on updatedAt (if it exists)
+	_, _ = coll.Indexes().DropOne(context.TODO(), "updatedAt_1")
+	
+	// Create a safe TTL index on syncedAt — this is the time WE stored the run,
+	// not when GitHub last touched it. 90 days retention.
 	indexModel := mongo.IndexModel{
-		Keys:    bson.M{"updatedAt": 1},
-		Options: options.Index().SetExpireAfterSeconds(1209600), // 14 days
+		Keys:    bson.M{"syncedAt": 1},
+		Options: options.Index().SetExpireAfterSeconds(7776000), // 90 days
 	}
 	_, err := coll.Indexes().CreateOne(context.TODO(), indexModel)
 	if err != nil {
-		log.Printf("Warning: Could not create TTL index: %v", err)
+		log.Printf("Warning: Could not create TTL index on syncedAt: %v", err)
 	}
 }
 
-// runPollingLoop continuously loads all accounts and spawns per-account goroutines.
-// It refreshes the account list every 30 seconds to pick up new accounts.
 func runPollingLoop(client *mongo.Client) {
-	// Track which accounts already have a running goroutine
 	running := make(map[primitive.ObjectID]bool)
 	mu := sync.Mutex{}
 
@@ -118,7 +120,6 @@ func runPollingLoop(client *mongo.Client) {
 			running[acc.ID] = true
 			mu.Unlock()
 
-			// Spawn a goroutine per account using its own syncInterval
 			go func(a GitHubAccount) {
 				defer func() {
 					mu.Lock()
@@ -135,15 +136,12 @@ func runPollingLoop(client *mongo.Client) {
 
 				log.Printf("[Sync] Started polling account %s (owner: %s) every %ds", a.ID.Hex(), a.Owner, interval)
 
-				// First sync immediately before waiting for ticker
 				syncAccount(client, a)
 				for range ticker.C {
 					syncAccount(client, a)
 				}
 			}(acc)
 		}
-
-		// Re-check for new accounts every 30 seconds
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -160,7 +158,6 @@ func fetchAllAccounts(client *mongo.Client) []GitHubAccount {
 	return accounts
 }
 
-// syncAccount fetches all enabled repos for one account and upserts their runs.
 func syncAccount(client *mongo.Client, acc GitHubAccount) {
 	db := client.Database("admin")
 	reposColl := db.Collection("github_repos")
@@ -195,31 +192,47 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 		}
 
 		for _, run := range workflowRuns.WorkflowRuns {
-			jobs, _, _ := ghClient.Actions.ListWorkflowJobs(context.TODO(), owner, repo.Name, run.GetID(), nil)
+			// OPTIMIZATION: Check if we already have this run and if it's completed
+			var existingRun WorkflowRun
+			err := runsColl.FindOne(context.TODO(), bson.M{"runId": run.GetID()}).Decode(&existingRun)
+			
+			// Only fetch jobs if:
+			// 1. Run doesn't exist in our DB
+			// 2. Run exists but was not 'completed' (i.e. status was in_progress/queued)
+			// 3. Run exists but has NO jobs data
+			needsJobUpdate := err == mongo.ErrNoDocuments || 
+							 existingRun.Status != "completed" || 
+							 len(existingRun.Jobs) == 0
+
 			var dbJobs []Job
-			if jobs != nil {
-				for _, j := range jobs.Jobs {
-					var dbSteps []Step
-					for _, s := range j.Steps {
-						dbSteps = append(dbSteps, Step{
-							Name:        s.GetName(),
-							Status:      s.GetStatus(),
-							Conclusion:  s.GetConclusion(),
-							Number:      s.GetNumber(),
-							StartedAt:   s.GetStartedAt().Time,
-							CompletedAt: s.GetCompletedAt().Time,
+			if needsJobUpdate {
+				jobs, _, _ := ghClient.Actions.ListWorkflowJobs(context.TODO(), owner, repo.Name, run.GetID(), nil)
+				if jobs != nil {
+					for _, j := range jobs.Jobs {
+						var dbSteps []Step
+						for _, s := range j.Steps {
+							dbSteps = append(dbSteps, Step{
+								Name:        s.GetName(),
+								Status:      s.GetStatus(),
+								Conclusion:  s.GetConclusion(),
+								Number:      s.GetNumber(),
+								StartedAt:   s.GetStartedAt().Time,
+								CompletedAt: s.GetCompletedAt().Time,
+							})
+						}
+						dbJobs = append(dbJobs, Job{
+							ID:          j.GetID(),
+							Name:        j.GetName(),
+							Status:      j.GetStatus(),
+							Conclusion:  j.GetConclusion(),
+							StartedAt:   j.GetStartedAt().Time,
+							CompletedAt: j.GetCompletedAt().Time,
+							Steps:       dbSteps,
 						})
 					}
-					dbJobs = append(dbJobs, Job{
-						ID:          j.GetID(),
-						Name:        j.GetName(),
-						Status:      j.GetStatus(),
-						Conclusion:  j.GetConclusion(),
-						StartedAt:   j.GetStartedAt().Time,
-						CompletedAt: j.GetCompletedAt().Time,
-						Steps:       dbSteps,
-					})
 				}
+			} else {
+				dbJobs = existingRun.Jobs
 			}
 
 			duration := 0.0
@@ -227,7 +240,6 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 				duration = run.GetUpdatedAt().Sub(run.GetCreatedAt().Time).Seconds()
 			}
 
-			// Anomaly detection
 			anomalyScore := 0.0
 			anomalyReason := ""
 			if run.GetConclusion() == "failure" {
@@ -260,9 +272,12 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 			}
 
 			filter := bson.M{"runId": run.GetID()}
-			update := bson.M{"$set": dbRun}
+			update := bson.M{
+				"$set":         dbRun,
+				"$currentDate": bson.M{"syncedAt": true},
+			}
 			_, _ = runsColl.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
 		}
-		log.Printf("[Sync] Synced %d runs for %s/%s (interval: %ds)", len(workflowRuns.WorkflowRuns), owner, repo.Name, acc.SyncInterval)
+		log.Printf("[Sync] Synced %d runs for %s/%s", len(workflowRuns.WorkflowRuns), owner, repo.Name)
 	}
 }

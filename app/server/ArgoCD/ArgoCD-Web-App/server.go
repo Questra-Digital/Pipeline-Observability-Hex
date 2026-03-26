@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
+	configured_apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
 	github_controller "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/github"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 	"github.com/gin-contrib/cors"
@@ -35,6 +36,8 @@ func main() {
 	auth := r.Group("/api", middleware.AuthMiddleware())
 	{
 		auth.GET("/dashboard/stats", controller.GetDashboardStats)
+		auth.GET("/apps", configured_apps.GetAllApps)
+		auth.GET("/apps/", configured_apps.GetAllApps)
 	}
 
 	// GitHub Actions specific endpoints
@@ -57,6 +60,7 @@ func main() {
 		github.GET("/alerts", github_controller.GetGitHubAlerts)
 		github.GET("/insights", github_controller.GetGitHubInsights)
 		github.GET("/logs", github_controller.GetGitHubJobLogs)
+		github.GET("/rca", github_controller.GetRootCauseAnalysis)
 		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
 		github.DELETE("/account/:id", github_controller.DisconnectGitHubAccount)
 	}

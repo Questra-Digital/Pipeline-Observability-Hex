@@ -71,14 +71,15 @@ services:
     depends_on:
       - mongo
 
-  github-monitor:
-    build:
-      context: ./server/GitHub/GitHub-Monitor-Service
-      dockerfile: Dockerfile
-    restart: always
-    network_mode: "host"
-    depends_on:
-      - mongo
+  # github-monitor is DISABLED — redundant with github-sync which has rate limit optimizations
+  # github-monitor:
+  #   build:
+  #     context: ./server/GitHub/GitHub-Monitor-Service
+  #     dockerfile: Dockerfile
+  #   restart: always
+  #   network_mode: "host"
+  #   depends_on:
+  #     - mongo
   mongo: # mongosh --username mongouser --password mongopassword
     image: mongo
     environment:

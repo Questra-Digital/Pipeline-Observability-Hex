@@ -9,7 +9,8 @@ const useFetch = (url, optionalHeaderValue = true) => {
   const fetchData = async (queryParams = "") => {
     setLoading(true);
     setError(null);
-    setData(null);
+    // NOTE: Do NOT call setData(null) here — it causes data to vanish
+    // during polling refetches. Existing data stays visible until replaced.
     try {
       const authToken = optionalHeaderValue
         ? JSON.parse(localStorage.getItem("userData")).token
@@ -20,7 +21,6 @@ const useFetch = (url, optionalHeaderValue = true) => {
       const response = await instance.get(`${url}${queryParams}`, { headers });
       if (response.status === 200) setData(response.data);
       else setError("Failed. Please try again!");
-      console.log(response);
     } catch (error) {
       console.log(error);
       if (error?.response?.status === 401) {
