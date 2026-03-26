@@ -92,11 +92,10 @@ var ruleLibrary = []Rule{
 	// ── ENV / SECRETS ──
 	{
 		Pattern:  regexp.MustCompile(`(?i)(required|error|fatal).*?(env|environment)\s+var(iable)?|env var .* (not set|is not defined|undefined|missing)|getenv.*empty|env\.get.*returns empty|\$\w+ is not set|\w+_TOKEN is not set|GITHUB_TOKEN.*missing`),
-		Weight:   0.80,
+		Weight:   0.85,
 		Category: "Missing ENV Variable / Secret",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			// Extract the variable name from the match
 			varRe := regexp.MustCompile(`\b([A-Z_]{3,})\s+is not set|\$([A-Z_]{3,})|env\.get\(["']([A-Z_a-z]{3,})["']\)`)
 			if m := varRe.FindStringSubmatch(match); m != nil {
 				for i := 1; i < len(m); i++ {
@@ -108,164 +107,121 @@ var ruleLibrary = []Rule{
 			return "Add the required environment variable to your repository secrets (Settings → Secrets and Variables → Actions) and reference it in your workflow YAML."
 		},
 	},
+
+	// ── DEPENDENCY FAILURE (Expanded) ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)secret.*not found|secrets\.get.*none|secret_key.*empty|api[_-]?key.*undefined`),
-		Weight:   0.70,
-		Category: "Missing ENV Variable / Secret",
+		Pattern:  regexp.MustCompile(`(?i)npm\s+err!|npm\s+error|cannot find module|module not found|err_module_not_found|no module named|importerror.*no module|cannot find package|go: module|ModuleNotFoundError|pip install.*failed|failed to resolve|composer\s+error|gem\s+not\s+found|bundle\s+install.*failed`),
+		Weight:   0.85,
+		Category: "Dependency Failure",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			return "A required secret is not configured. Go to repository Settings → Secrets and Variables → Actions and add the missing API key or secret."
+			if strings.Contains(strings.ToLower(match), "npm") {
+				return "Node dependency error. Check your `package.json` for missing version ranges. Try running `npm install` locally to debug."
+			}
+			if strings.Contains(strings.ToLower(match), "pip") || strings.Contains(strings.ToLower(match), "module") {
+				return "Python dependency error. Ensure all required packages are listed in `requirements.txt` or `pyproject.toml`."
+			}
+			return "A dependency could not be resolved. Run your package manager install command locally and ensure all lock files are up to date and committed."
 		},
 	},
 
-	// ── DEPENDENCY FAILURE ──
+	// ── COMPILATION / SYNTAX ERROR (New Specifics) ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)npm\s+err!|npm\s+error|cannot find module|module not found|err_module_not_found|no module named|importerror.*no module|cannot find package|go: module|ModuleNotFoundError|pip install.*failed|failed to resolve`),
-		Weight:   0.80,
-		Category: "Dependency Failure",
+		Pattern:  regexp.MustCompile(`(?i)panic:|runtime error:|unexpected\s+EOF|slice\s+bounds\s+out\s+of\s+range|nil\s+pointer\s+dereference|stack\s+overflow`),
+		Weight:   0.90,
+		Category: "Runtime Panic / Crash",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			// npm: extract package name
-			npmRe := regexp.MustCompile(`(?i)cannot find module ['"]([^'"]+)['"]|module not found.*['"]([^'"]+)['"]`)
-			if m := npmRe.FindStringSubmatch(match); m != nil {
-				pkg := m[1]
-				if pkg == "" { pkg = m[2] }
-				if pkg != "" {
-					return fmt.Sprintf("Install the missing package: `npm install %s` and commit the updated `package.json` / `package-lock.json`.", pkg)
-				}
-			}
-			// Python: extract package name
-			pyRe := regexp.MustCompile(`(?i)no module named ['"]?([a-z_\-]+)['"]?`)
-			if m := pyRe.FindStringSubmatch(match); m != nil {
-				return fmt.Sprintf("Install the missing Python package: `pip install %s` and add it to `requirements.txt`.", m[1])
-			}
-			// Go: extract module
-			goRe := regexp.MustCompile(`(?i)cannot find package ([^\s]+)`)
-			if m := goRe.FindStringSubmatch(match); m != nil {
-				return fmt.Sprintf("Run `go get %s` to install the missing Go package.", m[1])
-			}
-			return "A dependency could not be resolved. Run your package manager install command (`npm install`, `pip install -r requirements.txt`, `go mod tidy`) and ensure `lock` files are committed."
+			return "Your code crashed at runtime with a panic. Review the stack trace in the evidence below to identify the exact line of code causing the crash."
 		},
 	},
 	{
-		Pattern:  regexp.MustCompile(`(?i)lock\s*file.*outdated|package\.json.*mismatch|yarn\.lock.*conflict|composer\.lock.*conflict`),
-		Weight:   0.50,
-		Category: "Dependency Failure",
-		Severity: "warning",
+		Pattern:  regexp.MustCompile(`(?i)Uncaught\s+TypeError|Cannot\s+read\s+properties\s+of\s+null|is\s+not\s+a\s+function|SyntaxError:\s+Unexpected\s+token`),
+		Weight:   0.80,
+		Category: "Javascript Runtime Error",
+		Severity: "critical",
 		Remediation: func(match, log string) string {
-			return "Your lock file is out of sync with your manifest. Delete `package-lock.json` / `yarn.lock` and re-run `npm install` or `yarn install`, then commit the updated lock file."
+			return "A Javascript runtime error occurred. Check the offending line in the log evidence. This often happens when accessing properties of an undefined variable."
+		},
+	},
+
+	// ── DATABASE / INFRA ──
+	{
+		Pattern:  regexp.MustCompile(`(?i)dial\s+tcp.*connection\s+refused|failed\s+to\s+connect\s+to\s+host|mongo.*timeout|redis.*connection|postgres.*error|sql:\s+no\s+rows|database\s+connection\s+failed`),
+		Weight:   0.75,
+		Category: "Database Connection Failure",
+		Severity: "critical",
+		Remediation: func(match, log string) string {
+			return "Unable to connect to the database. Verify that your DB connection strings are correct and that the database service (or Docker container) is reachable from the runner."
 		},
 	},
 
 	// ── PERMISSION / AUTH ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)permission denied|EACCES|EPERM|403\s+forbidden|401\s+unauthorized|authentication\s+failed|auth\s+error|access\s+denied|you\s+don.t\s+have\s+access|insufficient\s+permissions`),
-		Weight:   0.75,
+		Pattern:  regexp.MustCompile(`(?i)permission denied|EACCES|EPERM|403\s+forbidden|401\s+unauthorized|authentication\s+failed|auth\s+error|access\s+denied|you\s+don.t\s+have\s+access|insufficient\s+permissions|credentials\s+expired|invalid\s+token`),
+		Weight:   0.85,
 		Category: "Permission / Authentication Error",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "permission denied") || strings.Contains(strings.ToLower(match), "eacces") {
-				return "File system permission error. Ensure the workflow runner has write access to the target directory, or prefix the command with `sudo` if appropriate. Check file ownership in your Dockerfile or runner environment."
-			}
-			if strings.Contains(match, "403") || strings.Contains(strings.ToLower(match), "access denied") {
-				return "API/resource access denied (403). Verify the token/API key has the required scopes. For GitHub Actions, ensure `permissions:` in your workflow YAML includes the necessary access levels."
-			}
-			return "Authentication failure. Verify that your credentials (token, SSH key, PAT) are valid, not expired, and have the required permissions."
+			return "Check your API tokens and permissions. For GitHub Actions, ensure the `GITHUB_TOKEN` has the specific `permissions:` scopes required for this job."
 		},
 	},
 
-	// ── TIMEOUT ──
+	// ── CLOUD / AWS SPECIFIC ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)timed?\s*out|ETIMEDOUT|context\s+deadline\s+exceeded|canceling.*context|operation\s+timed\s+out|read\s+timeout|connection\s+timed\s+out|execution\s+time\s+exceeded|err_socket_timeout`),
-		Weight:   0.70,
-		Category: "Timeout",
-		Severity: "warning",
-		Remediation: func(match, log string) string {
-			return "A step exceeded its time limit. Options: (1) Add `timeout-minutes:` to the specific step in your YAML to increase the limit. (2) Optimize the slow operation. (3) Check for network connectivity issues causing the step to hang. (4) Use caching for slow dependency downloads."
-		},
-	},
-
-	// ── OOM / RESOURCE ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)killed\s|out\s+of\s+memory|OOMKilled|cannot allocate memory|javascript\s+heap\s+out\s+of\s+memory|MemoryError|heap space|allocation\s+failed.*out\s+of\s+memory`),
-		Weight:   0.85,
-		Category: "Out of Memory",
+		Pattern:  regexp.MustCompile(`(?i)AccessDenied|AssumeRoleWithWebIdentity|ExpiredToken|CredentialsError|SignatureDoesNotMatch`),
+		Weight:   0.80,
+		Category: "Cloud Credentials Error (AWS/Azure/GCP)",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "javascript heap") || strings.Contains(strings.ToLower(match), "heap space") {
-				return "Node.js ran out of heap memory. Increase the heap size: `NODE_OPTIONS=--max-old-space-size=4096 npm run build`. For GitHub Actions, this goes in the `env:` block of your step."
-			}
-			return "The process was killed due to insufficient memory. Upgrade the runner size, or optimize memory usage in your build. For Node.js: set `NODE_OPTIONS=--max-old-space-size=4096`. For Java: adjust `-Xmx` flag."
+			return "Cloud authentication failed. Check your OIDC role configuration or the expiration of your cloud credentials/secrets."
 		},
 	},
 
-	// ── NETWORK ──
+	// ── DOCKER / CONTAINER ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)ECONNREFUSED|ECONNRESET|ENOTFOUND|dial\s+tcp.*i\/o\s+timeout|no\s+such\s+host|network\s+error|connection\s+refused|connection\s+reset|getaddrinfo\s+failed|failed\s+to\s+connect`),
-		Weight:   0.65,
-		Category: "Network Error",
-		Severity: "warning",
-		Remediation: func(match, log string) string {
-			return "A network connection failed. This can be transient — retry the workflow. If persistent: (1) Verify the target hostname/IP is correct. (2) Check if the service is behind a firewall. (3) For private services, ensure you're using VPN or SSH tunneling in the runner."
-		},
-	},
-
-	// ── DOCKER ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)cannot\s+connect\s+to\s+the\s+docker\s+daemon|docker:\s+error|pull\s+access\s+denied|manifest\s+unknown|no\s+such\s+image|docker\s+build.*failed|failed\s+to\s+create\s+.*container`),
-		Weight:   0.70,
+		Pattern:  regexp.MustCompile(`(?i)cannot\s+connect\s+to\s+the\s+docker\s+daemon|docker:\s+error|pull\s+access\s+denied|manifest\s+unknown|no\s+such\s+image|docker\s+build.*failed`),
+		Weight:   0.80,
 		Category: "Docker / Container Error",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "pull access denied") {
-				return "Image pull failed. Ensure the image name/tag is correct, the image is public, or you've logged in with `docker login` as a step in your workflow using stored credentials."
-			}
-			if strings.Contains(strings.ToLower(match), "cannot connect to the docker daemon") {
-				return "Docker daemon is not running on the runner. Add `services: docker: image: docker:dind` or ensure your runner has Docker access. For self-hosted runners, start the Docker daemon."
-			}
-			return "Docker build/run failed. Check image tags, registry credentials, and Dockerfile syntax. Verify the Docker daemon is accessible in your CI environment."
+			return "Docker operation failed. Check if the Docker daemon is accessible and your image tags/registry credentials are correct."
 		},
 	},
 
 	// ── TEST FAILURE ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)FAIL\t|--- FAIL|test\s+failed|tests?\s+failed|assertion\s+failed|AssertionError|expected\s+.*\s+to\s+(equal|be|match)|jest.*failed|pytest.*failed|❌\s+\w|\d+\s+failing`),
-		Weight:   0.60,
+		Pattern:  regexp.MustCompile(`(?i)FAIL\t|--- FAIL|test\s+failed|tests?\s+failed|assertion\s+failed|AssertionError|expected.*to\s+equal|jest.*failed|pytest.*failed|❌\s+\w`),
+		Weight:   0.70,
 		Category: "Test Failure",
 		Severity: "warning",
 		Remediation: func(match, log string) string {
-			return "One or more tests failed. Run the tests locally with the same environment variables to reproduce. Check assertion errors in the evidence section above — they contain the exact expected vs actual values."
+			return "Unit tests failed. Reproduce locally using your test runner. Review the diff output in the evidence to see the exact assertion failure."
 		},
 	},
 
-	// ── SYNTAX / COMPILE ──
+	// ── TIMEOUT / OOM ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)SyntaxError|IndentationError|compilation\s+failed|build\s+failed|error\s+TS\d+|cannot\s+compile|exit\s+code\s+[1-9]|exit\s+status\s+[1-9]|process\s+exited\s+with\s+code\s+[1-9]`),
-		Weight:   0.50,
-		Category: "Build / Compile Error",
+		Pattern:  regexp.MustCompile(`(?i)timed?\s*out|ETIMEDOUT|context\s+deadline\s+exceeded|killed\s|out\s+of\s+memory|OOMKilled|heap\s+space`),
+		Weight:   0.80,
+		Category: "Resource Exhaustion (Timeout / OOM)",
 		Severity: "critical",
 		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "syntaxerror") {
-				return "Syntax error in your code. Check the file and line number in the log above. Run a local lint/compile check before pushing: `npm run lint`, `tsc --noEmit`, `go vet ./...`."
+			if strings.Contains(strings.ToLower(match), "memory") || strings.Contains(strings.ToLower(match), "oom") {
+				return "The process ran out of memory. Consider increasing the runner size or optimizing memory-heavy steps (e.g., node build flags)."
 			}
-			if strings.Contains(match, "TS") {
-				return "TypeScript compilation error. Check the error code in the evidence. Run `tsc --noEmit` locally to see all errors."
-			}
-			return "The build process failed. Review the error message in the evidence panel to identify the exact file and line. Ensure your build command runs successfully in a clean local environment."
+			return "The process timed out. Try increasing the `timeout-minutes` in your workflow YAML or optimizing the slow step."
 		},
 	},
 
-	// ── RUNNER / CONFIGURATION ──
+	// ── BUILD SYSTEM ──
 	{
-		Pattern:  regexp.MustCompile(`(?i)no\s+runner\s+is\s+registered|runner\s+offline|self.hosted.*offline|unable\s+to\s+find\s+a\s+suitable\s+runner|workflow\s+is\s+not\s+valid|invalid\s+workflow\s+file|yaml.*invalid|unexpected\s+value`),
-		Weight:   0.75,
-		Category: "Runner / Workflow Configuration Error",
-		Severity: "critical",
+		Pattern:  regexp.MustCompile(`(?i)exit\s+code\s+[1-9]|exit\s+status\s+[1-9]|command\s+not\s+found|sh:\s+line\s+\d+:\s+.*not\s+found`),
+		Weight:   0.40,
+		Category: "General Command Failure",
+		Severity: "warning",
 		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "runner") {
-				return "No GitHub Actions runner is available. For GitHub-hosted runners, check GitHub Status at githubstatus.com. For self-hosted runners, ensure the runner process is started and registered."
-			}
-			return "Your workflow YAML file has a syntax or configuration error. Validate it at https://rhymond.github.io/yaml-lint/ or use the GitHub Actions workflow editor which has inline validation."
+			return "A command in your workflow exited with a non-zero status. Check for typos in your scripts or missing binaries in the runner environment."
 		},
 	},
 }
@@ -532,22 +488,38 @@ func buildSummary(f *Finding, run *WorkflowRun) string {
 func catchAllFinding(logText string) *Finding {
 	lines := strings.Split(logText, "\n")
 	var errorLines []string
-	for _, l := range lines {
+	
+	// Scan the LAST 100 lines for the most relevant error signals
+	startIdx := len(lines) - 100
+	if startIdx < 0 { startIdx = 0 }
+	
+	for i := len(lines)-1; i >= startIdx; i-- {
+		l := lines[i]
 		lower := strings.ToLower(l)
-		if strings.Contains(lower, "error") || strings.Contains(lower, "fatal") || strings.Contains(lower, "fail") {
-			errorLines = append(errorLines, l)
+		if strings.Contains(lower, "error") || strings.Contains(lower, "fatal") || strings.Contains(lower, "fail") || strings.Contains(lower, "exit code") {
+			errorLines = append([]string{l}, errorLines...) // Prepend for chronological order
 			if len(errorLines) >= 10 {
 				break
 			}
 		}
 	}
-	return &Finding{
-		Category:    "Unknown Error",
-		Severity:    "warning",
-		Confidence:  0.30,
-		Evidence:    errorLines,
-		Remediation: "No specific pattern matched. Review the error lines in the evidence panel. Search for the exact error message on GitHub Issues or Stack Overflow.",
+
+	if len(errorLines) == 0 {
+		errorLines = lines[cap(0, len(lines)-5):]
 	}
+
+	return &Finding{
+		Category:    "Generalized Execution Failure",
+		Severity:    "warning",
+		Confidence:  0.25,
+		Evidence:    errorLines,
+		Remediation: "The engine couldn't match a specific known pattern, but the evidence panel above highlights the most suspicious log lines. Suggestion: Look for 'Error' or 'Exit Code' near the end of the log and verify your command's input parameters.",
+	}
+}
+
+func cap(low, high int) int {
+	if low > high { return high }
+	return low
 }
 
 func firstLineContaining(lines []string, substr string) int {

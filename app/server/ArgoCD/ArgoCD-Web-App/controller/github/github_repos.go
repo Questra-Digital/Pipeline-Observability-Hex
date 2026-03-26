@@ -2,6 +2,8 @@ package github
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -615,13 +617,37 @@ func GetGitHubJobLogs(c *gin.Context) {
 	}
 
 	ghClient := github.NewClient(nil).WithAuthToken(acc.PAT)
-	url, _, err := ghClient.Actions.GetWorkflowJobLogs(context.TODO(), repoOwner, repoName, jobID, 10)
+	url, resp, err := ghClient.Actions.GetWorkflowJobLogs(context.TODO(), repoOwner, repoName, jobID, 10)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching logs from GitHub"})
+		if resp != nil && resp.StatusCode == 404 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Logs not found on GitHub. They may have expired (90-day retention) or the run was deleted."})
+			return
+		}
+		fmt.Printf("Error fetching GitHub log URL: %v (Owner: %s, Repo: %s, Job: %d)\n", err, repoOwner, repoName, jobID)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching log URL from GitHub"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"url": url.String()})
+	// Fetch the actual log content
+	logResp, err := http.Get(url.String())
+	if err != nil {
+		fmt.Printf("Error downloading logs from S3/Redirect: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error downloading logs"})
+		return
+	}
+	defer logResp.Body.Close()
+
+	logBytes, err := io.ReadAll(logResp.Body)
+	if err != nil {
+		fmt.Printf("Error reading log body: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading logs"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"url":  url.String(),
+		"logs": string(logBytes),
+	})
 }
 // GetGitHubInsights computes advanced intelligence metrics:
 // - MTTR per workflow (time from failure to next success)

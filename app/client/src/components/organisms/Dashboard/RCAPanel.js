@@ -134,8 +134,8 @@ const TimelineView = ({ timeline }) => {
                             </p>
                         )}
                         <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${entry.isFailed ? 'bg-red-500/5 border-red-500/20' :
-                                entry.isLastSuccess ? 'bg-amber-500/5 border-amber-500/20' :
-                                    'bg-white/[0.02] border-white/5'
+                            entry.isLastSuccess ? 'bg-amber-500/5 border-amber-500/20' :
+                                'bg-white/[0.02] border-white/5'
                             }`}>
                             <div className={`w-2 h-2 rounded-full shrink-0 ${entry.isFailed ? 'bg-red-500' : entry.status === 'success' ? 'bg-emerald-500' : 'bg-gray-600'
                                 }`} />
@@ -164,7 +164,7 @@ const TimelineView = ({ timeline }) => {
 // ─────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
-const RCAPanel = ({ run, owner, repo, onClose }) => {
+const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -281,8 +281,8 @@ const RCAPanel = ({ run, owner, repo, onClose }) => {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-t-2xl border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id
-                                                ? 'text-white border-red-600 bg-white/[0.03]'
-                                                : 'text-gray-600 border-transparent hover:text-gray-400'
+                                            ? 'text-white border-red-600 bg-white/[0.03]'
+                                            : 'text-gray-600 border-transparent hover:text-gray-400'
                                             }`}
                                     >
                                         <span>{tab.icon}</span> {tab.label}
@@ -393,9 +393,19 @@ const RCAPanel = ({ run, owner, repo, onClose }) => {
                     {/* Footer */}
                     <div className="px-8 py-5 border-t border-white/5 flex justify-between items-center">
                         <p className="text-[8px] text-gray-700 font-black uppercase tracking-[0.6em]">VIZOPS · RCA ENGINE v2.0</p>
-                        <button onClick={onClose} className="px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-xs font-black text-gray-400 uppercase tracking-widest hover:bg-white/10 transition-colors">
-                            Close
-                        </button>
+                        <div className="flex items-center gap-4">
+                            {onViewLogs && (
+                                <button
+                                    onClick={onViewLogs}
+                                    className="px-6 py-2.5 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
+                                >
+                                    View Full Logs
+                                </button>
+                            )}
+                            <button onClick={onClose} className="px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-xs font-black text-gray-400 uppercase tracking-widest hover:bg-white/10 transition-colors">
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

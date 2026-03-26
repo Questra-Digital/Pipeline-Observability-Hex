@@ -5,6 +5,7 @@ import { ErrorToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
 import useFetch from "@/hooks/useFetch";
 import GitHubAnalytics from "./GitHubAnalytics";
 import RCAPanel from "./RCAPanel";
+import LogViewer from "./LogViewer";
 import instance from "@/axios/axios";
 
 const Pipelines = () => {
@@ -18,8 +19,11 @@ const Pipelines = () => {
   const [ghSearchQuery, setGhSearchQuery] = useState("");
   const [activeLogJob, setActiveLogJob] = useState(null); // {id, name, repo, owner}
   const [logUrl, setLogUrl] = useState(null);
+  const [logData, setLogData] = useState(null);
+  const [showLogViewer, setShowLogViewer] = useState(false);
   const [localSyncInterval, setLocalSyncInterval] = useState(3);
   const [isSavingSync, setIsSavingSync] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
   const router = useRouter();
 
   const { data: argoData, error: argoErr, loading: argoLoading, fetchData: fetchArgo } = useFetch("/all_pipelines");
@@ -70,19 +74,31 @@ const Pipelines = () => {
   };
 
   const fetchLogs = async (job) => {
+    setActiveLogJob(job);
+    setShowLogViewer(true);
+    setLogData(null);
+    setLogsLoading(true);
+
     try {
       const token = JSON.parse(localStorage.getItem("userData"))?.token || "";
       const resp = await instance.get(`/api/github/logs?owner=${job.owner}&repo=${job.repo}&jobId=${job.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (resp.status === 200 && resp.data.url) setLogUrl(resp.data.url);
-      else {
-        const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
-        ErrorToastModule.ErrorToast("Failed to fetch log URL");
+
+      if (resp.status === 200) {
+        setLogUrl(resp.data.url);
+        if (resp.data.logs) {
+          setLogData(resp.data.logs);
+        }
       }
     } catch (err) {
+      console.error("Log fetch error:", err);
+      const errorMessage = err.response?.data?.error || "Logs not found on GitHub";
+      setLogData(`[SYSTEM ERROR] Failed to fetch logs from GitHub.\n\nStatus: ${err.response?.status || 'Unknown'}\nReason: ${errorMessage}\n\n💡 TIP: GitHub Actions logs are typically purged after 90 days. If this run is older, the logs have likely been deleted by GitHub.`);
       const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
-      ErrorToastModule.ErrorToast("Error fetching logs");
+      ErrorToastModule.ErrorToast("GitHub returned 404/500 for logs");
+    } finally {
+      setLogsLoading(false);
     }
   };
 
@@ -586,6 +602,22 @@ const Pipelines = () => {
                               <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Job {jIdx + 1} · {job.conclusion || 'running'}</span>
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            {job.conclusion === 'failure' && (
+                              <button
+                                onClick={() => setRcaTarget({ run: repoRuns[0], owner: selectedRepo.accountOwner, repo: selectedRepo.name })}
+                                className="px-4 py-2 bg-red-950/40 border border-red-600/40 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-600/20 transition-all"
+                              >
+                                🧠 Diagnose
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleLogClick({ id: job.id, name: job.name, repo: selectedRepo.name, owner: selectedRepo.accountOwner })}
+                              className="px-4 py-2 bg-black/60 border border-white/5 hover:border-red-600/30 text-gray-400 hover:text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                            >
+                              Terminal
+                            </button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                           {job.steps?.map((step, sIdx) => (
@@ -732,10 +764,14 @@ const Pipelines = () => {
                       <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex flex-wrap gap-4 items-center">
                         <span className="text-[8px] text-gray-700 font-black uppercase tracking-[0.3em]">Job Pipeline:</span>
                         {run.jobs.map(job => (
-                          <div key={job.id} className="flex items-center gap-2">
+                          <button
+                            key={job.id}
+                            onClick={() => handleLogClick({ id: job.id, name: job.name, repo: selectedRepo.name, owner: selectedRepo.accountOwner })}
+                            className="flex items-center gap-2 px-2 py-1 bg-[#0a0a0a] border border-white/5 rounded-lg hover:border-red-600/40 transition-all group/jobpill"
+                          >
                             <div className={`w-1.5 h-1.5 rounded-full ${job.conclusion === 'success' ? 'bg-emerald-500' : 'bg-red-600 opacity-60'}`}></div>
-                            <span className="text-[9px] text-gray-500 font-bold uppercase">{job.name}</span>
-                          </div>
+                            <span className="text-[9px] text-gray-500 font-bold uppercase group-hover/jobpill:text-gray-300">{job.name}</span>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -774,64 +810,33 @@ const Pipelines = () => {
         {view === "github_details" && renderGitHubRunDetails()}
       </div>
 
-      {/* Log Viewer Modal */}
-      {activeLogJob && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="w-full max-w-4xl bg-[#0a0a0a] border border-red-600/30 rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(220,38,38,0.15)] flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-red-600/5">
-              <div className="flex flex-col">
-                <span className="text-[9px] text-red-600 font-black uppercase tracking-widest mb-1">Workflow Logs</span>
-                <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">{activeLogJob.name}</h3>
-              </div>
-              <button
-                onClick={() => setActiveLogJob(null)}
-                className="p-4 bg-black/40 border border-white/10 rounded-2xl text-gray-500 hover:text-white hover:border-white/30 transition-all"
-              >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              </button>
-            </div>
-            <div className="flex-1 p-8 bg-black/40 overflow-y-auto font-mono text-sm text-gray-500 leading-relaxed custom-scrollbar">
-              {!logUrl ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-6">
-                  <div className="w-12 h-12 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
-                  <p className="uppercase tracking-widest font-black text-xs text-gray-600 animate-pulse">Fetching log URL from GitHub…</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-8 items-center py-10 text-center">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-gray-200 mb-2">Log URL Retrieved</p>
-                    <p className="text-xs text-gray-600 font-bold tracking-widest leading-relaxed max-w-sm mx-auto">
-                      GitHub provides logs as a secured download URL. Click below to open the raw log file directly.
-                    </p>
-                  </div>
-                  <a
-                    href={logUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-10 py-4 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 flex items-center gap-3"
-                  >
-                    Download / Open Logs
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                  </a>
-                </div>
-              )}
-            </div>
-            <div className="p-6 bg-black border-t border-white/5 flex justify-center">
-              <span className="text-[10px] text-gray-800 uppercase font-black tracking-[0.5em] italic">Encrypted Observability Stream: V3.42.0-Alpha</span>
-            </div>
-          </div>
-        </div>
+      {/* Integrated Log Viewer Modal */}
+      {showLogViewer && (
+        <LogViewer
+          logs={logData}
+          loading={logsLoading}
+          jobName={activeLogJob?.name}
+          onClose={() => {
+            setShowLogViewer(false);
+            setLogData(null);
+            setActiveLogJob(null);
+          }}
+        />
       )}
-      {/* ROOT CAUSE ANALYSIS PANEL */}
+
+      {/* Root Cause Analysis Panel */}
       {rcaTarget && (
         <RCAPanel
           run={rcaTarget.run}
           owner={rcaTarget.owner}
           repo={rcaTarget.repo}
           onClose={() => setRcaTarget(null)}
+          onViewLogs={() => {
+            const failingJob = rcaTarget.run.jobs?.find(j => j.conclusion === 'failure') || rcaTarget.run.jobs?.[0];
+            if (failingJob) {
+              handleLogClick({ id: failingJob.id, name: failingJob.name, repo: rcaTarget.repo, owner: rcaTarget.owner });
+            }
+          }}
         />
       )}
     </div>
