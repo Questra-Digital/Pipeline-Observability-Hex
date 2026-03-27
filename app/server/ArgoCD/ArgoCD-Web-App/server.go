@@ -10,9 +10,15 @@ import (
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load environment variables at startup
+	if err := godotenv.Load(".env"); err != nil {
+		fmt.Println("Warning: .env file not found, using system environment variables")
+	}
+
 	r := gin.Default()
 
 	// Generic CORS configuration
@@ -61,6 +67,7 @@ func main() {
 		github.GET("/insights", github_controller.GetGitHubInsights)
 		github.GET("/logs", github_controller.GetGitHubJobLogs)
 		github.GET("/rca", github_controller.GetRootCauseAnalysis)
+		github.POST("/ai-rca", github_controller.GetAIRCA)
 		github.GET("/correlations", github_controller.GetFailureCorrelations)
 		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
 		github.DELETE("/account/:id", github_controller.DisconnectGitHubAccount)

@@ -194,15 +194,23 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
         if (!run?.runId) return;
         setLoading(true);
         setError(null);
+        console.log("[RCA-Panel] Fetching diagnosis for run:", run.runId);
         try {
-            const token = JSON.parse(localStorage.getItem('userData')).token;
+            const userData = JSON.parse(localStorage.getItem('userData') || "{}");
+            const token = userData.token || "";
             const res = await instance.get(
                 `/api/github/rca?runId=${run.runId}&owner=${owner}&repo=${repo}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            console.log("[RCA-Panel] Success! Analysis data:", res.data);
             if (res.status === 200) setData(res.data);
             else setError('Failed to analyze run logs.');
         } catch (e) {
+            console.error("[RCA-Panel] Fetch Error Details:", {
+                message: e.message,
+                status: e.response?.status,
+                data: e.response?.data
+            });
             setError(e?.response?.data?.error || 'Analysis failed. The run logs may have expired on GitHub.');
         } finally {
             setLoading(false);
@@ -286,8 +294,42 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
                     {/* Content */}
                     {data && !loading && (
                         <>
+                            {/* ── AI DEEP DIVE (Gemini Powered) ── */}
+                            {data.aiAnalysis && (
+                                <div className="mx-6 mt-6 p-8 bg-gradient-to-br from-red-600/10 to-transparent border border-red-600/20 rounded-[2.5rem] relative overflow-hidden group/ai box-glow-red">
+                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-600/10 blur-[80px] rounded-full" />
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <span className="text-xl">✨</span>
+                                        <h4 className="text-xs font-black text-red-500 uppercase tracking-[0.4em]">Gemini AI Intelligence Deep-Dive</h4>
+                                    </div>
+                                    <div className="space-y-6 relative z-10">
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-500 mb-2">Technical Root Cause</p>
+                                            <p className="text-lg font-black text-white italic leading-none uppercase tracking-tighter decoration-red-600/30 underline decoration-2">{data.aiAnalysis.root_cause}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-500 mb-2">Detailed Analysis</p>
+                                            <p className="text-xs text-gray-300 leading-relaxed font-medium">{data.aiAnalysis.details}</p>
+                                        </div>
+                                        {data.aiAnalysis.countermeasures && data.aiAnalysis.countermeasures.length > 0 && (
+                                            <div className="pt-6 border-t border-white/5">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-emerald-500 mb-4">Recommended Countermeasures</p>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {data.aiAnalysis.countermeasures.map((cm, i) => (
+                                                        <div key={i} className="flex gap-4 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl hover:border-emerald-500/30 transition-colors">
+                                                            <span className="text-emerald-500 font-black text-xs tabular-nums">{i + 1}.</span>
+                                                            <p className="text-xs text-gray-200 font-bold">{cm}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* ── SUMMARY BANNER ── */}
-                            {data.primary && (
+                            {!data.aiAnalysis && data.primary && (
                                 <div className="mx-6 mt-6 p-6 bg-red-600/5 border border-red-600/10 rounded-3xl">
                                     <p className="text-[9px] font-black uppercase tracking-[0.4em] text-red-500 mb-2">DIAGNOSIS SUMMARY</p>
                                     <p className="text-sm font-bold text-gray-200 leading-relaxed">{data.summary}</p>

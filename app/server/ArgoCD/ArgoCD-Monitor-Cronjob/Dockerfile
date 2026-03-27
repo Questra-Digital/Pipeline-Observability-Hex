@@ -1,5 +1,5 @@
 # Start from the latest golang base image
-FROM golang:1.22.1
+FROM golang:1.25.0
 
 # Set the Current Working Directory inside the Docker container
 WORKDIR /app

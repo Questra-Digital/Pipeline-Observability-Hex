@@ -803,8 +803,15 @@ const Pipelines = () => {
                           </button>
                         )}
                         <button
-                          onClick={() => handleLogClick({ id: run.runId, name: run.workflowName, repo: selectedRepo.name, owner: selectedRepo.accountOwner })}
-                          className="flex-1 lg:flex-none px-6 py-3 bg-black/60 border border-white/5 hover:border-red-600/30 text-gray-500 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                          onClick={() => {
+                            const targetJob = run.jobs?.find(j => j.conclusion === 'failure') || run.jobs?.[0];
+                            if (targetJob) {
+                              handleLogClick({ id: targetJob.id, name: targetJob.name, repo: selectedRepo.name, owner: selectedRepo.accountOwner });
+                            } else {
+                              ErrorToast("No jobs found for this run yet.");
+                            }
+                          }}
+                          className="flex-1 lg:flex-none px-6 py-3 bg-black/60 border border-white/10 text-gray-500 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                         >
                           View Logs
                         </button>

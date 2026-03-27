@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -400,6 +401,39 @@ func GetGitHubRuns(c *gin.Context) {
 		}
 	}
 
+	// Advanced Filtering
+	if status := c.Query("status"); status != "" {
+		filter["conclusion"] = status
+	}
+	if minDurStr := c.Query("minDuration"); minDurStr != "" {
+		minDur, _ := strconv.ParseFloat(minDurStr, 64)
+		filter["duration"] = bson.M{"$gte": minDur}
+	}
+	if maxDurStr := c.Query("maxDuration"); maxDurStr != "" {
+		maxDur, _ := strconv.ParseFloat(maxDurStr, 64)
+		if existing, ok := filter["duration"].(bson.M); ok {
+			existing["$lte"] = maxDur
+		} else {
+			filter["duration"] = bson.M{"$lte": maxDur}
+		}
+	}
+	if startStr := c.Query("startDate"); startStr != "" {
+		startTime, err := time.Parse(time.RFC3339, startStr)
+		if err == nil {
+			filter["startedAt"] = bson.M{"$gte": primitive.NewDateTimeFromTime(startTime)}
+		}
+	}
+	if endStr := c.Query("endDate"); endStr != "" {
+		endTime, err := time.Parse(time.RFC3339, endStr)
+		if err == nil {
+			if existing, ok := filter["startedAt"].(bson.M); ok {
+				existing["$lte"] = primitive.NewDateTimeFromTime(endTime)
+			} else {
+				filter["startedAt"] = bson.M{"$lte": primitive.NewDateTimeFromTime(endTime)}
+			}
+		}
+	}
+
 	// We need to make sure the runs belong to the user's accounts
 	accountsColl := mongoClient.Database("admin").Collection("github_accounts")
 	var accounts []GitHubAccount
@@ -534,12 +568,48 @@ func GetGitHubAnalytics(c *gin.Context) {
 	var trends []bson.M
 	_ = cursor.All(context.TODO(), &trends)
 
+	// 5. Job-Level Metrics (Slowest Jobs)
+	jobPipeline := mongo.Pipeline{
+		{{Key: "$match", Value: matchStage}},
+		{{Key: "$unwind", Value: "$jobs"}},
+		{{Key: "$group", Value: bson.M{
+			"_id":         "$jobs.name",
+			"avgDuration": bson.M{"$avg": bson.M{"$divide": bson.A{bson.M{"$subtract": bson.A{"$jobs.completedAt", "$jobs.startedAt"}}, 1000}}},
+			"successCount": bson.M{"$sum": bson.M{"$cond": bson.A{bson.M{"$eq": bson.A{"$jobs.conclusion", "success"}}, 1, 0}}},
+			"totalCount":   bson.M{"$sum": 1},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "avgDuration", Value: -1}}}},
+		{{Key: "$limit", Value: 10}},
+	}
+	cursor, _ = runsColl.Aggregate(context.TODO(), jobPipeline)
+	var jobMetrics []bson.M
+	_ = cursor.All(context.TODO(), &jobMetrics)
+
+	// 6. Stage-Level Metrics (Slowest Steps/Stages)
+	stagePipeline := mongo.Pipeline{
+		{{Key: "$match", Value: matchStage}},
+		{{Key: "$unwind", Value: "$jobs"}},
+		{{Key: "$unwind", Value: "$jobs.steps"}},
+		{{Key: "$group", Value: bson.M{
+			"_id":         "$jobs.steps.name",
+			"avgDuration": bson.M{"$avg": bson.M{"$divide": bson.A{bson.M{"$subtract": bson.A{"$jobs.steps.completedAt", "$jobs.steps.startedAt"}}, 1000}}},
+			"failureCount": bson.M{"$sum": bson.M{"$cond": bson.A{bson.M{"$eq": bson.A{"$jobs.steps.conclusion", "failure"}}, 1, 0}}},
+			"totalCount":   bson.M{"$sum": 1},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "avgDuration", Value: -1}}}},
+		{{Key: "$limit", Value: 10}},
+	}
+	cursor, _ = runsColl.Aggregate(context.TODO(), stagePipeline)
+	var stageMetrics []bson.M
+	_ = cursor.All(context.TODO(), &stageMetrics)
 
 	c.JSON(http.StatusOK, gin.H{
 		"conclusions": conclusions,
 		"bottlenecks": bottlenecks,
 		"failures":    failures,
 		"trends":      trends,
+		"jobs":         jobMetrics,
+		"stages":       stageMetrics,
 	})
 }
 

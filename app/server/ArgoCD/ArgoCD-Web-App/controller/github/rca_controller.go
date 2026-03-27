@@ -2,9 +2,12 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -12,10 +15,12 @@ import (
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
+	"github.com/google/generative-ai-go/genai"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	mongoOptions "go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/api/option"
 )
 
 // GetRootCauseAnalysis is the HTTP handler for GET /api/github/rca
@@ -56,13 +61,17 @@ func GetRootCauseAnalysis(c *gin.Context) {
 	// ──────────────────────────────────────────
 	// Check cache first
 	// ──────────────────────────────────────────
+	apiKey := os.Getenv("GEMINI_API_KEY")
 	if cached := getCachedRCA(rcaColl, runID); cached != nil {
-		// Attach live fingerprint count from DB
-		if cached.Fingerprint != nil {
-			enrichFingerprint(fingerprintColl, cached.Fingerprint)
+		// If we have an AI key but the cached result doesn't have AI analysis, re-run!
+		if apiKey == "" || cached.AIAnalysis != nil {
+			// Attach live fingerprint count from DB
+			if cached.Fingerprint != nil {
+				enrichFingerprint(fingerprintColl, cached.Fingerprint)
+			}
+			c.JSON(http.StatusOK, cached)
+			return
 		}
-		c.JSON(http.StatusOK, cached)
-		return
 	}
 
 	// ──────────────────────────────────────────
@@ -125,6 +134,25 @@ func GetRootCauseAnalysis(c *gin.Context) {
 	// 4. Run the RCA Engine
 	// ──────────────────────────────────────────
 	rcaResult := AnalyzeLogs(combinedLog, repoFullName, &run)
+
+	// 4a. Enrich with Gemini AI if API Key is present (Feature Addition)
+	// ──────────────────────────────────────────
+	if apiKey != "" {
+		logToFile(fmt.Sprintf("Triggering Gemini intelligence for Run #%d (%s/%s)", runID, owner, repo))
+		ctx := context.Background()
+		if aiResult, aiErr := analyzeWithGemini(ctx, apiKey, combinedLog); aiErr == nil {
+			logToFile(fmt.Sprintf("SUCCESS: Neural analysis complete for Run #%d", runID))
+			rcaResult.AIAnalysis = aiResult
+			// If AI analysis succeeded, use its root cause as the primary summary
+			if aiResult.RootCause != "" {
+				rcaResult.Summary = fmt.Sprintf("AI RCA: %s", aiResult.RootCause)
+			}
+		} else {
+			logToFile(fmt.Sprintf("ERROR: Gemini intelligence failed for Run #%d: %v", runID, aiErr))
+		}
+	} else {
+		logToFile(fmt.Sprintf("SKIP: GEMINI_API_KEY not found in environment for Run #%d. Falling back to pattern engine.", runID))
+	}
 
 	// ──────────────────────────────────────────
 	// 5. Fetch Code Snippets for locations (Feature 8)
@@ -345,4 +373,85 @@ func fetchCodeSnippet(pat, owner, repo, sha string, loc *CodeLocation) string {
 	}
 
 	return snippet.String()
+}
+
+// analyzeWithGemini calls the Gemini API to get a production-level RCA
+func analyzeWithGemini(ctx context.Context, apiKey string, logs string) (*AIAnalysis, error) {
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	model := client.GenerativeModel("gemini-2.5-flash")
+	
+	// Requesting a specific JSON structure from the AI with EXTREME STRICTNESS
+	prompt := fmt.Sprintf(`CRITICAL: You are a production-grade CI/CD Root Cause Analysis (RCA) Engine. 
+You MUST provide your analysis in EXACTLY this JSON structure and NOTHING ELSE. 
+DO NOT include thoughts, markdown, preamble, or any other text before or after the JSON.
+
+Expected JSON Structure:
+{
+  "root_cause": "Short summary of the failure",
+  "details": "Technical explanation of what happened",
+  "countermeasures": ["Step 1 to fix", "Step 2 to prevent"],
+  "severity": "High/Medium/Low"
+}
+
+If the failure is in the YAML configuration, explain it in the "details" field but keep the response as JSON.
+
+Logs to Analyze:
+%s`, logs)
+
+	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("empty AI response")
+	}
+
+	var analysisText string
+	if part, ok := resp.Candidates[0].Content.Parts[0].(genai.Text); ok {
+		analysisText = string(part)
+	}
+
+	// Aggressive extraction of JSON from response (handling cases where AI still includes markdown)
+	// Try to find anything between the first { and the last }
+	if firstIdx := strings.Index(analysisText, "{"); firstIdx != -1 {
+		if lastIdx := strings.LastIndex(analysisText, "}"); lastIdx != -1 && lastIdx > firstIdx {
+			analysisText = analysisText[firstIdx : lastIdx+1]
+		}
+	}
+	analysisText = strings.TrimSpace(analysisText)
+
+	var result AIAnalysis
+	if err := json.Unmarshal([]byte(analysisText), &result); err != nil {
+		// Second attempt: If JSON is still invalid but we have content, 
+		// maybe it was not JSON at all but the AI's best guess.
+		// We'll wrap it ourselves to avoid the "Invalid JSON" error in the UI.
+		return &AIAnalysis{
+			RootCause: "AI Analysis performed through deep-dive",
+			Details:   analysisText,
+			Severity:  "Review Required",
+			Countermeasures: []string{"Manually review the detailed analysis above"},
+		}, nil
+	}
+
+	return &result, nil
+}
+
+// logToFile writes a message to a persistent log file in the project for easier debugging
+func logToFile(msg string) {
+	f, err := os.OpenFile("gemini-ai.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("FAILED TO WRITE TO LOG FILE: %v\n", err)
+		return
+	}
+	defer f.Close()
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	if _, err := f.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, msg)); err != nil {
+		fmt.Printf("FAILED TO WRITE CONTENT: %v\n", err)
+	}
 }

@@ -71,7 +71,7 @@ func ConnectGitHubAccount(c *gin.Context) {
 
 	syncInterval := req.SyncInterval
 	if syncInterval < 1 {
-		syncInterval = 3 // Default 3s
+		syncInterval = 120 // Default 120s
 	}
 
 	acc := GitHubAccount{

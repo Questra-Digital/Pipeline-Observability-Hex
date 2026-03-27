@@ -1,0 +1,28 @@
+# Dependency directories
+node_modules/
+vendor/
+
+# Local configuration files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/build
+/dist
+/.next/
+/out/
+bin/

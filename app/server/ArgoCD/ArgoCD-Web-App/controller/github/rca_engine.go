@@ -66,6 +66,13 @@ type Fingerprint struct {
 	Repos     []string  `json:"repos" bson:"repos"`
 }
 
+type AIAnalysis struct {
+	RootCause       string   `json:"root_cause"`
+	Details         string   `json:"details"`
+	Countermeasures []string `json:"countermeasures"`
+	Severity        string   `json:"severity"`
+}
+
 // Full RCA Result
 type RCAResult struct {
 	RunID      int64          `json:"runId" bson:"runId"`
@@ -89,6 +96,9 @@ type RCAResult struct {
 
 	// Summary sentence for quick reading
 	Summary string `json:"summary"`
+
+	// AI-Powered Deep Analysis (Optional)
+	AIAnalysis *AIAnalysis `json:"aiAnalysis,omitempty"`
 }
 
 // ─────────────────────────────────────────────

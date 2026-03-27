@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/google/go-github/v60/github"
+	"github.com/QuestraDigital/goServices/GitHub-Sync-Service/notificationClient"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -66,7 +68,7 @@ type WorkflowRun struct {
 	AnomalyReason string             `bson:"anomalyReason" json:"anomalyReason"`
 }
 
-const defaultSyncInterval = 60 // 60 seconds is safer for rate limits
+const defaultSyncInterval = 120 // 120 seconds to prevent rate limits
 
 func main() {
 	mongoURL := os.Getenv("MONGO_URL")
@@ -279,6 +281,13 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 				"$currentDate": bson.M{"syncedAt": true},
 			}
 			_, _ = runsColl.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
+
+			// Trigger notification if anomaly detected
+			if anomalyScore > 0 {
+				message := fmt.Sprintf("⚡ GitHub Real-Time Anomaly!\nRepo: %s/%s\nWorkflow: %s\nReason: %s\nURL: %s", 
+					owner, repo.Name, run.GetName(), anomalyReason, run.GetHTMLURL())
+				notificationClient.TriggerNotificationService(message)
+			}
 		}
 		log.Printf("[Sync] Synced %d runs for %s/%s", len(workflowRuns.WorkflowRuns), owner, repo.Name)
 	}

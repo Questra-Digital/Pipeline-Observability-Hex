@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/google/go-github/v60/github"
 	"github.com/joho/godotenv"
+	"github.com/QuestraDigital/goServices/GitHub-Monitor-Service/notificationClient"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -205,6 +207,13 @@ func pollGitHub(client *mongo.Client) {
 			_, err = runsColl.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
 			if err != nil {
 				log.Printf("Error updating run %d: %v", run.GetID(), err)
+			}
+
+			// Trigger notification if anomaly detected
+			if anomalyScore > 0 {
+				message := fmt.Sprintf("🚀 GitHub Anomaly Detected!\nRepo: %s/%s\nWorkflow: %s\nReason: %s\nURL: %s", 
+					repoOwner, repo.Name, run.GetName(), anomalyReason, run.GetHTMLURL())
+				notificationClient.TriggerNotificationService(message)
 			}
 		}
 		log.Printf("Synced %d runs for %s/%s", len(workflowRuns.WorkflowRuns), repoOwner, repo.Name)

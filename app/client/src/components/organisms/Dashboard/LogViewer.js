@@ -1,9 +1,13 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import instance from '@/axios/axios';
 
 const LogViewer = ({ logs, jobName, onClose, loading }) => {
     const [filter, setFilter] = useState('');
+    const [aiSummary, setAiSummary] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
     const scrollRef = useRef(null);
+    const summaryRef = useRef(null);
 
     // Simple ANSI color stripper (since we'll use our own highlighting)
     const cleanLogs = (text) => {
@@ -20,6 +24,42 @@ const LogViewer = ({ logs, jobName, onClose, loading }) => {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [logs]);
+
+    const handleSummarize = async () => {
+        if (!logs || aiLoading) return;
+        setAiLoading(true);
+        setAiSummary(null);
+
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            const token = userData.token || "";
+            console.log("[AI-Summarize] Starting request with token length:", token.length);
+            console.log("[AI-Summarize] Logs length:", logs?.length);
+
+            // Using the existing AI-RCA endpoint for summarization via axios instance
+            const resp = await instance.post('/api/github/ai-rca',
+                { logs },
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+
+            console.log("[AI-Summarize] Success! Status:", resp.status);
+            if (resp.status === 200) {
+                setAiSummary(resp.data.analysis);
+            } else {
+                setAiSummary("Failed to generate AI summary. Check your GEMINI_API_KEY.");
+            }
+        } catch (err) {
+            console.error("[AI-Summarize] Connection Error Details:", {
+                message: err.message,
+                status: err.response?.status,
+                data: err.response?.data,
+                config: err.config
+            });
+            setAiSummary("Error connecting to AI intelligence node.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-black/90 backdrop-blur-md">
@@ -41,6 +81,14 @@ const LogViewer = ({ logs, jobName, onClose, loading }) => {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleSummarize}
+                            disabled={aiLoading || !logs}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${aiLoading ? 'bg-red-600/20 border-red-600 animate-pulse' : 'bg-red-600/10 border-red-600/30 hover:bg-red-600 text-red-500 hover:text-white'}`}
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-widest">{aiLoading ? 'Analyzing...' : 'Summarize with AI'}</span>
+                            <span className="text-sm">✨</span>
+                        </button>
                         <div className="relative group">
                             <input
                                 type="text"
@@ -63,8 +111,30 @@ const LogViewer = ({ logs, jobName, onClose, loading }) => {
                 {/* Log Content */}
                 <div
                     ref={scrollRef}
-                    className="flex-1 overflow-y-auto p-8 font-mono text-[11px] leading-relaxed custom-scrollbar selection:bg-red-600/30"
+                    className="flex-1 overflow-y-auto p-8 font-mono text-[11px] leading-relaxed custom-scrollbar selection:bg-red-600/30 relative"
                 >
+                    {/* AI Summary Panel */}
+                    {aiSummary && (
+                        <div ref={summaryRef} className="mb-10 p-8 bg-red-600/5 border border-red-600/20 rounded-[2rem] relative overflow-hidden group/summary animate-in fade-in zoom-in-95 duration-500">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 blur-3xl rounded-full" />
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-lg">✨</span>
+                                    <h4 className="text-xs font-black text-red-500 uppercase tracking-[0.3em]">AI Neural Summary</h4>
+                                </div>
+                                <button onClick={() => setAiSummary(null)} className="text-[10px] text-gray-700 hover:text-white font-black uppercase tracking-widest transition-colors">Dismiss</button>
+                            </div>
+                            <div className="relative z-10 text-gray-300 text-xs leading-relaxed space-y-4">
+                                {typeof aiSummary === 'string' ? (
+                                    aiSummary.split('\n').map((para, pidx) => (
+                                        <p key={pidx}>{para}</p>
+                                    ))
+                                ) : (
+                                    <pre className="whitespace-pre-wrap">{JSON.stringify(aiSummary, null, 2)}</pre>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {loading ? (
                         <div className="h-full flex flex-col items-center justify-center py-20 gap-6">
                             <div className="w-12 h-12 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
