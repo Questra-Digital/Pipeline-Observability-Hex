@@ -29,6 +29,7 @@ type WorkflowRun struct {
 	Duration      float64            `bson:"duration" json:"duration"`
 	HTMLURL       string             `bson:"htmlUrl" json:"htmlUrl"`
 	WorkflowName  string             `bson:"workflowName" json:"workflowName"`
+	HeadSHA       string             `bson:"headSha" json:"headSha"`
 	Jobs          []Job              `bson:"jobs" json:"jobs"`
 	AnomalyScore  float64            `bson:"anomalyScore" json:"anomalyScore"`
 	AnomalyReason string             `bson:"anomalyReason" json:"anomalyReason"`

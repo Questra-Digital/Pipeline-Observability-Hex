@@ -29,17 +29,23 @@ const Pipelines = () => {
   const { data: argoData, error: argoErr, loading: argoLoading, fetchData: fetchArgo } = useFetch("/all_pipelines");
   const { data: githubRepos, loading: reposLoading, fetchData: fetchRepos } = useFetch("/api/github/repos");
   const { data: ghRuns, error: ghErr, loading: ghLoading, fetchData: fetchGhRuns } = useFetch("/api/github/runs");
+  const { data: analytics, fetchData: fetchAnalytics } = useFetch(`/api/github/analytics?repoId=${selectedRepo?.repoId || ''}`);
+  const { data: correlations, fetchData: fetchCorrelations } = useFetch("/api/github/correlations");
 
   // --- Logic ---
   useEffect(() => {
     fetchArgo();
     fetchRepos();
     fetchGhRuns();
+    fetchCorrelations();
+    if (selectedRepo) fetchAnalytics();
     const interval = setInterval(() => {
       fetchGhRuns();
+      fetchCorrelations();
+      if (selectedRepo) fetchAnalytics();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedRepo]);
 
   useEffect(() => {
     if (selectedRepo && githubRepos) {
@@ -100,6 +106,16 @@ const Pipelines = () => {
     } finally {
       setLogsLoading(false);
     }
+  };
+
+  const getProgress = (run) => {
+    if (run.status !== 'in_progress') return null;
+    const avg = analytics?.bottlenecks?.find(b => b._id === run.workflowName)?.avgDuration || 120; // Default 2min if no data
+    const elapsed = (new Date() - new Date(run.startedAt)) / 1000;
+    const pct = Math.min(100, Math.round((elapsed / avg) * 100));
+    const isAnomalous = elapsed > (avg * 1.5);
+    const isHung = elapsed > (avg * 2.5);
+    return { pct, isAnomalous, isHung, elapsed, avg };
   };
 
   const handleLogClick = (job) => {
@@ -288,6 +304,28 @@ const Pipelines = () => {
 
     return (
       <div className="w-full max-w-7xl px-4 flex flex-col items-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
+
+        {/* Systemic Outage Alert (Feature 9) */}
+        {correlations?.filter(c => c.isSystemic).map((event, i) => (
+          <div key={i} className="w-full mb-10 p-6 bg-red-600/10 border border-red-600/30 rounded-3xl animate-in zoom-in-95 duration-700 relative group overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 blur-3xl -mr-10 -mt-10 animate-pulse" />
+            <div className="flex items-center gap-6 relative z-10">
+              <div className="w-16 h-16 rounded-2xl bg-red-600 flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.4)]">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-lg font-black text-white uppercase tracking-tighter italic">Systemic Outage Detected</h3>
+                  <span className="px-2 py-0.5 rounded bg-red-600/20 text-[8px] font-black text-red-500 uppercase tracking-widest border border-red-600/30">CROSS-REPO IMPACT</span>
+                </div>
+                <p className="text-gray-300 text-sm font-medium max-w-2xl leading-relaxed">
+                  Detected <span className="text-red-400 font-bold">{event.category}</span> failures across <span className="text-red-400 font-bold">{event.repos.join(', ')}</span>.
+                  This indicates a shared infrastructure or dependency issue that requires immediate attention.
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
 
         {/* COMMAND CENTER HEADER */}
         <div className="w-full flex flex-col md:flex-row items-center justify-between mb-16 gap-8">
@@ -718,8 +756,30 @@ const Pipelines = () => {
                           <div className="flex items-center gap-3 mb-1">
                             <span className="text-[9px] text-red-600 font-black uppercase tracking-[0.4em] opacity-60 truncate max-w-[200px]">{run.workflowName}</span>
                             {run.anomalyScore > 0.5 && <div className="px-2 py-0.5 rounded-full bg-red-600 text-[8px] font-black text-white uppercase animate-pulse">Anomaly</div>}
+                            {run.status === 'in_progress' && (
+                              <div className="px-2 py-0.5 rounded-full bg-blue-500 text-[8px] font-black text-white uppercase animate-pulse">Live Pulse</div>
+                            )}
                           </div>
                           <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic truncate">Stream #{run.runId.toString().slice(-6)}</h3>
+
+                          {/* Predictive Pulse Progress Bar (Feature 8) */}
+                          {(() => {
+                            const prog = getProgress(run);
+                            if (!prog) return null;
+                            return (
+                              <div className="flex items-center gap-4 mt-3 mb-1">
+                                <div className="w-48 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                  <div
+                                    className={`h-full transition-all duration-1000 ${prog.isHung ? 'bg-red-500 glow-red' : prog.isAnomalous ? 'bg-amber-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${prog.pct}%` }}
+                                  />
+                                </div>
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${prog.isHung ? 'text-red-500' : prog.isAnomalous ? 'text-amber-500' : 'text-blue-400'}`}>
+                                  {prog.isHung ? '🚨 CRITICAL DELAY' : prog.isAnomalous ? '🕒 SLOWING DOWN' : `PROGRESS: ${prog.pct}% · ETA: ${Math.max(0, Math.round(prog.avg - prog.elapsed))}s`}
+                                </span>
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center gap-6 mt-4">
                             <div className="flex items-center gap-2">
                               <div className="w-1.5 h-1.5 rounded-full bg-gray-800"></div>

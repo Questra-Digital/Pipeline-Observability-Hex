@@ -101,6 +101,26 @@ const FindingCard = ({ finding, isPrimary }) => {
                         </div>
                     )}
 
+                    {/* Source Code Context Injection (Feature 8) */}
+                    {finding.codeLocation?.snippet && (
+                        <div className="space-y-3">
+                            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-400">🔍 Source Context — {finding.codeLocation.filePath}:{finding.codeLocation.line}</p>
+                            <div className="bg-[#050505] rounded-2xl p-4 border border-blue-500/10 shadow-inner">
+                                <pre className="text-[10px] font-mono leading-relaxed">
+                                    {finding.codeLocation.snippet.split('\n').map((line, i) => {
+                                        const isTarget = line.startsWith('>');
+                                        const cleanLine = line.replace(/^> /, '  ');
+                                        return (
+                                            <span key={i} className={`block ${isTarget ? 'bg-blue-500/10 text-blue-300 -mx-4 px-4 border-l-2 border-blue-500' : 'text-gray-500'}`}>
+                                                {cleanLine}
+                                            </span>
+                                        );
+                                    })}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Matched Lines */}
                     {finding.matchedLines && finding.matchedLines.length > 0 && (
                         <div>

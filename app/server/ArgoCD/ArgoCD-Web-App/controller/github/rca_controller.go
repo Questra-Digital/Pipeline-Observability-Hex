@@ -127,14 +127,30 @@ func GetRootCauseAnalysis(c *gin.Context) {
 	rcaResult := AnalyzeLogs(combinedLog, repoFullName, &run)
 
 	// ──────────────────────────────────────────
-	// 5. Update fingerprint in DB (Feature 3)
+	// 5. Fetch Code Snippets for locations (Feature 8)
+	// ──────────────────────────────────────────
+	sha := run.HeadSHA
+	if sha == "" {
+		sha = "main" // Fallback
+	}
+	if rcaResult.Primary != nil && rcaResult.Primary.CodeLocation != nil {
+		rcaResult.Primary.CodeLocation.Snippet = fetchCodeSnippet(acc.PAT, owner, repo, sha, rcaResult.Primary.CodeLocation)
+	}
+	for i := range rcaResult.Secondary {
+		if rcaResult.Secondary[i].CodeLocation != nil {
+			rcaResult.Secondary[i].CodeLocation.Snippet = fetchCodeSnippet(acc.PAT, owner, repo, sha, rcaResult.Secondary[i].CodeLocation)
+		}
+	}
+
+	// ──────────────────────────────────────────
+	// 6. Update fingerprint in DB (Feature 3)
 	// ──────────────────────────────────────────
 	if rcaResult.Fingerprint != nil {
 		upsertFingerprint(fingerprintColl, rcaResult.Fingerprint, repoFullName)
 	}
 
 	// ──────────────────────────────────────────
-	// 6. Cache the result
+	// 7. Cache the result
 	// ──────────────────────────────────────────
 	cacheRCA(rcaColl, runID, rcaResult)
 
@@ -295,4 +311,38 @@ func enrichFingerprint(coll *mongo.Collection, fp *Fingerprint) {
 	if sc, ok := existing["seenCount"].(int32); ok {
 		fp.SeenCount = int(sc)
 	}
+}
+
+// fetchCodeSnippet retrieves ±5 lines around the error from GitHub
+func fetchCodeSnippet(pat, owner, repo, sha string, loc *CodeLocation) string {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", owner, repo, loc.FilePath, sha)
+	req, _ := http.NewRequest("GET", apiURL, nil)
+	req.Header.Set("Authorization", "Bearer "+pat)
+	req.Header.Set("Accept", "application/vnd.github.raw+json") // Get raw file content
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	content, _ := io.ReadAll(resp.Body)
+	lines := strings.Split(string(content), "\n")
+	
+	start := loc.Line - 5
+	end := loc.Line + 5
+	if start < 1 { start = 1 }
+	if end > len(lines) { end = len(lines) }
+
+	var snippet strings.Builder
+	for i := start; i <= end; i++ {
+		prefix := "  "
+		if i == loc.Line {
+			prefix = "> "
+		}
+		snippet.WriteString(fmt.Sprintf("%d %s%s\n", i, prefix, lines[i-1]))
+	}
+
+	return snippet.String()
 }

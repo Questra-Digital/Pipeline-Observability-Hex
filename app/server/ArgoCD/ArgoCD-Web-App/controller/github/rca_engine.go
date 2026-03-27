@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,10 +26,11 @@ type Finding struct {
 	Category     string   `json:"category"`
 	Severity     string   `json:"severity"`
 	Confidence   float64  `json:"confidence"` // 0.0–1.0 (Feature 1)
-	Evidence     []string `json:"evidence"`   // 10-line context (Feature 2)
-	Remediation  string   `json:"remediation"`
-	MatchedLines []string `json:"matchedLines"`
-	Weight       float64  `json:"-"` // internal accumulator
+	Evidence     []string      `json:"evidence"`   // 10-line context (Feature 2)
+	Remediation  string        `json:"remediation"`
+	MatchedLines []string      `json:"matchedLines"`
+	CodeLocation *CodeLocation `json:"codeLocation,omitempty"` // New: For code context injection
+	Weight       float64       `json:"-"`                      // internal accumulator
 	Count        int      `json:"-"` // matches found
 }
 
@@ -37,6 +39,12 @@ type LogAnomaly struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
 	Severity    string `json:"severity"`
+}
+
+type CodeLocation struct {
+	FilePath string `json:"filePath"`
+	Line     int    `json:"line"`
+	Snippet  string `json:"snippet,omitempty"`
 }
 
 // Feature 5: Step/Job timeline
@@ -309,6 +317,9 @@ func scoreLog(logText string) []Finding {
 		if len(f.Evidence) == 0 {
 			firstMatchLine := firstLineContaining(lines, allMatches[0])
 			f.Evidence = surroundingLines(lines, firstMatchLine, 5)
+			
+			// New: Extract code location from the evidence
+			f.CodeLocation = ExtractCodeLocation(f.Evidence)
 		}
 	}
 
@@ -552,4 +563,34 @@ func appendUnique(slice []string, s string) []string {
 func truncate(s string, max int) string {
 	if len(s) <= max { return s }
 	return s[:max] + "..."
+}
+
+// ExtractCodeLocation looks for file:line patterns in the log evidence
+func ExtractCodeLocation(evidence []string) *CodeLocation {
+	// Patterns for Go, Node, Python, Java tracebacks
+	// 1. main.go:42
+	// 2. /app/src/index.js:15
+	// 3. File "app.py", line 123
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`([a-zA-Z0-9_\-\./]+\.(?:go|js|ts|py|java|rb|php|c|cpp|h))[:\s,]+(?:line\s+)?(\d+)`),
+	}
+
+	for _, line := range evidence {
+		for _, re := range patterns {
+			matches := re.FindStringSubmatch(line)
+			if len(matches) >= 3 {
+				path := matches[1]
+				lineNo, _ := strconv.Atoi(matches[2])
+				
+				// Clean up path (remove leading ./ or workflow-specific paths if possible)
+				path = strings.TrimPrefix(path, "./")
+				
+				return &CodeLocation{
+					FilePath: path,
+					Line:     lineNo,
+				}
+			}
+		}
+	}
+	return nil
 }

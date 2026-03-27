@@ -61,6 +61,7 @@ func main() {
 		github.GET("/insights", github_controller.GetGitHubInsights)
 		github.GET("/logs", github_controller.GetGitHubJobLogs)
 		github.GET("/rca", github_controller.GetRootCauseAnalysis)
+		github.GET("/correlations", github_controller.GetFailureCorrelations)
 		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
 		github.DELETE("/account/:id", github_controller.DisconnectGitHubAccount)
 	}
