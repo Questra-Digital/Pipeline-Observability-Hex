@@ -189,17 +189,25 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('diagnosis');
+    const [refreshing, setRefreshing] = useState(false);
 
-    const fetchRCA = useCallback(async () => {
+    const fetchRCA = useCallback(async (isForce = false) => {
         if (!run?.runId) return;
-        setLoading(true);
+
+        // Show main loading spinner if forcing, or if no data yet
+        if (isForce || !data) setLoading(true);
+        if (isForce) {
+            setRefreshing(true);
+            setData(null); // Clear old data to show we are doing a fresh run
+        }
+
         setError(null);
-        console.log("[RCA-Panel] Fetching diagnosis for run:", run.runId);
+        console.log("[RCA-Panel] Fetching diagnosis for run:", run.runId, isForce ? "(FORCED)" : "");
         try {
             const userData = JSON.parse(localStorage.getItem('userData') || "{}");
             const token = userData.token || "";
             const res = await instance.get(
-                `/api/github/rca?runId=${run.runId}&owner=${owner}&repo=${repo}`,
+                `/api/github/rca?runId=${run.runId}&owner=${owner}&repo=${repo}${isForce ? '&force=true' : ''}&_t=${Date.now()}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             console.log("[RCA-Panel] Success! Analysis data:", res.data);
@@ -214,6 +222,7 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
             setError(e?.response?.data?.error || 'Analysis failed. The run logs may have expired on GitHub.');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }, [run, owner, repo]);
 
@@ -294,36 +303,106 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
                     {/* Content */}
                     {data && !loading && (
                         <>
-                            {/* ── AI DEEP DIVE (Gemini Powered) ── */}
+                            {/* ── AI NEURAL INTELLIGENCE (Gemini Powered) ── */}
                             {data.aiAnalysis && (
-                                <div className="mx-6 mt-6 p-8 bg-gradient-to-br from-red-600/10 to-transparent border border-red-600/20 rounded-[2.5rem] relative overflow-hidden group/ai box-glow-red">
-                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-600/10 blur-[80px] rounded-full" />
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <span className="text-xl">✨</span>
-                                        <h4 className="text-xs font-black text-red-500 uppercase tracking-[0.4em]">Gemini AI Intelligence Deep-Dive</h4>
-                                    </div>
-                                    <div className="space-y-6 relative z-10">
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-500 mb-2">Technical Root Cause</p>
-                                            <p className="text-lg font-black text-white italic leading-none uppercase tracking-tighter decoration-red-600/30 underline decoration-2">{data.aiAnalysis.root_cause}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-500 mb-2">Detailed Analysis</p>
-                                            <p className="text-xs text-gray-300 leading-relaxed font-medium">{data.aiAnalysis.details}</p>
-                                        </div>
-                                        {data.aiAnalysis.countermeasures && data.aiAnalysis.countermeasures.length > 0 && (
-                                            <div className="pt-6 border-t border-white/5">
-                                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-emerald-500 mb-4">Recommended Countermeasures</p>
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {data.aiAnalysis.countermeasures.map((cm, i) => (
-                                                        <div key={i} className="flex gap-4 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl hover:border-emerald-500/30 transition-colors">
-                                                            <span className="text-emerald-500 font-black text-xs tabular-nums">{i + 1}.</span>
-                                                            <p className="text-xs text-gray-200 font-bold">{cm}</p>
-                                                        </div>
-                                                    ))}
+                                <div className="mx-6 mt-6 relative group/ai">
+                                    {/* Animated border glow */}
+                                    <div className="absolute -inset-[2px] bg-gradient-to-r from-red-600 via-emerald-500 to-blue-600 rounded-[2.6rem] blur-sm opacity-20 group-hover/ai:opacity-40 transition-opacity duration-1000 animate-pulse" />
+
+                                    <div className="relative p-10 bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] overflow-hidden">
+                                        {/* Background pattern */}
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/5 blur-[100px] rounded-full -mr-20 -mt-20" />
+                                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 blur-[100px] rounded-full -ml-20 -mb-20" />
+
+                                        <div className="flex items-center justify-between mb-8">
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-red-400 flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)]">
+                                                        <span className="text-xl">✨</span>
+                                                    </div>
+                                                    <div className="absolute -inset-1 bg-red-600/20 blur-md rounded-2xl animate-pulse" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em] mb-1">AI Neural Analysis</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">GEMINI 2.5 FLASH · HIGH CONFIDENCE</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        )}
+                                            <div className="flex items-center gap-6">
+                                                <div className={`px-4 py-1.5 rounded-full border border-red-500/20 bg-red-500/5 text-[9px] font-black uppercase tracking-widest ${data.aiAnalysis.severity === 'High' ? 'text-red-500 border-red-500/40' : 'text-amber-500 border-amber-500/40'
+                                                    }`}>
+                                                    SEVERITY :: {data.aiAnalysis.severity || 'Normal'}
+                                                </div>
+                                                <button
+                                                    onClick={() => fetchRCA(true)}
+                                                    disabled={refreshing}
+                                                    className="group/btn flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-50"
+                                                >
+                                                    <span className={`text-[10px] ${refreshing ? 'animate-spin' : 'group-hover/btn:rotate-180 transition-transform duration-500'}`}>🔄</span>
+                                                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                                                        {refreshing ? 'Neural Recalculation...' : 'Re-analyze'}
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-10">
+                                            {/* Pinpoint Location (New) */}
+                                            {(data.aiAnalysis.failed_job || data.aiAnalysis.failed_step) && (
+                                                <div className="flex gap-4 p-4 bg-red-600/5 border border-red-600/20 rounded-2xl items-center">
+                                                    <div className="w-8 h-8 rounded-lg bg-red-600/20 flex items-center justify-center text-xs">📍</div>
+                                                    <div>
+                                                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest">Pinpoint Failure Location</p>
+                                                        <p className="text-[11px] text-white font-bold">
+                                                            {data.aiAnalysis.failed_job || 'Unknown Job'}
+                                                            <span className="text-gray-500 mx-1">/</span>
+                                                            <span className="text-red-400">{data.aiAnalysis.failed_step || 'Unknown Step'}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Root Cause Card */}
+                                            <div className="relative">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-600 mb-4">CRITICAL_FINDING</p>
+                                                <h3 className={`text-2xl md:text-3xl font-black italic leading-tight uppercase tracking-tighter decoration-red-600/50 underline underline-offset-8 decoration-4 ${data.aiAnalysis.root_cause.includes('INVALID JSON') ? 'text-gray-500' : 'text-white'
+                                                    }`}>
+                                                    {data.aiAnalysis.root_cause.includes('INVALID JSON')
+                                                        ? 'Neural Parse Exception :: Technical Review Required'
+                                                        : data.aiAnalysis.root_cause}
+                                                </h3>
+                                            </div>
+
+                                            {/* Detailed Deep-Dive */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                                <div className="space-y-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-600">TECHNICAL_DEEP_DIVE</p>
+                                                    <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[2rem] hover:bg-white/[0.04] transition-colors">
+                                                        <p className="text-[13px] text-gray-300 leading-relaxed font-medium">
+                                                            {data.aiAnalysis.details}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {data.aiAnalysis.countermeasures && data.aiAnalysis.countermeasures.length > 0 && (
+                                                    <div className="space-y-4">
+                                                        <p className="text-[9px] font-black uppercase tracking-[0.4em] text-emerald-500">ACTIONABLE_COUNTERMEASURES</p>
+                                                        <div className="space-y-3">
+                                                            {data.aiAnalysis.countermeasures.map((cm, i) => (
+                                                                <div key={i} className="flex gap-4 p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl group/cm hover:border-emerald-500/40 transition-all transform hover:-translate-x-1">
+                                                                    <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                                                        <span className="text-[10px] text-emerald-500 font-black">✓</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-200 font-bold leading-snug">{cm}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -353,27 +432,27 @@ const RCAPanel = ({ run, owner, repo, onClose, onViewLogs }) => {
                             </div>
 
                             <div className="p-6 space-y-4">
-                                {/* ── DIAGNOSIS TAB ── */}
-                                {activeTab === 'diagnosis' && (
-                                    <>
-                                        {data.primary && <FindingCard finding={data.primary} isPrimary={true} />}
-                                        {data.secondary && data.secondary.length > 0 && (
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-700 my-4">⚡ Secondary Findings</p>
-                                                <div className="space-y-3">
-                                                    {data.secondary.map((f, i) => <FindingCard key={i} finding={f} isPrimary={false} />)}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {!data.primary && (
-                                            <div className="text-center py-16 text-gray-600">
-                                                <span className="text-5xl block mb-4">🔍</span>
-                                                <p className="font-bold uppercase tracking-widest text-sm">No patterns detected</p>
-                                                <p className="text-[10px] mt-2">The pipeline may have failed for an infrastructure reason not reflected in logs.</p>
-                                            </div>
-                                        )}
-                                    </>
+                                {/* Show primary diagnosis ONLY if AI analysis is not present OR AI analysis specifically failed to find a cause */}
+                                {data.primary && !data.aiAnalysis && (
+                                    <FindingCard finding={data.primary} isPrimary={true} />
                                 )}
+                                {data.secondary && data.secondary.length > 0 && !data.aiAnalysis && (
+                                    <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-700 my-4">⚡ Secondary Findings</p>
+                                        <div className="space-y-3">
+                                            {data.secondary.map((f, i) => <FindingCard key={i} finding={f} isPrimary={false} />)}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* AI Analysis Fallback if no primary and no aiAnalysis */}
+                                {!data.primary && !data.aiAnalysis && (
+                                    <div className="text-center py-16 text-gray-600">
+                                        <span className="text-5xl block mb-4">🔍</span>
+                                        <p className="font-bold uppercase tracking-widest text-sm">No patterns detected</p>
+                                        <p className="text-[10px] mt-2">The pipeline may have failed for an infrastructure reason not reflected in logs.</p>
+                                    </div>
+                                )}
+                                {/* Note: If AI Analysis is present, it is rendered above this section in the "Neural Analysis" card. */}
 
                                 {/* ── TIMELINE TAB ── */}
                                 {activeTab === 'timeline' && (

@@ -71,6 +71,8 @@ type AIAnalysis struct {
 	Details         string   `json:"details"`
 	Countermeasures []string `json:"countermeasures"`
 	Severity        string   `json:"severity"`
+	FailedJob       string   `json:"failed_job"`
+	FailedStep      string   `json:"failed_step"`
 }
 
 // Full RCA Result
@@ -106,143 +108,9 @@ type RCAResult struct {
 // All 8 categories with weighted patterns + dynamic remediation
 // ─────────────────────────────────────────────
 
-var ruleLibrary = []Rule{
-	// ── ENV / SECRETS ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)(required|error|fatal).*?(env|environment)\s+var(iable)?|env var .* (not set|is not defined|undefined|missing)|getenv.*empty|env\.get.*returns empty|\$\w+ is not set|\w+_TOKEN is not set|GITHUB_TOKEN.*missing`),
-		Weight:   0.85,
-		Category: "Missing ENV Variable / Secret",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			varRe := regexp.MustCompile(`\b([A-Z_]{3,})\s+is not set|\$([A-Z_]{3,})|env\.get\(["']([A-Z_a-z]{3,})["']\)`)
-			if m := varRe.FindStringSubmatch(match); m != nil {
-				for i := 1; i < len(m); i++ {
-					if m[i] != "" {
-						return fmt.Sprintf("Add the secret `%s` to your repository → Settings → Secrets and Variables → Actions. Reference it in your YAML as `${{ secrets.%s }}`.", m[i], m[i])
-					}
-				}
-			}
-			return "Add the required environment variable to your repository secrets (Settings → Secrets and Variables → Actions) and reference it in your workflow YAML."
-		},
-	},
 
-	// ── DEPENDENCY FAILURE (Expanded) ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)npm\s+err!|npm\s+error|cannot find module|module not found|err_module_not_found|no module named|importerror.*no module|cannot find package|go: module|ModuleNotFoundError|pip install.*failed|failed to resolve|composer\s+error|gem\s+not\s+found|bundle\s+install.*failed`),
-		Weight:   0.85,
-		Category: "Dependency Failure",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "npm") {
-				return "Node dependency error. Check your `package.json` for missing version ranges. Try running `npm install` locally to debug."
-			}
-			if strings.Contains(strings.ToLower(match), "pip") || strings.Contains(strings.ToLower(match), "module") {
-				return "Python dependency error. Ensure all required packages are listed in `requirements.txt` or `pyproject.toml`."
-			}
-			return "A dependency could not be resolved. Run your package manager install command locally and ensure all lock files are up to date and committed."
-		},
-	},
-
-	// ── COMPILATION / SYNTAX ERROR (New Specifics) ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)panic:|runtime error:|unexpected\s+EOF|slice\s+bounds\s+out\s+of\s+range|nil\s+pointer\s+dereference|stack\s+overflow`),
-		Weight:   0.90,
-		Category: "Runtime Panic / Crash",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "Your code crashed at runtime with a panic. Review the stack trace in the evidence below to identify the exact line of code causing the crash."
-		},
-	},
-	{
-		Pattern:  regexp.MustCompile(`(?i)Uncaught\s+TypeError|Cannot\s+read\s+properties\s+of\s+null|is\s+not\s+a\s+function|SyntaxError:\s+Unexpected\s+token`),
-		Weight:   0.80,
-		Category: "Javascript Runtime Error",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "A Javascript runtime error occurred. Check the offending line in the log evidence. This often happens when accessing properties of an undefined variable."
-		},
-	},
-
-	// ── DATABASE / INFRA ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)dial\s+tcp.*connection\s+refused|failed\s+to\s+connect\s+to\s+host|mongo.*timeout|redis.*connection|postgres.*error|sql:\s+no\s+rows|database\s+connection\s+failed`),
-		Weight:   0.75,
-		Category: "Database Connection Failure",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "Unable to connect to the database. Verify that your DB connection strings are correct and that the database service (or Docker container) is reachable from the runner."
-		},
-	},
-
-	// ── PERMISSION / AUTH ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)permission denied|EACCES|EPERM|403\s+forbidden|401\s+unauthorized|authentication\s+failed|auth\s+error|access\s+denied|you\s+don.t\s+have\s+access|insufficient\s+permissions|credentials\s+expired|invalid\s+token`),
-		Weight:   0.85,
-		Category: "Permission / Authentication Error",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "Check your API tokens and permissions. For GitHub Actions, ensure the `GITHUB_TOKEN` has the specific `permissions:` scopes required for this job."
-		},
-	},
-
-	// ── CLOUD / AWS SPECIFIC ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)AccessDenied|AssumeRoleWithWebIdentity|ExpiredToken|CredentialsError|SignatureDoesNotMatch`),
-		Weight:   0.80,
-		Category: "Cloud Credentials Error (AWS/Azure/GCP)",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "Cloud authentication failed. Check your OIDC role configuration or the expiration of your cloud credentials/secrets."
-		},
-	},
-
-	// ── DOCKER / CONTAINER ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)cannot\s+connect\s+to\s+the\s+docker\s+daemon|docker:\s+error|pull\s+access\s+denied|manifest\s+unknown|no\s+such\s+image|docker\s+build.*failed`),
-		Weight:   0.80,
-		Category: "Docker / Container Error",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			return "Docker operation failed. Check if the Docker daemon is accessible and your image tags/registry credentials are correct."
-		},
-	},
-
-	// ── TEST FAILURE ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)FAIL\t|--- FAIL|test\s+failed|tests?\s+failed|assertion\s+failed|AssertionError|expected.*to\s+equal|jest.*failed|pytest.*failed|❌\s+\w`),
-		Weight:   0.70,
-		Category: "Test Failure",
-		Severity: "warning",
-		Remediation: func(match, log string) string {
-			return "Unit tests failed. Reproduce locally using your test runner. Review the diff output in the evidence to see the exact assertion failure."
-		},
-	},
-
-	// ── TIMEOUT / OOM ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)timed?\s*out|ETIMEDOUT|context\s+deadline\s+exceeded|killed\s|out\s+of\s+memory|OOMKilled|heap\s+space`),
-		Weight:   0.80,
-		Category: "Resource Exhaustion (Timeout / OOM)",
-		Severity: "critical",
-		Remediation: func(match, log string) string {
-			if strings.Contains(strings.ToLower(match), "memory") || strings.Contains(strings.ToLower(match), "oom") {
-				return "The process ran out of memory. Consider increasing the runner size or optimizing memory-heavy steps (e.g., node build flags)."
-			}
-			return "The process timed out. Try increasing the `timeout-minutes` in your workflow YAML or optimizing the slow step."
-		},
-	},
-
-	// ── BUILD SYSTEM ──
-	{
-		Pattern:  regexp.MustCompile(`(?i)exit\s+code\s+[1-9]|exit\s+status\s+[1-9]|command\s+not\s+found|sh:\s+line\s+\d+:\s+.*not\s+found`),
-		Weight:   0.40,
-		Category: "General Command Failure",
-		Severity: "warning",
-		Remediation: func(match, log string) string {
-			return "A command in your workflow exited with a non-zero status. Check for typos in your scripts or missing binaries in the runner environment."
-		},
-	},
-}
+// Legacy rule library removed in favor of AI-First RCA.
+var ruleLibrary = []Rule{}
 
 // ─────────────────────────────────────────────
 // CORE ENGINE FUNCTIONS
@@ -270,20 +138,10 @@ func AnalyzeLogs(logText, repoFullName string, run *WorkflowRun) *RCAResult {
 		result.Timeline = buildTimeline(run)
 	}
 
-	// Feature 1+2+8: Multi-layer confidence scoring
-	findings := scoreLog(logText)
-
-	if len(findings) > 0 {
-		result.Primary = &findings[0]
-		if len(findings) > 1 {
-			result.Secondary = findings[1:]
-		}
-		result.Summary = buildSummary(result.Primary, run)
-	} else {
-		// Catch-all: extract last error lines
-		result.Primary = catchAllFinding(logText)
-		result.Summary = "Pipeline failed — no specific root cause pattern matched. Review the error evidence below."
-	}
+	// Feature 1+2+8: AI-First RCA
+	// Manual scoring logic removed.
+	
+	result.Summary = "AI analysis processing... Check the Deep-Dive panel below for results."
 
 	// Feature 3: Fingerprinting
 	result.Fingerprint = computeFingerprint(logText, repoFullName)
@@ -291,66 +149,10 @@ func AnalyzeLogs(logText, repoFullName string, run *WorkflowRun) *RCAResult {
 	return result
 }
 
-// scoreLog runs ALL rules against the log and returns findings sorted by confidence.
-// Feature 1 + 2: multi-layer, all matches, confidence score per category.
+
+// scoreLog was deprecated in favor of AI analysis.
 func scoreLog(logText string) []Finding {
-	// Accumulate scores per category
-	categoryMap := map[string]*Finding{}
-	lines := strings.Split(logText, "\n")
-
-	for _, rule := range ruleLibrary {
-		allMatches := rule.Pattern.FindAllString(logText, -1)
-		if len(allMatches) == 0 {
-			continue
-		}
-
-		cat := rule.Category
-		if _, exists := categoryMap[cat]; !exists {
-			categoryMap[cat] = &Finding{
-				Category: cat,
-				Severity: rule.Severity,
-			}
-		}
-		f := categoryMap[cat]
-		for _, m := range allMatches {
-			f.Weight += rule.Weight
-			f.Count++
-			f.MatchedLines = appendUnique(f.MatchedLines, m)
-		}
-
-		// Dynamic remediation from the FIRST/highest-weight rule for this category
-		if f.Remediation == "" && len(allMatches) > 0 {
-			f.Remediation = rule.Remediation(allMatches[0], logText)
-		}
-
-		// Extract evidence context for first match
-		if len(f.Evidence) == 0 {
-			firstMatchLine := firstLineContaining(lines, allMatches[0])
-			f.Evidence = surroundingLines(lines, firstMatchLine, 5)
-			
-			// New: Extract code location from the evidence
-			f.CodeLocation = ExtractCodeLocation(f.Evidence)
-		}
-	}
-
-	// Normalize confidence: score = tanh(weight), maps to 0-1 smoothly
-	var findings []Finding
-	for _, f := range categoryMap {
-		f.Confidence = math.Tanh(f.Weight)
-		if f.Confidence > 1.0 { f.Confidence = 1.0 }
-		findings = append(findings, *f)
-	}
-
-	// Sort by confidence descending
-	for i := 0; i < len(findings)-1; i++ {
-		for j := i + 1; j < len(findings); j++ {
-			if findings[j].Confidence > findings[i].Confidence {
-				findings[i], findings[j] = findings[j], findings[i]
-			}
-		}
-	}
-
-	return findings
+	return []Finding{}
 }
 
 // Feature 3: Error Fingerprinting
@@ -413,71 +215,9 @@ func buildTimeline(run *WorkflowRun) []TimelineEntry {
 }
 
 // Feature 7: Log-level anomaly detection
+// detectLogAnomalies now relies on AI for intelligence-based detection.
 func detectLogAnomalies(logText string, run *WorkflowRun) []LogAnomaly {
-	var anomalies []LogAnomaly
-	lines := strings.Split(logText, "\n")
-
-	// 1. Log size spike
-	if len(logText) > 500_000 {
-		anomalies = append(anomalies, LogAnomaly{
-			Type:        "large_log",
-			Description: fmt.Sprintf("Log size unusually large (%d KB) — possible infinite loop or excessive output", len(logText)/1024),
-			Severity:    "warning",
-		})
-	}
-
-	// 2. Retry storms
-	retryRe := regexp.MustCompile(`(?i)(retry|retrying|attempt\s+\d+\s+of\s+\d+)`)
-	retryMatches := retryRe.FindAllString(logText, -1)
-	if len(retryMatches) > 5 {
-		anomalies = append(anomalies, LogAnomaly{
-			Type:        "retry_storm",
-			Description: fmt.Sprintf("Detected %d retry attempts — the step is repeatedly failing and retrying", len(retryMatches)),
-			Severity:    "warning",
-		})
-	}
-
-	// 3. Duplicate error lines (flapping)
-	lineCount := map[string]int{}
-	for _, l := range lines {
-		trimmed := strings.TrimSpace(l)
-		if len(trimmed) > 10 {
-			lineCount[trimmed]++
-		}
-	}
-	for line, count := range lineCount {
-		if count > 10 && (strings.Contains(strings.ToLower(line), "error") || strings.Contains(strings.ToLower(line), "fail")) {
-			anomalies = append(anomalies, LogAnomaly{
-				Type:        "repeating_error",
-				Description: fmt.Sprintf("Error line repeated %d times: \"%s\"", count, truncate(line, 80)),
-				Severity:    "critical",
-			})
-			break // Report once
-		}
-	}
-
-	// 4. Very fast failure (< 10 seconds total) = likely config issue
-	if run != nil {
-		totalDur := 0.0
-		for _, job := range run.Jobs {
-			for _, step := range job.Steps {
-				s := step.StartedAt.Time().UnixMilli()
-				e := step.CompletedAt.Time().UnixMilli()
-				if e > s {
-					totalDur += float64(e-s) / 1000.0
-				}
-			}
-		}
-		if totalDur > 0 && totalDur < 10.0 {
-			anomalies = append(anomalies, LogAnomaly{
-				Type:        "instant_failure",
-				Description: fmt.Sprintf("Pipeline failed after only %.1fs — likely a configuration or YAML syntax error, not a runtime error", totalDur),
-				Severity:    "critical",
-			})
-		}
-	}
-
-	return anomalies
+	return []LogAnomaly{}
 }
 
 // ─────────────────────────────────────────────

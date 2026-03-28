@@ -113,25 +113,154 @@ const LogViewer = ({ logs, jobName, onClose, loading }) => {
                     ref={scrollRef}
                     className="flex-1 overflow-y-auto p-8 font-mono text-[11px] leading-relaxed custom-scrollbar selection:bg-red-600/30 relative"
                 >
-                    {/* AI Summary Panel */}
+                    {/* AI Neural Summary Panel */}
                     {aiSummary && (
-                        <div ref={summaryRef} className="mb-10 p-8 bg-red-600/5 border border-red-600/20 rounded-[2rem] relative overflow-hidden group/summary animate-in fade-in zoom-in-95 duration-500">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 blur-3xl rounded-full" />
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-lg">✨</span>
-                                    <h4 className="text-xs font-black text-red-500 uppercase tracking-[0.3em]">AI Neural Summary</h4>
+                        <div ref={summaryRef} className="mb-10 relative group/summary animate-in fade-in zoom-in-95 duration-500">
+                            {/* Glow Effect */}
+                            <div className="absolute -inset-1 bg-gradient-to-r from-red-600/20 to-emerald-500/20 rounded-[2.1rem] blur-md opacity-50" />
+
+                            <div className="relative p-8 bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 blur-3xl rounded-full -mr-10 -mt-10" />
+
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-red-600/20 flex items-center justify-center">
+                                            <span className="text-sm">✨</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em]">AI Neural Summary</h4>
+                                            <p className="text-[8px] text-gray-600 font-bold uppercase tracking-widest mt-0.5">Gemini Intelligence Node :: Online</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setAiSummary(null)}
+                                        className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[8px] text-gray-500 hover:text-white font-black uppercase tracking-widest transition-colors"
+                                    >
+                                        Dismiss
+                                    </button>
                                 </div>
-                                <button onClick={() => setAiSummary(null)} className="text-[10px] text-gray-700 hover:text-white font-black uppercase tracking-widest transition-colors">Dismiss</button>
-                            </div>
-                            <div className="relative z-10 text-gray-300 text-xs leading-relaxed space-y-4">
-                                {typeof aiSummary === 'string' ? (
-                                    aiSummary.split('\n').map((para, pidx) => (
-                                        <p key={pidx}>{para}</p>
-                                    ))
-                                ) : (
-                                    <pre className="whitespace-pre-wrap">{JSON.stringify(aiSummary, null, 2)}</pre>
-                                )}
+
+                                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <p className="text-[8px] font-black text-gray-700 uppercase tracking-[0.4em]">Analysis Overview</p>
+                                        <div className="space-y-4 text-gray-300 text-xs leading-relaxed font-medium">
+                                            {(() => {
+                                                const cleanAndParseJSON = (text) => {
+                                                    if (typeof text !== 'string') return text;
+                                                    let cleaned = text.trim();
+                                                    // Strip triple backticks and markdown language tags
+                                                    cleaned = cleaned.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
+                                                    // Still string? Try to find the first { and last }
+                                                    const first = cleaned.indexOf('{');
+                                                    const last = cleaned.lastIndexOf('}');
+                                                    if (first !== -1 && last !== -1 && last > first) {
+                                                        cleaned = cleaned.substring(first, last + 1);
+                                                    }
+                                                    try { return JSON.parse(cleaned); } catch (e) { return text; }
+                                                };
+
+                                                const summary = cleanAndParseJSON(aiSummary);
+
+                                                if (typeof summary === 'string') {
+                                                    return summary.split('\n').map((para, pidx) => (
+                                                        <p key={pidx}>{para}</p>
+                                                    ));
+                                                }
+
+                                                return (
+                                                    <div className="space-y-4">
+                                                        <div>
+                                                            <p className="text-[10px] text-red-400 font-black uppercase mb-1">Root Cause</p>
+                                                            <p className="text-sm text-white font-bold italic">{summary.root_cause || summary.summary}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Details</p>
+                                                            <p className="text-gray-400 leading-relaxed">{summary.details || summary.technical_details || summary.analysis}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    {(() => {
+                                        const cleanAndParseJSON = (text) => {
+                                            if (typeof text !== 'string') return text;
+                                            let cleaned = text.trim();
+                                            cleaned = cleaned.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
+                                            const first = cleaned.indexOf('{');
+                                            const last = cleaned.lastIndexOf('}');
+                                            if (first !== -1 && last !== -1 && last > first) {
+                                                cleaned = cleaned.substring(first, last + 1);
+                                            }
+                                            try { return JSON.parse(cleaned); } catch (e) { return text; }
+                                        };
+                                        const summary = cleanAndParseJSON(aiSummary);
+                                        if (summary.action_items && summary.action_items.length > 0) {
+                                            return (
+                                                <div className="space-y-4">
+                                                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.4em]">Action Items</p>
+                                                    <div className="space-y-2">
+                                                        {summary.action_items.map((item, i) => (
+                                                            <div key={i} className="flex gap-3 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl hover:border-emerald-500/40 transition-all">
+                                                                <span className="text-emerald-500 text-[10px] font-black">✓</span>
+                                                                <p className="text-[11px] text-gray-300 font-bold">{item}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (summary.countermeasures && summary.countermeasures.length > 0) {
+                                            return (
+                                                <div className="space-y-4">
+                                                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.4em]">Countermeasures</p>
+                                                    <div className="space-y-2">
+                                                        {summary.countermeasures.map((item, i) => (
+                                                            <div key={i} className="flex gap-3 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl hover:border-emerald-500/40 transition-all">
+                                                                <span className="text-emerald-500 text-[10px] font-black">✓</span>
+                                                                <p className="text-[11px] text-gray-300 font-bold">{item}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
+
+                                {(() => {
+                                    const cleanAndParseJSON = (text) => {
+                                        if (typeof text !== 'string') return text;
+                                        let cleaned = text.trim();
+                                        cleaned = cleaned.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
+                                        const first = cleaned.indexOf('{');
+                                        const last = cleaned.lastIndexOf('}');
+                                        if (first !== -1 && last !== -1 && last > first) {
+                                            cleaned = cleaned.substring(first, last + 1);
+                                        }
+                                        try { return JSON.parse(cleaned); } catch (e) { return text; }
+                                    };
+                                    const summary = cleanAndParseJSON(aiSummary);
+                                    if (summary.failed_job || summary.failed_step) {
+                                        return (
+                                            <div className="mt-8 pt-4 border-t border-white/5">
+                                                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-2">Pinpoint Failure</p>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-white font-bold">
+                                                        {summary.failed_job || 'Current Job'}
+                                                    </div>
+                                                    <span className="text-gray-600">→</span>
+                                                    <div className="px-3 py-1 bg-red-600/20 border border-red-600/40 rounded-lg text-[10px] text-red-400 font-bold">
+                                                        {summary.failed_step}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
                         </div>
                     )}

@@ -47,15 +47,20 @@ func GetAIRCA(c *gin.Context) {
 You MUST provide your analysis in EXACTLY this JSON structure and NOTHING ELSE. 
 DO NOT include thoughts, markdown, preamble, or any other text before or after the JSON.
 
-Expected JSON Structure:
+Expected JSON Structure (STRICT):
 {
   "root_cause": "Short summary of the failure",
   "details": "Technical explanation of what happened",
   "countermeasures": ["Step 1 to fix", "Step 2 to prevent"],
-  "severity": "High/Medium/Low"
+  "severity": "High/Medium/Low",
+  "failed_job": "Name of the job that failed",
+  "failed_step": "Name of the specific step that failed"
 }
 
-If the failure is in the YAML configuration, explain it in the "details" field but keep the response as JSON.
+IMPORTANT: DO NOT WRAP YOUR RESPONSE IN MARKDOWN CODE BLOCKS. 
+DO NOT USE ```json OR ```. 
+RETURN RAW JSON ONLY.
+IF YOU NEED TO INCLUDE YAML OR CODE IN THE "details" OR "countermeasures" FIELDS, ESCAPE THE NEWLINES (e.g., use \n).
 
 Logs to Analyze:
 %s`, req.Logs)
@@ -88,9 +93,21 @@ Logs to Analyze:
 	analysisText = strings.TrimSpace(analysisText)
 
 	logToFile(fmt.Sprintf("SUCCESS: [Manual-AI] Summary complete for Job #%d", req.JobID))
-	c.JSON(http.StatusOK, gin.H{
-		"runId":    req.RunID,
-		"jobId":    req.JobID,
-		"analysis": analysisText,
-	})
+	
+	// Try to parse the analysis as JSON to return a structured object
+	var analysisObj interface{}
+	if err := json.Unmarshal([]byte(analysisText), &analysisObj); err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"runId":    req.RunID,
+			"jobId":    req.JobID,
+			"analysis": analysisObj,
+		})
+	} else {
+		// Fallback to raw string if parsing fails
+		c.JSON(http.StatusOK, gin.H{
+			"runId":    req.RunID,
+			"jobId":    req.JobID,
+			"analysis": analysisText,
+		})
+	}
 }

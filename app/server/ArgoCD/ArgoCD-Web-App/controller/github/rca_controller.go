@@ -47,6 +47,8 @@ func GetRootCauseAnalysis(c *gin.Context) {
 		return
 	}
 
+	force := c.Query("force") == "true"
+
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
@@ -62,9 +64,14 @@ func GetRootCauseAnalysis(c *gin.Context) {
 	// Check cache first
 	// ──────────────────────────────────────────
 	apiKey := os.Getenv("GEMINI_API_KEY")
-	if cached := getCachedRCA(rcaColl, runID); cached != nil {
-		// If we have an AI key but the cached result doesn't have AI analysis, re-run!
-		if apiKey == "" || cached.AIAnalysis != nil {
+	if cached := getCachedRCA(rcaColl, runID); cached != nil && !force {
+		// If we have an AI key but the cached result doesn't have AI analysis, OR it has the "Invalid JSON" placeholder, re-run!
+		isInvalid := cached.AIAnalysis != nil && (
+			strings.Contains(strings.ToUpper(cached.AIAnalysis.RootCause), "INVALID JSON") ||
+			strings.Contains(cached.AIAnalysis.RootCause, "through deep-dive") ||
+			cached.AIAnalysis.RootCause == "",
+		)
+		if apiKey == "" || (cached.AIAnalysis != nil && !isInvalid) {
 			// Attach live fingerprint count from DB
 			if cached.Fingerprint != nil {
 				enrichFingerprint(fingerprintColl, cached.Fingerprint)
@@ -72,6 +79,11 @@ func GetRootCauseAnalysis(c *gin.Context) {
 			c.JSON(http.StatusOK, cached)
 			return
 		}
+	}
+	
+	// If forced or invalid, log it
+	if force {
+		logToFile(fmt.Sprintf("FORCE: Refreshing analysis for Run #%d", runID))
 	}
 
 	// ──────────────────────────────────────────
@@ -142,10 +154,15 @@ func GetRootCauseAnalysis(c *gin.Context) {
 		ctx := context.Background()
 		if aiResult, aiErr := analyzeWithGemini(ctx, apiKey, combinedLog); aiErr == nil {
 			logToFile(fmt.Sprintf("SUCCESS: Neural analysis complete for Run #%d", runID))
+			
+			// Only suppress legacy results if the AI analysis was successfully parsed and has a non-placeholder root cause
+			isSuccess := aiResult != nil && !strings.Contains(strings.ToUpper(aiResult.RootCause), "INVALID JSON") && !strings.Contains(aiResult.RootCause, "THROUGH DEEP-DIVE")
+			
 			rcaResult.AIAnalysis = aiResult
-			// If AI analysis succeeded, use its root cause as the primary summary
-			if aiResult.RootCause != "" {
-				rcaResult.Summary = fmt.Sprintf("AI RCA: %s", aiResult.RootCause)
+			if isSuccess {
+				// Suppress legacy findings ONLY if AI actually worked
+				rcaResult.Primary = nil
+				rcaResult.Secondary = []Finding{}
 			}
 		} else {
 			logToFile(fmt.Sprintf("ERROR: Gemini intelligence failed for Run #%d: %v", runID, aiErr))
@@ -390,15 +407,20 @@ func analyzeWithGemini(ctx context.Context, apiKey string, logs string) (*AIAnal
 You MUST provide your analysis in EXACTLY this JSON structure and NOTHING ELSE. 
 DO NOT include thoughts, markdown, preamble, or any other text before or after the JSON.
 
-Expected JSON Structure:
+Expected JSON Structure (STRICT):
 {
   "root_cause": "Short summary of the failure",
   "details": "Technical explanation of what happened",
   "countermeasures": ["Step 1 to fix", "Step 2 to prevent"],
-  "severity": "High/Medium/Low"
+  "severity": "High/Medium/Low",
+  "failed_job": "Name of the job that failed",
+  "failed_step": "Name of the specific step that failed"
 }
 
-If the failure is in the YAML configuration, explain it in the "details" field but keep the response as JSON.
+IMPORTANT: DO NOT WRAP YOUR RESPONSE IN MARKDOWN CODE BLOCKS. 
+DO NOT USE ```json OR ```. 
+RETURN RAW JSON ONLY.
+IF YOU NEED TO INCLUDE YAML OR CODE IN THE "details" OR "countermeasures" FIELDS, ESCAPE THE NEWLINES (e.g., use \n).
 
 Logs to Analyze:
 %s`, logs)
@@ -417,20 +439,13 @@ Logs to Analyze:
 		analysisText = string(part)
 	}
 
-	// Aggressive extraction of JSON from response (handling cases where AI still includes markdown)
-	// Try to find anything between the first { and the last }
-	if firstIdx := strings.Index(analysisText, "{"); firstIdx != -1 {
-		if lastIdx := strings.LastIndex(analysisText, "}"); lastIdx != -1 && lastIdx > firstIdx {
-			analysisText = analysisText[firstIdx : lastIdx+1]
-		}
-	}
-	analysisText = strings.TrimSpace(analysisText)
+	// Aggressive extraction of JSON from response
+	analysisText = extractJSON(analysisText)
 
 	var result AIAnalysis
 	if err := json.Unmarshal([]byte(analysisText), &result); err != nil {
 		// Second attempt: If JSON is still invalid but we have content, 
 		// maybe it was not JSON at all but the AI's best guess.
-		// We'll wrap it ourselves to avoid the "Invalid JSON" error in the UI.
 		return &AIAnalysis{
 			RootCause: "AI Analysis performed through deep-dive",
 			Details:   analysisText,
