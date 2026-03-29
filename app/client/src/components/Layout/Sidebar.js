@@ -44,7 +44,7 @@ const Sidebar = () => {
         }`}
     >
       {/* LOGO */}
-      <div className="p-8 flex items-center gap-4">
+      <div className="p-6 flex items-center gap-4 shrink-0">
         <VizOpsLogo size={40} className="text-red-600 animate-pulse drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]" />
 
         {!isCollapsed && (
@@ -58,7 +58,7 @@ const Sidebar = () => {
       </div>
 
       {/* NAVIGATION */}
-      <div className="flex-grow overflow-y-auto px-4 py-4 custom-scrollbar">
+      <div className="flex-grow overflow-y-auto px-3 py-2 custom-scrollbar">
         <div className="bg-[#0a0a0a] rounded-[2rem] p-4 border border-white/5 shadow-2xl">
           <div className="flex items-center gap-2 mb-6 px-4">
             <div className="w-1 h-3 bg-red-600 rounded-full"></div>
@@ -93,8 +93,8 @@ const Sidebar = () => {
       </div>
 
       {/* USER SECTION */}
-      <div className="px-4 pb-6">
-        <div className="bg-[#0a0a0a] rounded-[2rem] p-5 border border-white/5 relative group">
+      <div className="px-4 pb-4 shrink-0">
+        <div className="bg-[#0a0a0a] rounded-[2rem] p-4 border border-white/5 relative group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full translate-x-12 -translate-y-12"></div>
 
           <div className="flex items-center gap-2 mb-4 px-2">

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -69,8 +68,7 @@ func GetRootCauseAnalysis(c *gin.Context) {
 		isInvalid := cached.AIAnalysis != nil && (
 			strings.Contains(strings.ToUpper(cached.AIAnalysis.RootCause), "INVALID JSON") ||
 			strings.Contains(cached.AIAnalysis.RootCause, "through deep-dive") ||
-			cached.AIAnalysis.RootCause == "",
-		)
+			cached.AIAnalysis.RootCause == "" )
 		if apiKey == "" || (cached.AIAnalysis != nil && !isInvalid) {
 			// Attach live fingerprint count from DB
 			if cached.Fingerprint != nil {
@@ -418,7 +416,7 @@ Expected JSON Structure (STRICT):
 }
 
 IMPORTANT: DO NOT WRAP YOUR RESPONSE IN MARKDOWN CODE BLOCKS. 
-DO NOT USE ```json OR ```. 
+DO NOT USE JSON CODE BLOCKS OR TRIPLE BACKTICKS. 
 RETURN RAW JSON ONLY.
 IF YOU NEED TO INCLUDE YAML OR CODE IN THE "details" OR "countermeasures" FIELDS, ESCAPE THE NEWLINES (e.g., use \n).
 
@@ -440,7 +438,7 @@ Logs to Analyze:
 	}
 
 	// Aggressive extraction of JSON from response
-	analysisText = extractJSON(analysisText)
+	analysisText, _ = extractJSON(analysisText)
 
 	var result AIAnalysis
 	if err := json.Unmarshal([]byte(analysisText), &result); err != nil {
@@ -469,4 +467,39 @@ func logToFile(msg string) {
 	if _, err := f.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, msg)); err != nil {
 		fmt.Printf("FAILED TO WRITE CONTENT: %v\n", err)
 	}
+}
+
+func extractJSON(s string) (string, error) {
+	// 1. First, look for markdown code blocks (Gemini's favorite output)
+	if strings.Contains(s, "```") {
+		parts := strings.Split(s, "```")
+		for _, p := range parts {
+			trimmed := strings.TrimSpace(p)
+			if strings.HasPrefix(trimmed, "json") {
+				trimmed = strings.TrimPrefix(trimmed, "json")
+			}
+			trimmed = strings.TrimSpace(trimmed)
+			if json.Valid([]byte(trimmed)) {
+				return trimmed, nil
+			}
+		}
+	}
+
+	// 2. Generic curly brace extraction
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start != -1 && end != -1 && end > start {
+		trimmed := s[start : end+1]
+		if json.Valid([]byte(trimmed)) {
+			return trimmed, nil
+		}
+	}
+
+	// 3. Last resort: Try raw string if it's already a clean JSON
+	trimmed := strings.TrimSpace(s)
+	if json.Valid([]byte(trimmed)) {
+		return trimmed, nil
+	}
+
+	return "", fmt.Errorf("no valid JSON found in response")
 }

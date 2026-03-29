@@ -2,9 +2,11 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
@@ -58,7 +60,7 @@ Expected JSON Structure (STRICT):
 }
 
 IMPORTANT: DO NOT WRAP YOUR RESPONSE IN MARKDOWN CODE BLOCKS. 
-DO NOT USE ```json OR ```. 
+DO NOT USE JSON CODE BLOCKS OR TRIPLE BACKTICKS. 
 RETURN RAW JSON ONLY.
 IF YOU NEED TO INCLUDE YAML OR CODE IN THE "details" OR "countermeasures" FIELDS, ESCAPE THE NEWLINES (e.g., use \n).
 

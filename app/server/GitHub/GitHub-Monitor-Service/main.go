@@ -65,6 +65,20 @@ type WorkflowRun struct {
 	Jobs          []Job              `bson:"jobs" json:"jobs"`
 	AnomalyScore  float64            `bson:"anomalyScore" json:"anomalyScore"`
 	AnomalyReason string             `bson:"anomalyReason" json:"anomalyReason"`
+	HeadSHA       string             `bson:"headSha" json:"headSha"`
+}
+
+type GitHubIssue struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	RunID       int64              `bson:"runId" json:"runId"`
+	RepoName    string             `bson:"repoName" json:"repoName"`
+	RepoOwner   string             `bson:"repoOwner" json:"repoOwner"`
+	IssueNumber int                `bson:"issueNumber" json:"issueNumber"`
+	IssueURL    string             `bson:"issueUrl" json:"issueUrl"`
+	Title       string             `bson:"title" json:"title"`
+	Body        string             `bson:"body" json:"body"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	Status      string             `bson:"status" json:"status"` // "open", "closed"
 }
 
 func main() {
@@ -91,10 +105,12 @@ func main() {
 }
 
 func pollGitHub(client *mongo.Client) {
+	ctx := context.Background()
 	db := client.Database("admin")
 	reposColl := db.Collection("github_repos")
 	accountsColl := db.Collection("github_accounts")
 	runsColl := db.Collection("github_runs")
+	issuesColl := db.Collection("github_issues")
 
 	// 1. Get all enabled repositories
 	cursor, err := reposColl.Find(context.TODO(), bson.M{"enabled": true})
@@ -200,6 +216,7 @@ func pollGitHub(client *mongo.Client) {
 				Jobs:          dbJobs,
 				AnomalyScore:  anomalyScore,
 				AnomalyReason: anomalyReason,
+				HeadSHA:       run.GetHeadSHA(),
 			}
 
 			filter := bson.M{"runId": run.GetID()}
@@ -215,7 +232,93 @@ func pollGitHub(client *mongo.Client) {
 					repoOwner, repo.Name, run.GetName(), anomalyReason, run.GetHTMLURL())
 				notificationClient.TriggerNotificationService(message)
 			}
+
+			// --- Issue Tracker Automation (Feature) ---
+			if run.GetConclusion() == "failure" {
+				// 1. Check if an issue already exists for this RunID
+				var existingIssue GitHubIssue
+				err = issuesColl.FindOne(context.TODO(), bson.M{"runId": run.GetID()}).Decode(&existingIssue)
+				if err == mongo.ErrNoDocuments {
+					// 2. Create fresh issue
+					logToAILog(fmt.Sprintf("Pipeline Failure: Auto-creating GitHub Issue for Run #%d", run.GetID()))
+					createGitHubIssue(ctx, ghClient, issuesColl, repoOwner, repo.Name, dbRun)
+				}
+			}
 		}
 		log.Printf("Synced %d runs for %s/%s", len(workflowRuns.WorkflowRuns), repoOwner, repo.Name)
 	}
+}
+
+func createGitHubIssue(ctx context.Context, client *github.Client, coll *mongo.Collection, owner, repo string, run WorkflowRun) {
+	title := fmt.Sprintf("❌ Pipeline Failure: %s (#%d)", run.WorkflowName, run.RunID)
+	
+	// Synthesize a brief log summary for the issue body
+	logSummary := ""
+	for _, job := range run.Jobs {
+		if job.Conclusion == "failure" {
+			logSummary += fmt.Sprintf("### Job: %s\n", job.Name)
+			for _, step := range job.Steps {
+				if step.Conclusion == "failure" {
+					logSummary += fmt.Sprintf("- ❌ Step: %s (Status: %s)\n", step.Name, step.Conclusion)
+				}
+			}
+		}
+	}
+
+	body := fmt.Sprintf(`## 🛡️ Automated RCA Report
+A failed workflow run was detected. This issue has been automatically created to track the fix.
+
+**📈 Workflow Info:**
+- **Name:** %s
+- **Run ID:** [%d](%s)
+- **Repo:** %s/%s
+- **Commit:** `+"`%s`"+`
+
+**🛠️ Failure Summary:**
+%s
+
+---
+*Created by Pipeline Observability Assistant*`, run.WorkflowName, run.RunID, run.HTMLURL, owner, repo, run.HeadSHA, logSummary)
+
+	req := &github.IssueRequest{
+		Title:  &title,
+		Body:   &body,
+		Labels: &[]string{"bug", "pipeline-failure", "automated"},
+	}
+
+	ghIssue, _, err := client.Issues.Create(ctx, owner, repo, req)
+	if err != nil {
+		logToAILog(fmt.Sprintf("ERROR creating GitHub Issue for Run #%d: %v", run.RunID, err))
+		return
+	}
+
+	// Save information back to MongoDB for tracking/deduplication
+	dbIssue := GitHubIssue{
+		RunID:       run.RunID,
+		RepoName:    repo,
+		RepoOwner:   owner,
+		IssueNumber: ghIssue.GetNumber(),
+		IssueURL:    ghIssue.GetHTMLURL(),
+		Title:       title,
+		Body:        body,
+		CreatedAt:   time.Now(),
+		Status:      "open",
+	}
+
+	_, err = coll.InsertOne(ctx, dbIssue)
+	if err != nil {
+		logToAILog(fmt.Sprintf("ERROR saving Ticket Info to MongoDB for Run #%d: %v", run.RunID, err))
+	} else {
+		logToAILog(fmt.Sprintf("SUCCESS: Ticket #%d created on GitHub for Run #%d", ghIssue.GetNumber(), run.RunID))
+	}
+}
+
+func logToAILog(msg string) {
+	f, err := os.OpenFile("/home/mujtaba-rehman/Pipeline-Observability-Hex/app/server/ArgoCD/ArgoCD-Web-App/gemini-ai.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("FAIL: %v", err)
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "[%s] [AUTO-TICKET] %s\n", time.Now().Format("2006-01-02 15:04:05"), msg)
 }

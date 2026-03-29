@@ -3,7 +3,6 @@ package github
 import (
 	"crypto/md5"
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"

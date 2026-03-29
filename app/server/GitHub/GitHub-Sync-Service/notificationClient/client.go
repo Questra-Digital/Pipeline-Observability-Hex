@@ -16,7 +16,8 @@ func TriggerNotificationService(customMessage string) {
 	// Set up a connection to the server
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Printf("ERROR: did not connect to notification service: %v", err)
+		return
 	}
 	defer conn.Close()
 
@@ -32,7 +33,8 @@ func TriggerNotificationService(customMessage string) {
 		Message: message,
 	})
 	if err != nil {
-		log.Fatalf("Error sending notification: %v", err)
+		log.Printf("ERROR: sending notification failed: %v", err)
+		return
 	}
 
 	log.Printf("Notification status: %s", response.Status)
