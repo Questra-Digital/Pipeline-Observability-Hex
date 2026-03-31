@@ -34,6 +34,21 @@ const Tickets = () => {
         }
     };
 
+    const repoStyles = useMemo(() => {
+        return {
+            'argocd-web-app': { text: 'text-blue-500', border: 'group-hover:border-blue-600/40', glow: 'hover:shadow-[0_40px_100px_rgba(37,99,235,0.1)]', scan: 'via-blue-600/20' },
+            'pipeline-observability-hex': { text: 'text-emerald-500', border: 'group-hover:border-emerald-600/40', glow: 'hover:shadow-[0_40px_100px_rgba(16,185,129,0.1)]', scan: 'via-emerald-600/20' },
+            'influencer-stats-api': { text: 'text-amber-500', border: 'group-hover:border-amber-600/40', glow: 'hover:shadow-[0_40px_100px_rgba(245,158,11,0.1)]', scan: 'via-amber-600/20' },
+            'flutter-creator-app': { text: 'text-purple-500', border: 'group-hover:border-purple-600/40', glow: 'hover:shadow-[0_40px_100px_rgba(147,51,234,0.1)]', scan: 'via-purple-600/20' },
+            'default': { text: 'text-red-500', border: 'group-hover:border-red-600/40', glow: 'hover:shadow-[0_40px_100px_rgba(220,38,38,0.1)]', scan: 'via-red-600/20' }
+        };
+    }, []);
+
+    const getRepoStyle = (repoName) => {
+        const key = repoName?.toLowerCase() || 'default';
+        return repoStyles[key] || repoStyles['default'];
+    };
+
     const repos = useMemo(() => {
         const uniqueRepos = [...new Set(tickets.map(t => t.repoName))];
         return uniqueRepos.sort();
@@ -82,12 +97,12 @@ const Tickets = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-end gap-6">
+                    <div className="flex items-end gap-6 text-right">
                         <div className="flex flex-col items-end bg-[#050505]/60 backdrop-blur-3xl px-8 py-6 rounded-3xl border border-white/5 shadow-2xl relative group overflow-hidden">
                             <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest mb-1 italic">Active Entries</span>
-                            <div className="flex items-end gap-2">
-                                <span className="text-3xl font-black text-white italic leading-none">{filteredTickets.length}</span>
-                                <span className="text-[9px] font-black text-red-900 uppercase tracking-widest mb-0.5 italic">/ {tickets.length}</span>
+                            <div className="flex items-end gap-3 text-right">
+                                <span className="text-4xl font-black text-white italic leading-none">{filteredTickets.length}</span>
+                                <span className="text-[10px] font-black text-red-900 uppercase tracking-widest mb-0.5 italic">/ {tickets.length}</span>
                             </div>
                         </div>
                         <button
@@ -152,46 +167,49 @@ const Tickets = () => {
                             <h3 className="text-2xl font-black text-gray-800 uppercase tracking-tighter italic">No Neural Matches Found</h3>
                         </div>
                     ) : (
-                        filteredTickets.map((ticket, idx) => (
-                            <div
-                                key={ticket.id || idx}
-                                onClick={() => setSelectedTicket(ticket)}
-                                className="group relative flex flex-col bg-[#050505] hover:bg-[#070707] border border-white/5 hover:border-red-600/30 rounded-[2.5rem] p-8 transition-all duration-700 hover:shadow-[0_40px_100px_rgba(220,38,38,0.06)] hover:-translate-y-1 cursor-pointer overflow-hidden"
-                            >
-                                {/* SCAN ANIMATION */}
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[2000ms]"></div>
+                        filteredTickets.map((ticket, idx) => {
+                            const style = getRepoStyle(ticket.repoName);
+                            return (
+                                <div
+                                    key={ticket.id || idx}
+                                    onClick={() => setSelectedTicket(ticket)}
+                                    className={`group relative flex flex-col bg-[#050505] hover:bg-[#070707] border border-white/5 ${style.border} ${style.glow} rounded-[2.5rem] p-8 transition-all duration-700 cursor-pointer overflow-hidden`}
+                                >
+                                    {/* SCAN ANIMATION */}
+                                    <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent ${style.scan} to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[2000ms]`}></div>
 
-                                {/* STATUS INDICATOR */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${ticket.status === 'open' ? 'bg-red-600 shadow-[2px_0_15px_rgba(220,38,38,0.4)]' : 'bg-emerald-500 shadow-[2px_0_15px_rgba(16,185,129,0.4)]'}`}></div>
+                                    {/* STATUS INDICATOR */}
+                                    <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${ticket.status === 'open' ? 'bg-red-600 shadow-[2px_0_15px_rgba(220,38,38,0.4)]' : 'bg-emerald-500 shadow-[2px_0_15px_rgba(16,185,129,0.4)]'}`}></div>
 
-                                <div className="flex flex-col h-full justify-between">
-                                    <div className="space-y-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <GitHubIcon size={16} className="text-gray-700 group-hover:text-red-500 transition-colors" />
-                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-[0.2em]">{ticket.repoName}</span>
+                                    <div className="flex flex-col h-full justify-between">
+                                        <div className="space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <GitHubIcon size={16} className={`text-gray-700 ${style.text} transition-colors`} />
+                                                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${style.text}`}>{ticket.repoName}</span>
+                                                </div>
+                                                <span className={`text-[9px] font-mono font-black text-gray-800 ${style.text} transition-colors`}>#{ticket.issueNumber}</span>
                                             </div>
-                                            <span className="text-[9px] font-mono font-black text-gray-800 group-hover:text-red-500 transition-colors">#{ticket.issueNumber}</span>
+
+                                            <h3 className={`text-xl font-black text-white ${style.text.replace('text-', 'group-hover:text-')} transition-all duration-700 leading-tight italic uppercase tracking-tighter line-clamp-2`}>
+                                                {ticket.title}
+                                            </h3>
                                         </div>
 
-                                        <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-all duration-700 leading-tight italic uppercase tracking-tighter line-clamp-2">
-                                            {ticket.title}
-                                        </h3>
-                                    </div>
+                                        <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] font-black text-gray-800 uppercase tracking-widest mb-1">Detected</span>
+                                                <span className="text-[10px] font-mono text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                                            </div>
 
-                                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="text-[8px] font-black text-gray-800 uppercase tracking-widest mb-1">Detected</span>
-                                            <span className="text-[10px] font-mono text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</span>
-                                        </div>
-
-                                        <div className={`px-3 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ${ticket.status === 'open' ? 'bg-red-600/5 border-red-600/20 text-red-500' : 'bg-emerald-600/5 border-emerald-600/20 text-emerald-500'}`}>
-                                            {ticket.status}
+                                            <div className={`px-4 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-lg ${ticket.status === 'open' ? 'bg-red-600/10 border-red-600/40 text-red-500 shadow-red-600/10' : 'bg-emerald-600/10 border-emerald-600/40 text-emerald-500 shadow-emerald-600/10'}`}>
+                                                {ticket.status}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
@@ -218,7 +236,7 @@ const Tickets = () => {
                                     <div className="px-4 py-1.5 bg-red-950/20 rounded-full border border-red-900/40">
                                         <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">#{selectedTicket.issueNumber}</span>
                                     </div>
-                                    <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${selectedTicket.status === 'open' ? 'bg-red-600/5 border-red-600/40 text-red-500' : 'bg-emerald-600/5 border-emerald-600/40 text-emerald-500'}`}>
+                                    <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-xl ${selectedTicket.status === 'open' ? 'bg-red-600/10 border-red-600/40 text-red-500 shadow-red-600/10' : 'bg-emerald-600/10 border-emerald-600/40 text-emerald-500 shadow-emerald-600/10'}`}>
                                         {selectedTicket.status}
                                     </div>
                                 </div>
@@ -235,8 +253,8 @@ const Tickets = () => {
                             <div className="space-y-2">
                                 <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">Repository</span>
                                 <div className="flex items-center gap-3">
-                                    <GitHubIcon size={18} className="text-red-600" />
-                                    <span className="text-sm font-black text-white uppercase italic">{selectedTicket.repoName}</span>
+                                    <GitHubIcon size={18} className={getRepoStyle(selectedTicket.repoName).text} />
+                                    <span className={`text-sm font-black uppercase italic ${getRepoStyle(selectedTicket.repoName).text}`}>{selectedTicket.repoName}</span>
                                 </div>
                             </div>
                             <div className="space-y-2">
@@ -249,14 +267,14 @@ const Tickets = () => {
                             </div>
                             <div className="space-y-2">
                                 <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">External Link</span>
-                                <a href={selectedTicket.issueUrl} target="_blank" rel="noopener noreferrer" className="block text-sm font-black text-blue-500 hover:text-blue-400 underline underline-offset-4 decoration-2">VIEW ON GITHUB</a>
+                                <a href={selectedTicket.issueUrl} target="_blank" rel="noopener noreferrer" className="block text-sm font-black text-blue-500 hover:text-blue-400 underline underline-offset-4 decoration-2 transition-colors">VIEW ON GITHUB</a>
                             </div>
                         </div>
 
                         <div className="flex justify-end gap-4">
                             <button
                                 onClick={() => setSelectedTicket(null)}
-                                className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/5 transition-all text-[9px] font-black uppercase tracking-widest"
+                                className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/5 transition-all text-[9px] font-black uppercase tracking-widest active:scale-95"
                             >
                                 Close Log
                             </button>
@@ -264,7 +282,7 @@ const Tickets = () => {
                                 href={selectedTicket.issueUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-8 py-4 bg-red-700 hover:bg-red-600 text-white rounded-2xl shadow-xl transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-3"
+                                className="px-8 py-4 bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-3 active:scale-95"
                             >
                                 Analyze Root Cause
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
