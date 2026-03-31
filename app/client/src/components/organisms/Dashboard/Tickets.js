@@ -1,42 +1,57 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect, useMemo } from "react";
+import { fetchTickets } from "@/services/ticketService";
 import {
     TicketIcon,
     GitHubIcon
 } from "@/components/atoms/AppIcons";
+import Modal from "@/components/atoms/Modal";
 
 const Tickets = () => {
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [repoFilter, setRepoFilter] = useState("all");
+    const [selectedTicket, setSelectedTicket] = useState(null);
 
     useEffect(() => {
-        fetchTickets();
+        getTickets();
     }, []);
 
-    const fetchTickets = async () => {
+    const getTickets = async () => {
         setLoading(true);
         try {
-            const userData = JSON.parse(localStorage.getItem('userData') || "{}");
-            const token = userData.token || "";
-            const instance = axios.create({
-                baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-            });
-
-            const res = await instance.get("/api/github/tickets", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setTickets(res.data || []);
+            const data = await fetchTickets();
+            setTickets(data);
             setError(null);
         } catch (err) {
-            console.error("Error fetching tickets:", err);
             setError("Failed to load automated tickets. Check backend connectivity.");
         } finally {
             setLoading(false);
         }
     };
+
+    const repos = useMemo(() => {
+        const uniqueRepos = [...new Set(tickets.map(t => t.repoName))];
+        return uniqueRepos.sort();
+    }, [tickets]);
+
+    const filteredTickets = useMemo(() => {
+        return tickets.filter(ticket => {
+            const matchesSearch =
+                ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                ticket.repoName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                ticket.issueNumber.toString().includes(searchQuery);
+
+            const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
+            const matchesRepo = repoFilter === "all" || ticket.repoName === repoFilter;
+
+            return matchesSearch && matchesStatus && matchesRepo;
+        });
+    }, [tickets, searchQuery, statusFilter, repoFilter]);
 
     return (
         <div className="relative min-h-screen bg-[#020202] text-[#e0e0e0] overflow-x-hidden pt-12 pb-32 px-4 lg:px-12 font-sans selection:bg-red-600/30 selection:text-white">
@@ -44,10 +59,9 @@ const Tickets = () => {
             <div className="absolute top-0 right-0 w-[60vw] h-[60vw] bg-red-600/[0.04] blur-[150px] rounded-full -translate-y-1/2 translate-x-1/2 -z-10 animate-pulse"></div>
             <div className="absolute inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-red-900/20 to-transparent top-0 opacity-50"></div>
 
-            <div className="w-full max-w-3xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-5 duration-1000 fill-mode-both">
-                {/* MINIMALIST HEADER */}
-                {/* MINIMALIST HEADER - REFACTORED FOR STACKED LAYOUT */}
-                <header className="flex flex-col gap-10 border-b border-white/5 pb-12 relative">
+            <div className="w-full max-w-5xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-1000 fill-mode-both">
+                {/* MODERN HEADER */}
+                <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/5 pb-10 relative">
                     <div className="flex flex-col items-start gap-6">
                         <div className="flex items-center gap-6">
                             <div className="relative group shrink-0">
@@ -66,168 +80,206 @@ const Tickets = () => {
                                 </h1>
                             </div>
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-700 opacity-60 border-l-2 border-red-900 px-3 py-1">
-                            Automated Neural Diagnostic Repository (v2.5)
-                        </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-6 w-full">
-                        <div className="flex-grow flex items-center justify-between bg-[#050505]/60 backdrop-blur-3xl px-8 py-6 rounded-[2.5rem] border border-white/5 shadow-2xl relative group overflow-hidden">
-                            <div className="flex items-center gap-8">
-                                <div className="flex flex-col pr-8 border-r border-white/10 shrink-0">
-                                    <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest mb-2 italic">Grid Health</span>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                        <span className="text-[10px] font-mono text-emerald-500 font-black uppercase">Optimal</span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col shrink-0">
-                                    <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest mb-1 italic">Active Links</span>
-                                    <div className="flex items-end gap-1.5">
-                                        <span className="text-3xl font-black text-white italic leading-none">{tickets.length}</span>
-                                        <span className="text-[9px] font-black text-red-900 uppercase tracking-widest mb-0.5 italic">Entries</span>
-                                    </div>
-                                </div>
+                    <div className="flex items-end gap-6">
+                        <div className="flex flex-col items-end bg-[#050505]/60 backdrop-blur-3xl px-8 py-6 rounded-3xl border border-white/5 shadow-2xl relative group overflow-hidden">
+                            <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest mb-1 italic">Active Entries</span>
+                            <div className="flex items-end gap-2">
+                                <span className="text-3xl font-black text-white italic leading-none">{filteredTickets.length}</span>
+                                <span className="text-[9px] font-black text-red-900 uppercase tracking-widest mb-0.5 italic">/ {tickets.length}</span>
                             </div>
-
-                            <button
-                                onClick={fetchTickets}
-                                disabled={loading}
-                                className="p-4 bg-white/[0.03] hover:bg-red-600/10 border border-white/10 hover:border-red-600/50 rounded-2xl transition-all active:scale-90 group text-gray-400 hover:text-red-500 relative z-10"
-                                title="Sync Neural Data"
-                            >
-                                <svg className={`w-5 h-5 ${loading ? 'animate-spin text-red-500' : 'group-hover:rotate-180 transition-transform duration-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            </button>
                         </div>
+                        <button
+                            onClick={getTickets}
+                            disabled={loading}
+                            className="p-6 bg-white/[0.03] hover:bg-red-600/10 border border-white/10 hover:border-red-600/50 rounded-3xl transition-all active:scale-90 group text-gray-400 hover:text-red-500 relative z-10"
+                            title="Sync Neural Data"
+                        >
+                            <svg className={`w-6 h-6 ${loading ? 'animate-spin text-red-500' : 'group-hover:rotate-180 transition-transform duration-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        </button>
                     </div>
                 </header>
 
-                {/* HORIZONTAL GRID / LIST CONTAINER */}
-                <div className="flex flex-col gap-6 lg:gap-8 w-full">
+                {/* SEARCH & FILTERS BAR */}
+                <div className="flex flex-col lg:flex-row items-center gap-4 bg-[#050505]/40 p-4 rounded-3xl border border-white/5 backdrop-blur-xl">
+                    <div className="relative flex-grow w-full">
+                        <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="SEARCH TICKETS, REPOS, OR ISSUE ID..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-[#020202] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-[10px] font-black uppercase tracking-widest text-white placeholder:text-gray-800 focus:outline-none focus:border-red-600/40 transition-all"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-4 w-full lg:w-auto">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="bg-[#020202] border border-white/5 rounded-2xl py-4 px-6 text-[10px] font-black uppercase tracking-widest text-white focus:outline-none focus:border-red-600/40 transition-all cursor-pointer appearance-none min-w-[140px]"
+                        >
+                            <option value="all">ALL STATUS</option>
+                            <option value="open">OPEN</option>
+                            <option value="closed">CLOSED</option>
+                        </select>
+
+                        <select
+                            value={repoFilter}
+                            onChange={(e) => setRepoFilter(e.target.value)}
+                            className="bg-[#020202] border border-white/5 rounded-2xl py-4 px-6 text-[10px] font-black uppercase tracking-widest text-white focus:outline-none focus:border-red-600/40 transition-all cursor-pointer appearance-none flex-grow lg:flex-grow-0 min-w-[180px]"
+                        >
+                            <option value="all">ALL REPOSITORIES</option>
+                            {repos.map(repo => (
+                                <option key={repo} value={repo}>{repo.toUpperCase()}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* TICKETS GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {loading && tickets.length === 0 ? (
                         Array(6).fill(0).map((_, i) => (
-                            <div key={i} className="h-64 w-full bg-[#030303] border border-white/5 rounded-[2.5rem] animate-pulse"></div>
+                            <div key={i} className="h-64 bg-[#030303] border border-white/5 rounded-[2rem] animate-pulse"></div>
                         ))
-                    ) : tickets.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-52 bg-[#020202]/60 border border-dashed border-white/10 rounded-[5rem] group transition-all duration-1000 hover:border-red-600/20 backdrop-blur-sm relative overflow-hidden">
-                            <div className="relative p-12 bg-white/5 rounded-full border border-white/5 group-hover:scale-110 group-hover:border-red-600/20 transition-all duration-1000 mb-10">
-                                <TicketIcon size={90} className="text-gray-900 group-hover:text-red-700 transition-all duration-700" />
-                            </div>
-                            <h3 className="text-4xl font-black text-gray-700 uppercase tracking-tighter italic">Neural Horizon: Empty</h3>
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="md:col-span-2 flex flex-col items-center justify-center py-40 bg-[#020202]/60 border border-dashed border-white/10 rounded-[4rem] group hover:border-red-600/20 transition-all duration-1000">
+                            <TicketIcon size={60} className="text-gray-900 mb-8 group-hover:text-red-700 transition-all duration-700" />
+                            <h3 className="text-2xl font-black text-gray-800 uppercase tracking-tighter italic">No Neural Matches Found</h3>
                         </div>
                     ) : (
-                        tickets.map((ticket, idx) => (
+                        filteredTickets.map((ticket, idx) => (
                             <div
                                 key={ticket.id || idx}
-                                className="group relative flex flex-col items-start bg-[#050505] hover:bg-[#070707] border border-white/5 hover:border-red-600/30 rounded-[3rem] p-6 lg:p-10 transition-all duration-700 hover:shadow-[0_40px_100px_rgba(220,38,38,0.06)] hover:-translate-y-1 overflow-hidden w-full"
+                                onClick={() => setSelectedTicket(ticket)}
+                                className="group relative flex flex-col bg-[#050505] hover:bg-[#070707] border border-white/5 hover:border-red-600/30 rounded-[2.5rem] p-8 transition-all duration-700 hover:shadow-[0_40px_100px_rgba(220,38,38,0.06)] hover:-translate-y-1 cursor-pointer overflow-hidden"
                             >
                                 {/* SCAN ANIMATION */}
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[2000ms] ease-in-out"></div>
-                                <div className={`absolute bottom-0 left-0 w-full h-[2px] opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-transparent via-red-600/40 to-transparent`}></div>
+                                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[2000ms]"></div>
 
-                                {/* STATUS NEON VERTICAL */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-[6px] transition-all duration-700 ${ticket.status === 'open' ? 'bg-red-700 group-hover:bg-red-600 shadow-[4px_0_25px_rgba(220,38,38,0.5)]' : 'bg-emerald-500 shadow-[4px_0_25px_rgba(16,185,129,0.5)]'}`}></div>
+                                {/* STATUS INDICATOR */}
+                                <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${ticket.status === 'open' ? 'bg-red-600 shadow-[2px_0_15px_rgba(220,38,38,0.4)]' : 'bg-emerald-500 shadow-[2px_0_15px_rgba(16,185,129,0.4)]'}`}></div>
 
-                                {/* VERTICAL LAYOUT START */}
-                                <div className="flex flex-col w-full min-w-0">
-                                    {/* TOP BAR: REPO & STATUS */}
-                                    <div className="flex flex-wrap items-center justify-between gap-6 pb-6 mb-6 border-b border-white/5">
-                                        <div className="flex items-center gap-6">
-                                            <div className="p-3 bg-white/5 rounded-2xl border border-white/5 group-hover:bg-red-600/10 group-hover:border-red-600/40 transition-all duration-700">
-                                                <GitHubIcon size={24} className="text-gray-600 group-hover:text-red-500 transition-colors" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-mono font-black text-gray-700 group-hover:text-red-500 uppercase tracking-widest italic transition-colors">#{ticket.issueNumber}</span>
-                                                <span className="text-xl font-black text-white italic tracking-tighter uppercase">{ticket.repoName}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-10">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mb-1 italic">Status</span>
-                                                <div className="flex items-center gap-2.5">
-                                                    <div className={`w-2.5 h-2.5 rounded-full ${ticket.status === 'open' ? 'bg-red-600 animate-pulse' : 'bg-emerald-500'}`}></div>
-                                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] font-mono italic ${ticket.status === 'open' ? 'text-red-500' : 'text-emerald-500'}`}>{ticket.status}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* MIDDLE: TITLE & TAGS */}
+                                <div className="flex flex-col h-full justify-between">
                                     <div className="space-y-6">
-                                        <h3 className="text-2xl lg:text-4xl font-black text-white group-hover:text-red-600 transition-all duration-700 leading-tight italic uppercase tracking-tighter" title={ticket.title}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <GitHubIcon size={16} className="text-gray-700 group-hover:text-red-500 transition-colors" />
+                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-[0.2em]">{ticket.repoName}</span>
+                                            </div>
+                                            <span className="text-[9px] font-mono font-black text-gray-800 group-hover:text-red-500 transition-colors">#{ticket.issueNumber}</span>
+                                        </div>
+
+                                        <h3 className="text-xl font-black text-white group-hover:text-red-500 transition-all duration-700 leading-tight italic uppercase tracking-tighter line-clamp-2">
                                             {ticket.title}
                                         </h3>
-
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <div className="px-4 py-1.5 bg-red-950/20 rounded-full border border-red-900/40 shrink-0">
-                                                <span className="text-[9px] font-black text-red-700 uppercase tracking-[0.2em] flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 bg-red-600 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.6)] animate-pulse shrink-0"></div>
-                                                    NEURAL-FINGERPRINT: {ticket.runId}
-                                                </span>
-                                            </div>
-                                            {ticket.status === 'open' && (
-                                                <span className="text-[9px] font-black bg-red-600/10 text-red-500 px-4 py-1.5 rounded-full border border-red-600/20 animate-pulse uppercase tracking-[0.3em] shrink-0 italic">Mission Critical</span>
-                                            )}
-                                        </div>
                                     </div>
 
-                                    {/* BOTTOM BAR: DATE & ACTION */}
-                                    <div className="flex flex-wrap items-center justify-between gap-8 mt-10 pt-8 border-t border-white/5">
+                                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-black text-gray-700 uppercase tracking-[0.2em] mb-2 italic">Detection</span>
-                                            <span className="text-sm font-black text-white font-mono opacity-80 group-hover:text-red-500 transition-colors">
-                                                {new Date(ticket.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
-                                            </span>
+                                            <span className="text-[8px] font-black text-gray-800 uppercase tracking-widest mb-1">Detected</span>
+                                            <span className="text-[10px] font-mono text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</span>
                                         </div>
 
-                                        <a
-                                            href={ticket.issueUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group/btn relative px-8 py-4 bg-[#020202] hover:bg-red-700 text-white rounded-2xl border border-white/5 hover:border-red-600 transition-all duration-700 active:scale-95 shadow-2xl flex items-center gap-4 overflow-hidden w-full sm:w-auto justify-center"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full group-hover/btn:animate-[shimmer_2s_infinite]"></div>
-                                            <span className="text-[10px] font-black uppercase tracking-[0.3em] relative z-10 italic">Analyze Root Cause</span>
-                                            <div className="p-2 bg-white/5 rounded-lg group-hover/btn:bg-white/20 transition-all duration-500 relative z-10">
-                                                <svg className="w-4 h-4 translate-x-0 group-hover/btn:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                            </div>
-                                        </a>
+                                        <div className={`px-3 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ${ticket.status === 'open' ? 'bg-red-600/5 border-red-600/20 text-red-500' : 'bg-emerald-600/5 border-emerald-600/20 text-emerald-500'}`}>
+                                            {ticket.status}
+                                        </div>
                                     </div>
                                 </div>
-                                {/* VERTICAL LAYOUT END */}
                             </div>
                         ))
                     )}
                 </div>
             </div>
 
-            {/* NEURAL ERROR OVERLAY */}
+            {/* ERROR TOAST */}
             {error && (
-                <div className="fixed bottom-12 right-12 z-50 animate-in slide-in-from-right-20 duration-1000">
-                    <div className="relative group">
-                        <div className="absolute inset-0 bg-red-600 blur-[60px] opacity-20 group-hover:opacity-40 transition-opacity duration-1000"></div>
-                        <div className="relative bg-[#020202]/95 backdrop-blur-3xl border border-red-600/40 rounded-[3rem] p-10 lg:p-12 shadow-[0_40px_100px_rgba(220,38,38,0.2)] flex items-center gap-10 max-w-2xl group-hover:border-red-600/80 transition-all duration-500 outline outline-1 outline-white/5">
-                            <div className="w-20 h-20 bg-red-600/10 rounded-[2rem] border border-red-600/30 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
-                                <svg className="w-10 h-10 text-red-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-3 h-[1px] bg-red-600"></div>
-                                    <h4 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none">Neural Link Inhibited</h4>
-                                </div>
-                                <p className="text-red-500/80 text-[11px] font-black uppercase tracking-[0.2em] leading-relaxed line-clamp-2 mt-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                                    {error} <span className="text-red-700/50 ml-2 font-mono">[ERROR_CODE: API_SYNC_404]</span>
-                                </p>
-                            </div>
+                <div className="fixed bottom-12 right-12 z-50 animate-in slide-in-from-right-10 duration-500">
+                    <div className="bg-[#050505] border border-red-600/40 rounded-2xl p-6 shadow-2xl flex items-center gap-4">
+                        <div className="w-10 h-10 bg-red-600/10 rounded-xl flex items-center justify-center border border-red-600/20">
+                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-red-500">{error}</p>
                     </div>
                 </div>
             )}
 
+            {/* TICKET DETAIL MODAL */}
+            <Modal isOpen={!!selectedTicket} onClose={() => setSelectedTicket(null)}>
+                {selectedTicket && (
+                    <div className="w-full max-w-2xl bg-[#050505] p-10 space-y-10">
+                        <div className="flex items-start justify-between">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="px-4 py-1.5 bg-red-950/20 rounded-full border border-red-900/40">
+                                        <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">#{selectedTicket.issueNumber}</span>
+                                    </div>
+                                    <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${selectedTicket.status === 'open' ? 'bg-red-600/5 border-red-600/40 text-red-500' : 'bg-emerald-600/5 border-emerald-600/40 text-emerald-500'}`}>
+                                        {selectedTicket.status}
+                                    </div>
+                                </div>
+                                <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">
+                                    {selectedTicket.title}
+                                </h2>
+                            </div>
+                            <button onClick={() => setSelectedTicket(null)} className="p-3 hover:bg-white/5 rounded-xl transition-colors">
+                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8 py-8 border-y border-white/5">
+                            <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">Repository</span>
+                                <div className="flex items-center gap-3">
+                                    <GitHubIcon size={18} className="text-red-600" />
+                                    <span className="text-sm font-black text-white uppercase italic">{selectedTicket.repoName}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">Detected At</span>
+                                <span className="block text-sm font-black text-white font-mono">{new Date(selectedTicket.createdAt).toLocaleString()}</span>
+                            </div>
+                            <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">Neural ID</span>
+                                <span className="block text-sm font-black text-red-900 font-mono tracking-tighter">{selectedTicket.runId}</span>
+                            </div>
+                            <div className="space-y-2">
+                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-[0.3em]">External Link</span>
+                                <a href={selectedTicket.issueUrl} target="_blank" rel="noopener noreferrer" className="block text-sm font-black text-blue-500 hover:text-blue-400 underline underline-offset-4 decoration-2">VIEW ON GITHUB</a>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setSelectedTicket(null)}
+                                className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/5 transition-all text-[9px] font-black uppercase tracking-widest"
+                            >
+                                Close Log
+                            </button>
+                            <a
+                                href={selectedTicket.issueUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-8 py-4 bg-red-700 hover:bg-red-600 text-white rounded-2xl shadow-xl transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-3"
+                            >
+                                Analyze Root Cause
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                            </a>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
             <style jsx>{`
-                @keyframes shimmer {
-                    100% { transform: translateX(100%); }
+                select {
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23333' %3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+                    background-position: right 1.5rem center;
+                    background-repeat: no-repeat;
+                    background-size: 1rem;
                 }
             `}</style>
         </div>
