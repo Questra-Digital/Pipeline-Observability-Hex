@@ -3,7 +3,8 @@ import {
   DashboardIcon,
   IntegrationsIcon,
   SettingsIcon,
-  TicketIcon
+  TicketIcon,
+  AgentIcon,
 } from "@/components/atoms/AppIcons";
 
 export const dashboardTabs = [
@@ -30,6 +31,12 @@ export const dashboardTabs = [
     link: "/dashboard/tickets",
     Icon: TicketIcon,
     alt: "Ticket Icon",
+  },
+  {
+    name: "Agent Control",
+    link: "/dashboard/github-actions",
+    Icon: AgentIcon,
+    alt: "Agent Control Icon",
   },
   {
     name: "Settings",

@@ -69,9 +69,25 @@ func main() {
 		github.GET("/rca", github_controller.GetRootCauseAnalysis)
 		github.POST("/ai-rca", github_controller.GetAIRCA)
 		github.GET("/tickets", github_controller.GetTickets)
+		github.GET("/tickets/sync", github_controller.SyncTickets)
 		github.GET("/correlations", github_controller.GetFailureCorrelations)
 		github.POST("/account/sync", github_controller.UpdateGitHubSyncInterval)
 		github.DELETE("/account/:id", github_controller.DisconnectGitHubAccount)
+
+		// ── Agentic: Workflow Dispatch ──────────────────────────────────
+		github.GET("/workflows", github_controller.GetWorkflows)
+		github.POST("/dispatch", github_controller.DispatchWorkflow)
+
+		// ── Agentic: Run Control ────────────────────────────────────────
+		github.POST("/cancel", github_controller.CancelRun)
+		github.POST("/retry", github_controller.RetryRun)
+		github.POST("/retry-failed", github_controller.RetryFailedJobs)
+
+		// ── Agentic: Outbound Webhook Notifications ──────────────────────
+		github.GET("/webhooks", github_controller.GetWebhooks)
+		github.POST("/webhooks", github_controller.CreateWebhook)
+		github.DELETE("/webhooks/:id", github_controller.DeleteWebhook)
+		github.POST("/webhooks/:id/test", github_controller.TestWebhook)
 	}
 
 

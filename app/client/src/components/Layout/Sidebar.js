@@ -44,7 +44,7 @@ const Sidebar = () => {
         }`}
     >
       {/* LOGO */}
-      <div className="p-6 flex items-center gap-4 shrink-0">
+      <div className="px-5 py-4 flex items-center gap-4 shrink-0">
         <VizOpsLogo size={40} className="text-red-600 animate-pulse drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]" />
 
         {!isCollapsed && (
@@ -58,32 +58,29 @@ const Sidebar = () => {
       </div>
 
       {/* NAVIGATION */}
-      <div className="flex-grow overflow-y-auto px-3 py-2 custom-scrollbar">
-        <div className="bg-[#0a0a0a] rounded-[2rem] p-4 border border-white/5 shadow-2xl">
-          <div className="flex items-center gap-2 mb-6 px-4">
+      <div className="flex-grow px-3 py-1 overflow-hidden">
+        <div className="bg-[#0a0a0a] rounded-[2rem] p-3 border border-white/5 shadow-2xl h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-4 px-3">
             <div className="w-1 h-3 bg-red-600 rounded-full"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Core Navigation</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Navigation</span>
           </div>
-          <nav className="space-y-2">
+          <nav className="flex-1 flex flex-col justify-evenly">
             {dashboardTabs.map((tab, index) => (
               <LinkAtom link={tab.link} key={index}>
                 <div
-                  className={`flex items-center gap-4 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-500
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-300
                     ${isTabActive(tab.link)
-                      ? "bg-red-600/10 text-white border border-red-600/20 shadow-[0_0_20px_rgba(220,38,38,0.1)]"
+                      ? "bg-red-600/10 text-white border border-red-600/20 shadow-[0_0_16px_rgba(220,38,38,0.08)]"
                       : "text-gray-500 hover:bg-white/5 hover:text-white"
                     }
                     ${isCollapsed ? "justify-center px-2" : ""}
                   `}
                 >
                   {tab.Icon && (
-                    <tab.Icon size={20} className={`shrink-0 transition-colors duration-500 ${isTabActive(tab.link) ? "text-red-500" : "text-gray-700"}`} />
+                    <tab.Icon size={16} className={`shrink-0 transition-colors duration-300 ${isTabActive(tab.link) ? "text-red-500" : "text-gray-700"}`} />
                   )}
-
                   {!isCollapsed && (
-                    <span className="truncate">
-                      {tab.name}
-                    </span>
+                    <span className="truncate">{tab.name}</span>
                   )}
                 </div>
               </LinkAtom>
@@ -93,8 +90,8 @@ const Sidebar = () => {
       </div>
 
       {/* USER SECTION */}
-      <div className="px-4 pb-4 shrink-0">
-        <div className="bg-[#0a0a0a] rounded-[2rem] p-4 border border-white/5 relative group">
+      <div className="px-3 pb-3 shrink-0">
+        <div className="bg-[#0a0a0a] rounded-[2rem] p-3 border border-white/5 relative group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full translate-x-12 -translate-y-12"></div>
 
           <div className="flex items-center gap-2 mb-4 px-2">

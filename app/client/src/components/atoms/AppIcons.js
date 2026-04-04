@@ -84,6 +84,14 @@ const TicketIcon = ({ size = 24, className = "" }) => (
     </svg>
 );
 
+const AgentIcon = ({ size = 24, className = "" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M12 2a4 4 0 0 1 4 4v1h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v1a4 4 0 0 1-8 0v-1H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1V6a4 4 0 0 1 4-4z" />
+        <path d="M9 12h.01M15 12h.01" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
+    </svg>
+);
+
 const VizOpsLogo = ({ size = 24, className = "" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
         <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" />
@@ -94,5 +102,5 @@ const VizOpsLogo = ({ size = 24, className = "" }) => (
 
 export {
     ArgoCDIcon, SlackIcon, GmailIcon, GitHubIcon, GitLabIcon, JenkinsIcon, DroneIcon,
-    HomeIcon, DashboardIcon, IntegrationsIcon, SettingsIcon, TicketIcon, VizOpsLogo
+    HomeIcon, DashboardIcon, IntegrationsIcon, SettingsIcon, TicketIcon, VizOpsLogo, AgentIcon
 };

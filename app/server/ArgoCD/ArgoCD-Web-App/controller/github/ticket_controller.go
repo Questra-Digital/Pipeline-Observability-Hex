@@ -46,7 +46,7 @@ func GetTickets(c *gin.Context) {
 
 	// Fetch all tickets, sorted by creation date (newest first)
 	opts := options.Find().SetSort(bson.M{"createdAt": -1})
-	cursor, err := issuesColl.Find(context.TODO(), bson.M{}, opts)
+	cursor, err := issuesColl.Find(context.TODO(), bson.M{"status": bson.M{"$ne": "deleted"}}, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching tickets"})
 		return

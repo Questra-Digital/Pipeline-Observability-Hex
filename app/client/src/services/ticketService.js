@@ -19,3 +19,15 @@ export const fetchTickets = async () => {
         throw err;
     }
 };
+
+// syncTickets calls the on-demand sync endpoint which reconciles open/escalated
+// tickets against GitHub before returning the full list.
+// Returns { tickets: [...], synced: N }
+export const syncTickets = async () => {
+    const userData = JSON.parse(localStorage.getItem('userData') || "{}");
+    const token = userData.token || "";
+    const res = await instance.get("/api/github/tickets/sync", {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return res.data;
+};
