@@ -121,7 +121,7 @@ const useConnectedRepos = () => {
 const RepoSel = ({ label, onSelect, value }) => {
     const { repos, loading } = useConnectedRepos();
     const opts = [{ value: "", label: loading ? "Loading repos…" : repos.length ? "Select a connected repo…" : "No repos connected" },
-        ...repos.map(r => ({ value: r.fullName, label: r.label }))];
+    ...repos.map(r => ({ value: r.fullName, label: r.label }))];
     return (
         <Sel label={label} value={value}
             onChange={v => {
@@ -139,73 +139,137 @@ const RepoSel = ({ label, onSelect, value }) => {
 function DispatchTab() {
     const [sel, setSel] = useState({ accountId: "", owner: "", name: "" });
     const [workflows, setWorkflows] = useState([]);
+    const [summaries, setSummaries] = useState([]);
     const [wfId, setWfId] = useState("");
     const [ref, setRef] = useState("main");
     const [inputsRaw, setInputsRaw] = useState("{}");
     const [loading, setLoading] = useState(false);
     const [dispatching, setDispatching] = useState(false);
+    const [retrying, setRetrying] = useState({});
     const [toast, setToast] = useState(null);
     const t = (m, ty = "success") => { setToast({ m, ty }); setTimeout(() => setToast(null), 4000); };
 
-    const loadWorkflows = async () => {
-        if (!sel.accountId) { t("Select a repository first", "error"); return; }
+    const loadAutomations = async (r) => {
+        const repo = r || sel;
+        if (!repo.accountId) return;
         setLoading(true);
         try {
-            const { data } = await api.get(`/api/github/workflows?accountId=${sel.accountId}&owner=${sel.owner}&repo=${sel.name}`);
-            setWorkflows(data || []);
-            if (data?.length) setWfId(String(data[0].id));
-            else t("No workflow_dispatch workflows found", "warning");
-        } catch (e) { t(e?.response?.data?.error || "Failed to load", "error"); }
-        finally { setLoading(false); }
+            // 1. Load dispatchable workflows (requires YAML trigger)
+            const { data: wfs } = await api.get(`/api/github/workflows?accountId=${repo.accountId}&owner=${repo.owner}&repo=${repo.name}`);
+            setWorkflows(wfs || []);
+            if (wfs?.length) setWfId(String(wfs[0].id));
+
+            // 2. Load latest runs per workflow (Zero-setup Re-Run mode)
+            const { data: sums } = await api.get(`/api/github/workflow-summary?accountId=${repo.accountId}&repo=${repo.name}`);
+            setSummaries(sums || []);
+        } catch (e) {
+            console.error(e);
+            t(e?.response?.data?.error || "Failed to load workflow data", "error");
+        } finally { setLoading(false); }
     };
 
     const dispatch = async () => {
-        if (!wfId) { t("Select a workflow", "error"); return; }
+        if (!wfId) { t("Select a workflow from the list below", "error"); return; }
         let inputs = {};
         try { inputs = JSON.parse(inputsRaw); } catch { t("Inputs must be valid JSON", "error"); return; }
         setDispatching(true);
         try {
             await api.post("/api/github/dispatch", { accountId: sel.accountId, owner: sel.owner, repo: sel.name, workflowId: parseInt(wfId, 10), ref, inputs });
-            t(`Dispatched on "${ref}" ✓`);
+            t(`Successfully dispatched on "${ref}" ✓`);
+            setTimeout(() => loadAutomations(sel), 2000);
         } catch (e) { t(e?.response?.data?.error || "Dispatch failed", "error"); }
         finally { setDispatching(false); }
+    };
+
+    const rerun = async (sum) => {
+        setRetrying(p => ({ ...p, [sum.runId]: true }));
+        try {
+            await api.post("/api/github/retry", { accountId: sel.accountId, owner: sum.repoOwner, repo: sum.repoName, runId: sum.runId });
+            t(`Re-run started for ${sum.workflowName} ✓`);
+            setTimeout(() => loadAutomations(sel), 2000);
+        } catch (e) { t(e?.response?.data?.error || "Re-run failed", "error"); }
+        finally { setRetrying(p => ({ ...p, [sum.runId]: false })); }
     };
 
     return (
         <div className="space-y-5">
             <Panel accent={C.red}>
-                <PanelHead title="Workflow Dispatch Agent" badge="Direct Trigger"
-                    sub="Fire any workflow_dispatch event on any connected repo without touching GitHub." />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                    <RepoSel label="Connected Repository" value={sel.fullName || ""}
-                        onSelect={r => { setSel(r); setWorkflows([]); setWfId(""); }} />
-                    <Input label="Branch / Tag / SHA" value={ref} onChange={setRef} placeholder="main" />
-                </div>
-                <div className="flex gap-3 mb-5">
-                    <Btn onClick={loadWorkflows} variant="ghost" loading={loading} disabled={!sel.accountId}>
-                        Discover Workflows
-                    </Btn>
-                    {sel.accountId && (
-                        <div className="flex items-center gap-2 text-[9px] text-gray-700 font-mono">
-                            <span className="text-emerald-600">●</span>
-                            {sel.owner}/{sel.name}
-                        </div>
-                    )}
+                <PanelHead title="Workflow Dispatch Agent" badge="Agent Control"
+                    sub="Zero-setup re-runs or custom dispatch triggers for any connected repository." />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <RepoSel label="Active Repository" value={sel.fullName || ""}
+                        onSelect={r => { setSel(r); setWorkflows([]); setSummaries([]); setWfId(""); loadAutomations(r); }} />
+                    <Input label="Target Branch / Ref" value={ref} onChange={setRef} placeholder="main" />
                 </div>
 
-                {workflows.length > 0 && (
-                    <div className="space-y-4 border-t border-white/[0.04] pt-5">
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {workflows.map(w => (
-                                <button key={w.id} onClick={() => setWfId(String(w.id))}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${wfId === String(w.id) ? "border-red-600/40 bg-red-600/10 text-red-400" : "border-white/[0.05] text-gray-600 hover:border-white/10 hover:text-white bg-[#080808]"}`}>
-                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: w.state === "active" ? C.green : C.amber }} />
-                                    {w.name}
-                                </button>
-                            ))}
-                        </div>
-                        <Input label="Inputs (JSON object)" value={inputsRaw} onChange={setInputsRaw} placeholder='{"environment": "staging", "debug": "true"}' />
-                        <Btn onClick={dispatch} loading={dispatching} size="lg">⚡ Trigger Workflow</Btn>
+                {!sel.accountId ? (
+                    <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl bg-black/20">
+                        <p className="text-gray-600 text-[10px] uppercase tracking-widest font-black">Select a repository to begin</p>
+                    </div>
+                ) : loading ? (
+                    <div className="py-10 text-center">
+                        <div className="animate-pulse text-red-500 font-black text-[10px] uppercase tracking-widest">Scanning Workflows...</div>
+                    </div>
+                ) : (
+                    <div className="space-y-8">
+                        {/* 1. Zero-Setup Re-Run Section */}
+                        <section>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4 flex items-center gap-2">
+                                <span className="p-1 px-2 rounded bg-white/5 text-emerald-500">Mode A</span>
+                                Quick Re-Run (No Setup Required)
+                            </h4>
+                            {summaries.length === 0 ? (
+                                <p className="text-[10px] text-gray-700 font-mono italic">No previous runs found for this repo.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2">
+                                    {summaries.map(s => (
+                                        <div key={s.runId} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/10 transition-colors">
+                                            <div className="flex flex-col">
+                                                <span className="text-[11px] font-bold text-white mb-0.5">{s.workflowName}</span>
+                                                <span className="text-[9px] text-gray-600 font-mono">Last status: <span style={{ color: s.conclusion === "success" ? C.green : C.red }}>{s.conclusion || s.status}</span> • {new Date(s.updatedAt).toLocaleString()}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => rerun(s)}
+                                                disabled={retrying[s.runId]}
+                                                className="px-4 py-2 rounded-lg bg-emerald-600/10 border border-emerald-600/20 text-emerald-400 text-[9px] font-bold uppercase tracking-wider hover:bg-emerald-600/20 transition-all flex items-center gap-2 disabled:opacity-50">
+                                                {retrying[s.runId] ? "Queueing..." : "⚡ Re-Run"}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        {/* 2. Custom Dispatch Section */}
+                        <section className="border-t border-white/5 pt-8">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4 flex items-center gap-2">
+                                <span className="p-1 px-2 rounded bg-white/5 text-red-500">Mode B</span>
+                                Custom Dispatch (Requires workflow_dispatch trigger)
+                            </h4>
+                            {workflows.length === 0 ? (
+                                <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-500/80 text-[10px] font-mono leading-relaxed">
+                                    No `workflow_dispatch` triggers found in this repo's YAML files.<br />
+                                    Use Mode A above for instant re-runs of existing pipelines.
+                                </div>
+                            ) : (
+                                <div className="space-y-5">
+                                    <div className="flex flex-wrap gap-2">
+                                        {workflows.map(w => (
+                                            <button key={w.id} onClick={() => setWfId(String(w.id))}
+                                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${wfId === String(w.id) ? "border-red-600/40 bg-red-600/10 text-red-400" : "border-white/[0.05] text-gray-600 hover:border-white/10 hover:text-white bg-[#080808]"}`}>
+                                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: w.state === "active" ? C.green : C.amber }} />
+                                                {w.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-4">
+                                        <Input label="Dispatch Inputs (Optional JSON)" value={inputsRaw} onChange={setInputsRaw} placeholder='{"env": "staging"}' />
+                                        <Btn onClick={dispatch} loading={dispatching} size="lg" disabled={!wfId}>🚀 Fire Dispatch Trigger</Btn>
+                                    </div>
+                                </div>
+                            )}
+                        </section>
                     </div>
                 )}
             </Panel>
@@ -423,13 +487,29 @@ function WebhooksTab() {
 function WatchdogTab() {
     const [escalations, setEscalations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    useEffect(() => {
-        api.get("/api/github/tickets/sync")
-            .then(r => setEscalations((r.data.tickets || []).filter(t => t.status === "escalated")))
-            .catch(() => { })
-            .finally(() => setLoading(false));
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            // Try sync first (reconciles with GitHub, slower)
+            const r = await api.get("/api/github/tickets/sync");
+            setEscalations((r.data.tickets || []).filter(t => t.status === "escalated"));
+        } catch {
+            // Fallback: fetch tickets directly without sync (faster)
+            try {
+                const r = await api.get("/api/github/tickets");
+                setEscalations((r.data || []).filter(t => t.status === "escalated"));
+            } catch {
+                setError("Failed to load escalations");
+            }
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => { load(); }, [load]);
 
     return (
         <div className="space-y-5">
@@ -450,9 +530,17 @@ function WatchdogTab() {
             </Panel>
 
             <Panel>
-                <PanelHead title="Escalation Log" badge={loading ? "…" : `${escalations.length} events`} badgeColor={C.amber} />
-                {loading ? <p className="text-[10px] text-gray-800 font-mono">Loading…</p>
-                    : escalations.length === 0 ? (
+                <div className="flex items-center justify-between mb-5">
+                    <PanelHead title="Escalation Log" badge={loading ? "…" : `${escalations.length} events`} badgeColor={C.amber} />
+                    <Btn size="sm" variant="ghost" onClick={load} loading={loading}>Refresh</Btn>
+                </div>
+                {loading ? <p className="text-[10px] text-gray-800 font-mono">Syncing with GitHub…</p>
+                    : error ? (
+                        <div className="flex flex-col items-center py-10 opacity-50">
+                            <span className="text-3xl mb-3">⚠️</span>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-red-500">{error}</p>
+                        </div>
+                    ) : escalations.length === 0 ? (
                         <div className="flex flex-col items-center py-16 opacity-30">
                             <span className="text-4xl mb-3">🛡️</span>
                             <p className="text-[10px] font-black uppercase tracking-widest">No escalations yet — watchdog is monitoring</p>

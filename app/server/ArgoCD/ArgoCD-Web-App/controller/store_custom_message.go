@@ -16,7 +16,14 @@ type CustomMessage struct {
 	Value  string `bson:"value" json:"value"`
 }
 
-func StoreCustomMessage(c *gin.Context, custom_message string) {
+func StoreCustomMessage(c *gin.Context) {
+	var requestBody map[string]string
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	custom_message := requestBody["custom_message"]
+
 	// Get user email
 	userEmail := GetUserEmail(c)
 	if userEmail == "" {
@@ -27,6 +34,7 @@ func StoreCustomMessage(c *gin.Context, custom_message string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		fmt.Println("Error: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
 	defer mongoClient.Disconnect(context.TODO())
@@ -44,5 +52,5 @@ func StoreCustomMessage(c *gin.Context, custom_message string) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Custom Message inserted...."})
+	c.JSON(http.StatusOK, gin.H{"message": "Custom Message saved successfully"})
 }

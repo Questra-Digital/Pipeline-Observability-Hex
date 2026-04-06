@@ -5,8 +5,11 @@ import (
 	"net/http"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
+	argocdapi "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/argocd_api"
 	configured_apps "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/configured_apps"
+	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/cronjob"
 	github_controller "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/github"
+	notificationtoggle "github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller/notification_toggle"
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -34,31 +37,69 @@ func main() {
 		})
 	})
 
-	// User authentication and management
+	// ── Public (unauthenticated) ──────────────────────────────────────
 	r.POST("/api/signup", controller.Signup)
 	r.POST("/api/signin", controller.Signin)
+	r.POST("/api/forgetpass", controller.ForgetPass)
 
-	// Application management - Authenticated routes
+	// ── Authenticated core routes ─────────────────────────────────────
 	auth := r.Group("/api", middleware.AuthMiddleware())
 	{
+		// Dashboard
 		auth.GET("/dashboard/stats", controller.GetDashboardStats)
+
+		// Configured Apps (ArgoCD app list)
 		auth.GET("/apps", configured_apps.GetAllApps)
 		auth.GET("/apps/", configured_apps.GetAllApps)
+
+		// ArgoCD Configuration
+		auth.POST("/token", controller.StoreToken)
+		auth.POST("/argocdurl", argocdapi.StoreArgoCDAPI)
+		auth.GET("/argocdurl", argocdapi.GetArgoCDAPI)
+
+		// Settings: Email, Slack, Custom Message, Deviation
+		auth.POST("/email", controller.StoreEmail)
+		auth.POST("/slack", controller.StoreSlackBot)
+		auth.POST("/custom-message", controller.StoreCustomMessage)
+		auth.GET("/custom-message", controller.GetCustomMessage)
+		auth.POST("/deviation-value", controller.StoreDeviationValue)
+		auth.GET("/deviation-value", controller.GetDeviationValue)
+
+		// Password management
+		auth.POST("/changepassword", controller.ChangePassword)
+
+		// Cronjob control
+		auth.GET("/runcronjob", controller.RunCronjob)
+		auth.GET("/stopcronjob", controller.StopCronjob)
+		auth.GET("/cronjob/status", cronjob.GetCronjobStatus)
+
+		// Notification toggles
+		auth.GET("/notification/email", notificationtoggle.ReadEmailNotificationStatus)
+		auth.POST("/notification/email", notificationtoggle.UpdateEmailNotificationStatus)
+		auth.GET("/notification/slack", notificationtoggle.ReadSlackNotificationStatus)
+		auth.POST("/notification/slack", notificationtoggle.UpdateSlackNotificationStatus)
+
+		// ArgoCD Pipeline WebSocket + History
+		auth.GET("/pipelinestate", controller.DataPipelineState)
+		auth.GET("/pipeline/history", controller.PipelineHistory)
 	}
 
-	// GitHub Actions specific endpoints
+	// ArgoCD pipeline listing (used by dashboard selection screen)
+	r.GET("/all_pipelines", middleware.AuthMiddleware(), controller.GetAllPipelines)
+
+	// ── GitHub Actions endpoints ──────────────────────────────────────
 	github := r.Group("/api/github", middleware.AuthMiddleware())
 	{
 		github.POST("/auth", github_controller.ConnectGitHubAccount)
 		github.GET("/accounts", github_controller.GetGitHubAccounts)
-		
+
 		github.GET("/repos", github_controller.GetGitHubRepos)
 		github.POST("/repos/toggle", github_controller.ToggleRepoMonitoring)
-		
+
 		github.GET("/status", github_controller.GetGitHubSettings)
 		github.POST("/status", github_controller.UpdateGitHubStatus)
-		
-		github.GET("/limit", github_controller.GetGitHubSettings) // Reusing same settings getter
+
+		github.GET("/limit", github_controller.GetGitHubSettings)
 		github.POST("/limit", github_controller.UpdateGitHubLimit)
 
 		github.GET("/runs", github_controller.GetGitHubRuns)
@@ -77,6 +118,7 @@ func main() {
 		// ── Agentic: Workflow Dispatch ──────────────────────────────────
 		github.GET("/workflows", github_controller.GetWorkflows)
 		github.POST("/dispatch", github_controller.DispatchWorkflow)
+		github.GET("/workflow-summary", github_controller.GetWorkflowSummary)
 
 		// ── Agentic: Run Control ────────────────────────────────────────
 		github.POST("/cancel", github_controller.CancelRun)
@@ -89,7 +131,6 @@ func main() {
 		github.DELETE("/webhooks/:id", github_controller.DeleteWebhook)
 		github.POST("/webhooks/:id/test", github_controller.TestWebhook)
 	}
-
 
 	// Run the server
 	if err := r.Run(":8000"); err != nil {

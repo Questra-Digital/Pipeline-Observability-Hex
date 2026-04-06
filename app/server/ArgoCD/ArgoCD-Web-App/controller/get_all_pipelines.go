@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -26,22 +27,31 @@ func parseJSONResponse(resp *http.Response) ([]string, error) {
 	}
 
 	// Extract pipeline names from the response
-	for _, pipeline := range responseData["items"].([]interface{}) {
-		pipelineData := pipeline.(map[string]interface{})
-		metadata := pipelineData["metadata"].(map[string]interface{})
-		name := metadata["name"].(string)
-
-		fmt.Println("Name : ", name)
+	items, ok := responseData["items"].([]interface{})
+	if !ok {
+		return pipelineNames, nil
+	}
+	for _, pipeline := range items {
+		pipelineData, ok := pipeline.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		metadata, ok := pipelineData["metadata"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := metadata["name"].(string)
+		if !ok {
+			continue
+		}
 		pipelineNames = append(pipelineNames, name)
 	}
 
 	return pipelineNames, nil
 }
 
-// GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
+// GetAllPipelineNames returns a slice of pipeline names or an error if token authentication fails.
 func GetAllPipelineNames(userId string) ([]string, error) {
-	// fetch thr url from mongoDB
-	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		log.Println("Error: ", err)
@@ -96,4 +106,32 @@ func GetAllPipelineNames(userId string) ([]string, error) {
 
 	pipelineNames, err := parseJSONResponse(resp)
 	return pipelineNames, err
+}
+
+// GetAllPipelines is the Gin handler for GET /all_pipelines.
+// It returns the list of ArgoCD application names for the authenticated user.
+func GetAllPipelines(c *gin.Context) {
+	userEmail := GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	pipelineNames, err := GetAllPipelineNames(userEmail)
+	if err != nil {
+		log.Printf("[GetAllPipelines] Error for user %s: %v\n", userEmail, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":              "Failed to fetch ArgoCD pipelines",
+			"available_pipeline": []string{},
+		})
+		return
+	}
+
+	if pipelineNames == nil {
+		pipelineNames = []string{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"available_pipeline": pipelineNames,
+	})
 }

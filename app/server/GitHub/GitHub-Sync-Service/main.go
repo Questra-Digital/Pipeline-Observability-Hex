@@ -215,12 +215,17 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 			// OPTIMIZATION: Check if we already have this run and if it's completed
 			var existingRun WorkflowRun
 			err := runsColl.FindOne(context.TODO(), bson.M{"runId": run.GetID()}).Decode(&existingRun)
+
+			// Track whether this is a brand-new run we've never seen before.
+			// All automation (tickets, watchdog, webhooks) only fires for new runs
+			// so that server restarts don't re-process old failures.
+			isNewRun := err == mongo.ErrNoDocuments
 			
 			// Only fetch jobs if:
 			// 1. Run doesn't exist in our DB
 			// 2. Run exists but was not 'completed' (i.e. status was in_progress/queued)
 			// 3. Run exists but has NO jobs data
-			needsJobUpdate := err == mongo.ErrNoDocuments || 
+			needsJobUpdate := isNewRun || 
 							 existingRun.Status != "completed" || 
 							 len(existingRun.Jobs) == 0
 
@@ -306,15 +311,12 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 				notificationClient.TriggerNotificationService(message)
 			}
 
-			// --- Issue Tracker Automation ---
-			// Only trigger for failures and ensure we don't duplicate
-			if run.GetConclusion() == "failure" {
-				var existingIssue GitHubIssue
-				err = issuesColl.FindOne(context.TODO(), bson.M{"runId": run.GetID()}).Decode(&existingIssue)
-				if err == mongo.ErrNoDocuments {
-					logToAILog(fmt.Sprintf("CRITICAL: Pipeline Failure detected for Run #%d (%s/%s). Initiating Auto-Ticket creation...", run.GetID(), owner, repo.Name))
-					createGitHubIssue(context.TODO(), ghClient, issuesColl, owner, repo.Name, dbRun)
-				}
+			// --- Automation agents below only fire for NEW runs ---
+			// This prevents re-creating tickets, PR comments, and watchdog
+			// escalations for old failures when the server restarts.
+			if run.GetConclusion() == "failure" && isNewRun {
+				logToAILog(fmt.Sprintf("CRITICAL: Pipeline Failure detected for Run #%d (%s/%s). Initiating Auto-Ticket creation...", run.GetID(), owner, repo.Name))
+				createGitHubIssue(context.TODO(), ghClient, issuesColl, owner, repo.Name, dbRun)
 
 				// --- PR Auto-Comment Agent ---
 				// Post a structured failure summary as a PR comment when the run is on a PR.
@@ -508,15 +510,19 @@ func checkConsecutiveFailures(ctx context.Context, db *mongo.Database, client *g
 		}
 	}
 
-	// Avoid duplicate escalation issues: check if one already exists for this wave.
+	// Avoid duplicate escalation issues: check if one already exists for this
+	// workflow in this repo that is still in "escalated" status. This prevents
+	// duplicate escalation tickets when the server restarts and re-processes
+	// the same batch of failed runs.
 	issuesColl := db.Collection("github_issues")
 	escalationKey := bson.M{
-		"runId":  currentRun.RunID,
-		"status": "escalated",
+		"repoOwner": owner,
+		"repoName":  repo,
+		"status":    "escalated",
 	}
 	var existingEscalation bson.M
 	if issuesColl.FindOne(ctx, escalationKey).Decode(&existingEscalation) == nil {
-		return // already escalated this run
+		return // already have an active escalation for this repo
 	}
 
 	logToAILog(fmt.Sprintf("WATCHDOG: %d consecutive failures for '%s' in %s/%s — escalating!", consecutiveFailureThreshold, currentRun.WorkflowName, owner, repo))

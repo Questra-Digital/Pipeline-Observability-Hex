@@ -11,7 +11,7 @@ const UpdateCompanyName = () => {
                 </button>
             </div>
             <div className="flex w-full flex-col md:w-[60%] border border-red-900/10 self-center shadow-2xl shadow-red-900/5 p-6 xs:p-10 rounded-2xl bg-[#0a0a0a]">
-                               <SettingsText
+                <SettingsText
                     Heading={"Company Name"}
                     Description={
                         "Craft your brand identity: Select a compelling Company Name that resonates with your values, vision, and mission, setting the tone for your organization's journey."
@@ -23,7 +23,7 @@ const UpdateCompanyName = () => {
                     </label>
                     <input
                         className="w-full sm:w-[80%] p-3 h-12 outline-none bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-red-600 transition-all"
-                        placeholder="Datalogs"
+                        placeholder="Vizops"
                         type="text"
                         name="company"
                         value={companyName}

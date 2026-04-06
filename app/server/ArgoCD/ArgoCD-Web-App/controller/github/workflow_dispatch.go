@@ -2,7 +2,10 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 
 	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/controller"
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -32,7 +35,7 @@ type DispatchRequest struct {
 	Inputs     map[string]interface{} `json:"inputs"`
 }
 
-// GetWorkflows lists all workflows defined in a repository.
+// GetWorkflows lists only workflows that have a workflow_dispatch trigger.
 // GET /api/github/workflows?accountId=&owner=&repo=
 func GetWorkflows(c *gin.Context) {
 	userEmail := controller.GetUserEmail(c)
@@ -77,17 +80,50 @@ func GetWorkflows(c *gin.Context) {
 		return
 	}
 
-	result := make([]WorkflowInfo, 0, len(workflows.Workflows))
+	// For each workflow, fetch its YAML content and check for workflow_dispatch trigger.
+	// Only include workflows that support it so dispatch never fails with a 422.
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	result := make([]WorkflowInfo, 0)
+
 	for _, w := range workflows.Workflows {
-		result = append(result, WorkflowInfo{
-			ID:       w.GetID(),
-			Name:     w.GetName(),
-			Path:     w.GetPath(),
-			State:    w.GetState(),
-			HTMLURL:  w.GetHTMLURL(),
-			BadgeURL: w.GetBadgeURL(),
-		})
+		wg.Add(1)
+		go func(wf *github.Workflow) {
+			defer wg.Done()
+
+			// Get the raw workflow file content
+			fileContent, _, _, err := ghClient.Repositories.GetContents(
+				context.TODO(), owner, repo, wf.GetPath(),
+				&github.RepositoryContentGetOptions{},
+			)
+			if err != nil {
+				return
+			}
+
+			content, err := fileContent.GetContent()
+			if err != nil {
+				return
+			}
+
+			// Only include if the YAML contains workflow_dispatch trigger
+			if !strings.Contains(content, "workflow_dispatch") {
+				return
+			}
+
+			mu.Lock()
+			result = append(result, WorkflowInfo{
+				ID:       wf.GetID(),
+				Name:     wf.GetName(),
+				Path:     wf.GetPath(),
+				State:    wf.GetState(),
+				HTMLURL:  wf.GetHTMLURL(),
+				BadgeURL: wf.GetBadgeURL(),
+			})
+			mu.Unlock()
+		}(w)
 	}
+	wg.Wait()
+
 	c.JSON(http.StatusOK, result)
 }
 
@@ -132,7 +168,14 @@ func DispatchWorkflow(c *gin.Context) {
 
 	inputs := make(map[string]interface{})
 	for k, v := range req.Inputs {
-		inputs[k] = v
+		// GitHub requires all workflow dispatch inputs to be strings.
+		// Coerce numbers, booleans, and other types to string automatically.
+		switch val := v.(type) {
+		case string:
+			inputs[k] = val
+		default:
+			inputs[k] = fmt.Sprintf("%v", val)
+		}
 	}
 
 	event := github.CreateWorkflowDispatchEventRequest{

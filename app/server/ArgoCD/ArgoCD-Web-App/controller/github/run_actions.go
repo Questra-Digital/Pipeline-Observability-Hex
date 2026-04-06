@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-github/v60/github"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // RunActionRequest is the shared body for cancel / retry endpoints.
@@ -195,4 +196,131 @@ func RetryFailedJobs(c *gin.Context) {
 		"runId":   req.RunID,
 		"repo":    req.Owner + "/" + req.Repo,
 	})
+}
+
+// WorkflowSummary represents the latest run for a unique workflow.
+type WorkflowSummary struct {
+	WorkflowName string `json:"workflowName"`
+	RunID        int64  `json:"runId"`
+	RepoID       int64  `json:"repoId"`
+	RepoName     string `json:"repoName"`
+	RepoOwner    string `json:"repoOwner"`
+	Status       string `json:"status"`
+	Conclusion   string `json:"conclusion"`
+	HTMLURL      string `json:"htmlUrl"`
+	UpdatedAt    string `json:"updatedAt"`
+}
+
+// runForSummary is a lean struct for reading from github_runs.
+type runForSummary struct {
+	RunID        int64              `bson:"runId"`
+	RepoID       int64              `bson:"repoId"`
+	AccountID    primitive.ObjectID `bson:"accountId"`
+	Status       string             `bson:"status"`
+	Conclusion   string             `bson:"conclusion"`
+	UpdatedAt    primitive.DateTime `bson:"updatedAt"`
+	HTMLURL      string             `bson:"htmlUrl"`
+	WorkflowName string             `bson:"workflowName"`
+}
+
+// GetWorkflowSummary returns the latest run per unique workflow across all repos.
+// Powers the Re-Run panel in the Dispatch tab — requires zero YAML changes.
+// GET /api/github/workflow-summary?accountId=&repo=
+func GetWorkflowSummary(c *gin.Context) {
+	userEmail := controller.GetUserEmail(c)
+	if userEmail == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	accountIDStr := c.Query("accountId")
+	repoFilter := c.Query("repo")
+
+	mongoClient, err := mongoconnection.ConnectToMongoDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		return
+	}
+	defer mongoClient.Disconnect(context.TODO())
+
+	db := mongoClient.Database("admin")
+
+	// Build filter scoped to this user's accounts
+	accountsColl := db.Collection("github_accounts")
+	var accounts []GitHubAccount
+	cur, _ := accountsColl.Find(context.TODO(), bson.M{"userId": userEmail})
+	_ = cur.All(context.TODO(), &accounts)
+
+	accountIDs := make([]primitive.ObjectID, 0, len(accounts))
+	for _, a := range accounts {
+		if accountIDStr == "" || a.ID.Hex() == accountIDStr {
+			accountIDs = append(accountIDs, a.ID)
+		}
+	}
+	if len(accountIDs) == 0 {
+		c.JSON(http.StatusOK, []WorkflowSummary{})
+		return
+	}
+
+	// Build a repoId→{name,owner} lookup from github_repos
+	type repoInfo struct{ Name, Owner string }
+	repoLookup := make(map[int64]repoInfo)
+	reposColl := db.Collection("github_repos")
+	repoFilter2 := bson.M{"accountId": bson.M{"$in": accountIDs}}
+	if repoFilter != "" {
+		repoFilter2["name"] = repoFilter
+	}
+	repoCur, _ := reposColl.Find(context.TODO(), repoFilter2)
+	var repos []Repository
+	_ = repoCur.All(context.TODO(), &repos)
+	repoIDs := make([]int64, 0, len(repos))
+	for _, r := range repos {
+		repoLookup[r.ID] = repoInfo{Name: r.Name, Owner: r.Owner}
+		repoIDs = append(repoIDs, r.ID)
+	}
+
+	// Fetch latest runs for these repos
+	filter := bson.M{
+		"accountId": bson.M{"$in": accountIDs},
+	}
+	if len(repoIDs) > 0 {
+		filter["repoId"] = bson.M{"$in": repoIDs}
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "updatedAt", Value: -1}}).
+		SetLimit(500)
+	runsColl := db.Collection("github_runs")
+	cursor, err := runsColl.Find(context.TODO(), filter, opts)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch runs"})
+		return
+	}
+	var runs []runForSummary
+	_ = cursor.All(context.TODO(), &runs)
+
+	// Deduplicate: keep only the latest run per workflow name
+	seen := make(map[string]bool)
+	result := make([]WorkflowSummary, 0)
+	for _, r := range runs {
+		key := r.WorkflowName + "|" + string(rune(r.RepoID))
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		repo := repoLookup[r.RepoID]
+		result = append(result, WorkflowSummary{
+			WorkflowName: r.WorkflowName,
+			RunID:        r.RunID,
+			RepoID:       r.RepoID,
+			RepoName:     repo.Name,
+			RepoOwner:    repo.Owner,
+			Status:       r.Status,
+			Conclusion:   r.Conclusion,
+			HTMLURL:      r.HTMLURL,
+			UpdatedAt:    r.UpdatedAt.Time().Format("2006-01-02T15:04:05Z"),
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
 }

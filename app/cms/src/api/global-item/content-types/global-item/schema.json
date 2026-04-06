@@ -15,7 +15,7 @@
     "title": {
       "type": "string",
       "required": true,
-      "default": "Datalogs-Pipeline-Observer",
+      "default": "Vizops-Pipeline-Observer",
       "unique": true
     },
     "logo": {

@@ -16,7 +16,14 @@ type Deviation struct {
 	Value  string `bson:"value" json:"value"`
 }
 
-func StoreDeviationValue(c *gin.Context, deviation_value string) {
+func StoreDeviationValue(c *gin.Context) {
+	var requestBody map[string]string
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	deviation_value := requestBody["deviation_value"]
+
 	// Get user email
 	userEmail := GetUserEmail(c)
 	if userEmail == "" {
@@ -27,6 +34,7 @@ func StoreDeviationValue(c *gin.Context, deviation_value string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
 		fmt.Println("Error: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
 	defer mongoClient.Disconnect(context.TODO())
@@ -44,5 +52,5 @@ func StoreDeviationValue(c *gin.Context, deviation_value string) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Deviation Value inserted...."})
+	c.JSON(http.StatusOK, gin.H{"message": "Deviation value saved successfully"})
 }
