@@ -26,7 +26,8 @@ function Dashboard() {
   const [mostRecentFailed, setMostRecentFailed] = useState(null); // {pipeline, failedExecution}
   const [topFailedPipeline, setTopFailedPipeline] = useState(null); // {pipeline, count}
 
-  async function fetchPipelineData() {
+  async function fetchPipelineData(name) {
+    if (!name) return;
     try {
       const response = await instance.get("/api/pipeline_history", {
         headers: {
@@ -34,11 +35,11 @@ function Dashboard() {
             }`,
         },
         params: {
-          pipeline: `${pipelineName}`,
+          pipeline: `${name}`,
         },
       });
 
-      console.log("Pipeline rate data: ", response.data);
+      console.log("Pipeline rate data for ", name, ": ", response.data);
 
       setHistory(response.data);
     } catch (error) {
@@ -47,9 +48,10 @@ function Dashboard() {
   }
 
   useEffect(() => {
-    setPipelineName(searchParams.get("pipeline"));
+    const name = searchParams.get("pipeline");
+    setPipelineName(name);
 
-    fetchPipelineData();
+    fetchPipelineData(name);
     // Web Socket Connection
     const token = JSON.parse(localStorage.getItem("userData")).token;
     const wsHost = window.location.hostname + ":8000";
@@ -57,8 +59,8 @@ function Dashboard() {
 
     // On connection open sending data(pipeline name)
     ws.onopen = () => {
-      console.log("WebSocket connected");
-      ws.send(JSON.stringify({ Name: pipelineName }));
+      console.log("WebSocket connected for: ", name);
+      ws.send(JSON.stringify({ Name: name }));
     };
 
     // Receving data from the server
@@ -99,11 +101,17 @@ function Dashboard() {
   useEffect(() => {
     async function fetchAllPipelineFailures() {
       setLoading(true);
+      const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+      const token = userData.token;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         // 1. Fetch all pipeline names
         const pipelinesRes = await instance.get("/api/all_pipelines", {
           headers: {
-            Authorization: `Bearer ${JSON.parse(localStorage.getItem("userData")).token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         const pipelines = pipelinesRes.data.available_pipeline;
@@ -113,7 +121,7 @@ function Dashboard() {
             try {
               const res = await instance.get("/api/pipeline_history", {
                 headers: {
-                  Authorization: `Bearer ${JSON.parse(localStorage.getItem("userData")).token}`,
+                  Authorization: `Bearer ${token}`,
                 },
                 params: { pipeline },
               });
@@ -124,6 +132,16 @@ function Dashboard() {
           })
         );
         setAllHistories(histories);
+
+        // If no specific pipeline is selected, set history to the aggregate
+        if (!searchParams.get("pipeline")) {
+          const aggregatedHistory = [];
+          histories.forEach(h => {
+            if (h.history) aggregatedHistory.push(...h.history);
+          });
+          setHistory(aggregatedHistory);
+        }
+
         // 3. Aggregate failures
         let mostRecent = null;
         let topFailed = { pipeline: null, count: 0 };
@@ -131,12 +149,13 @@ function Dashboard() {
         histories.forEach(({ pipeline, history }) => {
           const failed = history.filter(item => {
             const s = item.summary || {};
-            return (
-              s.deployment !== "Healthy" ||
-              s.pod !== "Healthy" ||
-              s.replicaSet !== "Healthy" ||
-              s.service !== "Healthy"
-            );
+            const isHealthy =
+              (s.deployment?.toLowerCase() === "healthy" || !s.deployment) &&
+              (s.pod?.toLowerCase() === "healthy" || !s.pod) &&
+              (s.replicaSet?.toLowerCase() === "healthy" || !s.replicaSet) &&
+              (s.service?.toLowerCase() === "healthy" || !s.service);
+
+            return !isHealthy;
           });
           // Top failed pipeline
           if (failed.length > topFailed.count) {
