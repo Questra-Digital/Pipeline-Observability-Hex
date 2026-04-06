@@ -14,7 +14,12 @@ function Pipelines() {
     setIsLoading(true);
     async function fetchPipelines() {
       try {
-        const response = await axios.get("/get_all_pipelines", {});
+        const token = JSON.parse(localStorage.getItem("userData")).token;
+        const response = await axios.get("/api/get_all_pipelines", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         setPipelines(response.data.available_pipeline);
         console.log(response.data);
         setIsLoading(false);

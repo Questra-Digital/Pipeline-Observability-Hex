@@ -26,7 +26,7 @@ const Pipelines = () => {
   const [logsLoading, setLogsLoading] = useState(false);
   const router = useRouter();
 
-  const { data: argoData, error: argoErr, loading: argoLoading, fetchData: fetchArgo } = useFetch("/all_pipelines");
+  const { data: argoData, error: argoErr, loading: argoLoading, fetchData: fetchArgo } = useFetch("/api/all_pipelines");
   const { data: githubRepos, loading: reposLoading, fetchData: fetchRepos } = useFetch("/api/github/repos");
   const { data: ghRuns, error: ghErr, loading: ghLoading, fetchData: fetchGhRuns } = useFetch("/api/github/runs");
   const { data: analytics, fetchData: fetchAnalytics } = useFetch(`/api/github/analytics?repoId=${selectedRepo?.repoId || ''}`);

@@ -29,19 +29,25 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 		jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			log.Printf("[Auth] 401: Missing Authorization header for path %s\n", c.Request.URL.Path)
-			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Missing Authorization header"})
-			c.Abort()
-			return
-		}
+		tokenString := ""
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			log.Printf("[Auth] 401: Invalid header format (missing Bearer prefix) for path %s\n", c.Request.URL.Path)
-			c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid Authorization header format"})
-			c.Abort()
-			return
+		if authHeader == "" {
+			// Fallback to query parameter for WebSockets
+			tokenString = c.Query("token")
+			if tokenString == "" {
+				log.Printf("[Auth] 401: Missing Authorization header and token query param for path %s\n", c.Request.URL.Path)
+				c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Missing Authorization header or token parameter"})
+				c.Abort()
+				return
+			}
+		} else {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenString == authHeader {
+				log.Printf("[Auth] 401: Invalid header format (missing Bearer prefix) for path %s\n", c.Request.URL.Path)
+				c.JSON(http.StatusUnauthorized, ErrorResponse{"Unauthorized", http.StatusUnauthorized, "Invalid Authorization header format"})
+				c.Abort()
+				return
+			}
 		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {

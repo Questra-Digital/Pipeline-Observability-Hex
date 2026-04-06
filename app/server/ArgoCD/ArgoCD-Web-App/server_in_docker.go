@@ -1,3 +1,4 @@
+//go:build docker
 package main
 
 import (
@@ -57,6 +58,10 @@ func main() {
 		auth.POST("/argocdurl", argocdapi.StoreArgoCDAPI)
 		auth.GET("/argocdurl", argocdapi.GetArgoCDAPI)
 
+		// ArgoCD pipeline listing
+		auth.GET("/all_pipelines", controller.GetAllPipelines)
+		auth.GET("/get_all_pipelines", controller.GetAllPipelines)
+
 		// Settings: Email, Slack, Custom Message, Deviation
 		auth.POST("/email", controller.StoreEmail)
 		auth.POST("/slack", controller.StoreSlackBot)
@@ -80,12 +85,12 @@ func main() {
 		auth.POST("/notification/slack", notificationtoggle.UpdateSlackNotificationStatus)
 
 		// ArgoCD Pipeline WebSocket + History
-		auth.GET("/pipelinestate", controller.DataPipelineState)
-		auth.GET("/pipeline/history", controller.PipelineHistory)
+		auth.GET("/pipeline_state", controller.DataPipelineState)
+		auth.GET("/pipeline_history", controller.PipelineHistory)
 	}
 
-	// ArgoCD pipeline listing (used by dashboard selection screen)
-	r.GET("/all_pipelines", middleware.AuthMiddleware(), controller.GetAllPipelines)
+	// Remove legacy root level route
+	// r.GET("/all_pipelines", middleware.AuthMiddleware(), controller.GetAllPipelines)
 
 	// ── GitHub Actions endpoints ──────────────────────────────────────
 	github := r.Group("/api/github", middleware.AuthMiddleware())

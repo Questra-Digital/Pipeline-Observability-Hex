@@ -1,5 +1,5 @@
 [build]
-  cmd = "go build -o ./tmp/main server.go"
+  cmd = "go build -tags docker -o ./tmp/main ."
   bin = "tmp/main"
   dir = "."
   include_ext = ["go"]

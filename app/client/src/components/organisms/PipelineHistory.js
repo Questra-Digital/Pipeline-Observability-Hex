@@ -20,11 +20,10 @@ function PipelineHistory() {
     setPipelineName(searchParams.get("pipeline"));
     async function fetchPipelineData() {
       try {
-        const response = await instance.get("/pipeline_history", {
+        const response = await instance.get("/api/pipeline_history", {
           headers: {
-            Authorization: `Bearer ${
-              JSON.parse(localStorage.getItem("userData")).token
-            }`,
+            Authorization: `Bearer ${JSON.parse(localStorage.getItem("userData")).token
+              }`,
           },
           params: {
             pipeline: `${searchParams.get("pipeline")}`,
@@ -50,19 +49,19 @@ function PipelineHistory() {
           <span className="text-gray-400">{pipelineName}</span>
         </TextAtom>
       </div>
-    {
-      history ? (
-        <div className="w-[90%] max-h-[400px] flex justify-between">
-        <div className="w-[75%] max-h-full bg-gray-900 rounded-lg shadow shadow-yellow-900 p-4">
-          <HitoryGraph history={history} />
-        </div>
-        <div className="w-fit flex flex-col justify-between">
-          <SuccessCard history={history} />
-          <FailureCard history={history} />
-        </div>
-      </div>
-      ) : (null)
-    }
+      {
+        history ? (
+          <div className="w-[90%] max-h-[400px] flex justify-between">
+            <div className="w-[75%] max-h-full bg-gray-900 rounded-lg shadow shadow-yellow-900 p-4">
+              <HitoryGraph history={history} />
+            </div>
+            <div className="w-fit flex flex-col justify-between">
+              <SuccessCard history={history} />
+              <FailureCard history={history} />
+            </div>
+          </div>
+        ) : (null)
+      }
       <TextAtom text={"Pipeline History"} properties={"w-[90%] text-2xl font-semibold mt-16"} />
       <table className="w-[90%] rounded-lg my-5">
         <HistoryHeader labels={labels} />
