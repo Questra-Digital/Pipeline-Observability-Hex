@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -33,15 +32,12 @@ func StoreDeviationValue(c *gin.Context) {
 
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	collection := mongoClient.Database("admin").Collection("deviations")
 
-	// Update for specific user, or insert if not exists
 	filter := bson.M{"userId": userEmail}
 	update := bson.M{"$set": bson.M{"value": deviation_value}}
 	opts := options.Update().SetUpsert(true)

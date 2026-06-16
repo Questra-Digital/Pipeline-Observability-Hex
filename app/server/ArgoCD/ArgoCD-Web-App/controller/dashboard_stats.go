@@ -39,7 +39,6 @@ func GetDashboardStats(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
-	defer mongoClient.Disconnect(context.Background())
 
 	db := mongoClient.Database("admin")
 	ghAccountsColl := db.Collection("github_accounts")

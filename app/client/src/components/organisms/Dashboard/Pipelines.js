@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ErrorToast, WarningToast } from "@/components/atoms/toastUtils/Toast";
+import { ErrorToast, WarningToast, SuccessToast } from "@/components/atoms/toastUtils/Toast";
 import useFetch from "@/hooks/useFetch";
 import GitHubAnalytics from "./GitHubAnalytics";
 import RCAPanel from "./RCAPanel";
@@ -32,7 +32,6 @@ const Pipelines = () => {
   const { data: analytics, fetchData: fetchAnalytics } = useFetch(`/api/github/analytics?repoId=${selectedRepo?.repoId || ''}`);
   const { data: correlations, fetchData: fetchCorrelations } = useFetch("/api/github/correlations");
 
-  // --- Logic ---
   useEffect(() => {
     fetchArgo();
     fetchRepos();
@@ -45,6 +44,8 @@ const Pipelines = () => {
       if (selectedRepo) fetchAnalytics();
     }, 30000);
     return () => clearInterval(interval);
+    // fetch* functions are stable from useFetch — adding them to deps causes infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRepo]);
 
   useEffect(() => {
@@ -55,13 +56,11 @@ const Pipelines = () => {
   }, [selectedRepo, githubRepos]);
 
   useEffect(() => {
-    if (!argoLoading) {
-      if (argoData) {
-        setPipelines(argoData.available_pipeline || []);
-        if (view === "argocd") setFilteredPipelines(argoData.available_pipeline || []);
-      }
-      if (argoErr) ErrorToast("Error fetching ArgoCD Pipelines!");
+    if (!argoLoading && argoData) {
+      setPipelines(argoData.available_pipeline || []);
+      if (view === "argocd") setFilteredPipelines(argoData.available_pipeline || []);
     }
+    if (!argoLoading && argoErr) ErrorToast("Error fetching ArgoCD Pipelines!");
   }, [argoData, argoLoading, argoErr, view]);
 
   const handleDashboardClick = (pipelineName) => {
@@ -98,11 +97,9 @@ const Pipelines = () => {
         }
       }
     } catch (err) {
-      console.error("Log fetch error:", err);
       const errorMessage = err.response?.data?.error || "Logs not found on GitHub";
       setLogData(`[SYSTEM ERROR] Failed to fetch logs from GitHub.\n\nStatus: ${err.response?.status || 'Unknown'}\nReason: ${errorMessage}\n\n💡 TIP: GitHub Actions logs are typically purged after 90 days. If this run is older, the logs have likely been deleted by GitHub.`);
-      const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
-      ErrorToastModule.ErrorToast("GitHub returned 404/500 for logs");
+      ErrorToast("GitHub returned 404/500 for logs");
     } finally {
       setLogsLoading(false);
     }
@@ -253,7 +250,7 @@ const Pipelines = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filteredPipelines.map((pipeline, index) => (
-            <div key={index} className="group relative bg-[#0a0a0a] border border-red-900/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between transition-all hover:border-red-600/30 hover:shadow-[0_0_30px_-5px_rgba(220,38,38,0.1)]">
+            <div key={pipeline} className="group relative bg-[#0a0a0a] border border-red-900/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between transition-all hover:border-red-600/30 hover:shadow-[0_0_30px_-5px_rgba(220,38,38,0.1)]">
               <div className="flex items-center gap-6 w-full md:w-auto">
                 <div className="h-14 w-14 rounded-xl bg-red-950/20 flex items-center justify-center border border-red-600/20 text-red-500 group-hover:scale-105 transition-transform">
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
@@ -468,16 +465,13 @@ const Pipelines = () => {
           { headers: { "Authorization": `Bearer ${token}` } }
         );
         if (resp.status === 200) {
-          const SuccessToastModule = await import("@/components/atoms/toastUtils/Toast");
-          SuccessToastModule.SuccessToast("Sync Interval Update Propagated to Microservice");
-          fetchRepos(); // Refresh to get updated interval
+          SuccessToast("Sync Interval Update Propagated to Microservice");
+          fetchRepos();
         } else {
-          const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
-          ErrorToastModule.ErrorToast("Transmission Failed");
+          ErrorToast("Transmission Failed");
         }
-      } catch (err) {
-        const ErrorToastModule = await import("@/components/atoms/toastUtils/Toast");
-        ErrorToastModule.ErrorToast("Neural Link Offset Error");
+      } catch {
+        ErrorToast("Neural Link Offset Error");
       } finally {
         setIsSavingSync(false);
       }

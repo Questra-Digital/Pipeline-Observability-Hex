@@ -104,7 +104,6 @@ const useConnectedRepos = () => {
 
     useEffect(() => {
         api.get("/api/github/repos").then(r => {
-            // r.data is AccountReposResponse[] — flatten all enabled repos
             const flat = [];
             (r.data || []).forEach(acc => {
                 (acc.repositories || []).forEach(repo => {
@@ -112,7 +111,7 @@ const useConnectedRepos = () => {
                 });
             });
             setRepos(flat);
-        }).catch(() => { }).finally(() => setLoading(false));
+        }).catch(() => setRepos([])).finally(() => setLoading(false));
     }, []);
 
     return { repos, loading };
@@ -397,7 +396,7 @@ function WebhooksTab() {
     const [toast, setToast] = useState(null);
     const t = (m, ty = "success") => { setToast({ m, ty }); setTimeout(() => setToast(null), 4000); };
 
-    const load = useCallback(() => api.get("/api/github/webhooks").then(r => setList(r.data || [])).catch(() => { }), []);
+    const load = useCallback(() => api.get("/api/github/webhooks").then(r => setList(r.data || [])).catch(() => setList([])), []);
     useEffect(() => { load(); }, [load]);
 
     const create = async () => {
@@ -572,7 +571,7 @@ function PRCommentTab() {
         api.get("/api/github/tickets/sync").then(r => {
             const d = r.data.tickets || [];
             setStats({ total: d.length, open: d.filter(t => t.status === "open").length, escalated: d.filter(t => t.status === "escalated").length });
-        }).catch(() => { });
+        }).catch(() => setStats({ total: 0, open: 0, escalated: 0 }));
     }, []);
 
     return (

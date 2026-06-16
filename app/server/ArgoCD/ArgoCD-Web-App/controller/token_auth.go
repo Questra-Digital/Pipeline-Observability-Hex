@@ -6,22 +6,17 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// TokenAuth returns true if the token is valid for the given user's ArgoCD instance.
 func TokenAuth(token string, userId string) bool {
-	// fetch thr url from mongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		log.Println("Error: ", err)
 		return false
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	filter := bson.M{"userId": userId}
 
@@ -29,10 +24,12 @@ func TokenAuth(token string, userId string) bool {
 	var result bson.M
 	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error fetching ArgoCD URL for token auth: ", err)
 		return false
 	}
-	url := result["argocdURL"].(string)
+	url, ok := result["argocdURL"].(string)
+	if !ok || url == "" {
+		return false
+	}
 	bearer := "Bearer " + token
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
@@ -54,12 +51,10 @@ func TokenAuth(token string, userId string) bool {
 	}
 	defer resp.Body.Close()
 
-	// Check if the response status is not OK
 	if resp.StatusCode != http.StatusOK {
 		return false
 	}
 
-	// Read and parse the JSON response
 	var responseData map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&responseData)
 	return err == nil

@@ -1,35 +1,20 @@
 package mongoconnection
 
 import (
-	"context"
-	"log"
-	"os"
+	"errors"
+
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/joho/godotenv"
 )
 
-// ConnectToMongoDB establishes a connection to MongoDB and returns the client.
+var errClientNotInitialized = errors.New("MongoDB client not initialized: call mongoconnection.Init() from main()")
+
+// ConnectToMongoDB returns the singleton MongoDB client from the pool.
+// Init() must be called once from main() before using this.
+// NOTE: Callers should NOT disconnect the client. The pool is managed centrally.
 func ConnectToMongoDB() (*mongo.Client, error) {
-	// adjust the url, I'm using docker container --> That's why I use 172.24.0.2:27017
-	// admin --> DB Name
-	// url := "mongodb://mongouser:mongopassword@172.24.0.2:27017/admin"
-	err := godotenv.Load(".env")
-	if err != nil {
-	  log.Fatalf("Error loading .env file")
+	c := GetClient()
+	if c == nil {
+		return nil, errClientNotInitialized
 	}
-	url := os.Getenv("MONGO_URL")
-	clientOptions := options.Client().ApplyURI(url)
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	err = client.Ping(context.TODO(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("Connected to MongoDB......")
-	return client, nil
+	return c, nil
 }

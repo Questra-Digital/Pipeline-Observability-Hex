@@ -23,7 +23,6 @@ func GetDeviationValue(c *gin.Context) {
 		c.JSON(200, gin.H{"deviationValue": "10"})
 		return
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	collection := mongoClient.Database("admin").Collection("deviations")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -36,5 +35,9 @@ func GetDeviationValue(c *gin.Context) {
 		c.JSON(200, gin.H{"deviationValue": "10"})
 		return
 	}
-	c.JSON(200, gin.H{"deviationValue": result["value"].(string)})
+	deviationValue, ok := result["value"].(string)
+	if !ok {
+		deviationValue = "10"
+	}
+	c.JSON(200, gin.H{"deviationValue": deviationValue})
 }

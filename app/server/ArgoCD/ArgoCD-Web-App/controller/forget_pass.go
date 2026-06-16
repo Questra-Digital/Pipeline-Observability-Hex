@@ -16,20 +16,16 @@ type PasswordCredentials struct {
 }
 
 func UpdatePassword(email string, password string) error {
-	// log.Println("Email: ", email, "New Password: ", password)
-	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		log.Println("Error: ", err)
 		return err
 	}
-	defer mongoClient.Disconnect(context.TODO())
-	// hash the password
+
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		return err
 	}
-	// update the password
+
 	collection := mongoClient.Database("admin").Collection("users")
 	_, err = collection.UpdateOne(
 		context.TODO(),
@@ -37,7 +33,6 @@ func UpdatePassword(email string, password string) error {
 		bson.M{"$set": bson.M{"password": hashedPassword}},
 	)
 	if err != nil {
-		log.Println("Error: ", err)
 		return err
 	}
 	return nil

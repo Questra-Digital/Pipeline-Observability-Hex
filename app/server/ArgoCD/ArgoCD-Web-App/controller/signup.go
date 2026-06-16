@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -19,25 +18,18 @@ type User struct {
 	Password    string `json:"password" binding:"required"`
 }
 
-// check is email already exists
 func IsEmailExists(email string) bool {
-	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return false
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
-	// Get the collection
 	collection := mongoClient.Database("admin").Collection("users")
 
-	// Check if the email exists
 	err = collection.FindOne(context.TODO(), bson.D{{Key: "email", Value: email}}).Err()
 	return err == nil
 }
 
-// hash the password
 func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -46,26 +38,20 @@ func HashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-// store user in the database
 func storeUser(user User) error {
-	// Connect to the MongoDB
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return err
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
-	// Get the collection
 	collection := mongoClient.Database("admin").Collection("users")
-	// hash the password
+
 	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
 		return err
 	}
 	user.Password = string(hashedPassword)
 
-	// Insert the user without the ConfirmPassword field
 	_, err = collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		return err

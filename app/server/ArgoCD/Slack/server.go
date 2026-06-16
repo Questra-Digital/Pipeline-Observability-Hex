@@ -3,38 +3,43 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	mongoconnection "github.com/QuestraDigital/goServices/Slack/mongoConnection"
+	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 	"github.com/slack-go/slack"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// check is the notification status is enabled
-func isNotificationEnabled() (bool, error) {
-	// connect to MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return false, err
+func getNATSURL() string {
+	url := os.Getenv("NATS_URL")
+	if url == "" {
+		url = nats.DefaultURL
 	}
-	defer mongoClient.Disconnect(context.TODO())
-	// fetch notification status from MongoDB
-	collection := mongoClient.Database("notification").Collection("slack")
-	var notificationData map[string]string
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&notificationData)
-	if err != nil {
-		return false, err
-	}
-	notificationStatus := notificationData["status"]
-	if notificationStatus == "on" {
-		return true, nil
-	}
-	return false, nil
+	return url
 }
 
-// send Message to Slack
+func isNotificationEnabled() (bool, error) {
+	client := mongoconnection.GetClient()
+	if client == nil {
+		return false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	collection := client.Database("notification").Collection("slack")
+	var notificationData map[string]string
+	err := collection.FindOne(ctx, bson.D{}).Decode(&notificationData)
+	if err != nil {
+		return false, err
+	}
+	return notificationData["status"] == "on", nil
+}
+
 func sendMessageToSlack(messageText string) error {
-	// check if notification is enabled
 	if enabled, err := isNotificationEnabled(); err != nil {
 		log.Println("Error checking notification status:", err)
 		return err
@@ -42,17 +47,16 @@ func sendMessageToSlack(messageText string) error {
 		log.Println("Notification is disabled")
 		return nil
 	}
-	// connect to MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return err
-	}
-	defer mongoClient.Disconnect(context.TODO())
-	// fetch the bot token and channel ID from MongoDB
 
-	collection := mongoClient.Database("admin").Collection("slack")
+	client := mongoconnection.GetClient()
+	if client == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	collection := client.Database("admin").Collection("slack")
 	var slackData map[string]string
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&slackData)
+	err := collection.FindOne(ctx, bson.D{}).Decode(&slackData)
 	if err != nil {
 		return err
 	}
@@ -71,22 +75,28 @@ func sendMessageToSlack(messageText string) error {
 }
 
 func main() {
-	// Connect to NATS server
-	nc, err := nats.Connect(nats.DefaultURL)
+	_ = godotenv.Load(".env")
+
+	mongoconnection.Init()
+
+	nc, err := nats.Connect(getNATSURL(), nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer nc.Close()
 
-	// Subscribe to a slack subject
 	nc.Subscribe("slack", func(msg *nats.Msg) {
-		log.Printf("Received message: %s\n", string(msg.Data))
 		err := sendMessageToSlack(string(msg.Data))
 		if err != nil {
 			log.Println("Error sending message to Slack:", err)
 		}
 	})
 
-	// Keep the subscriber running
-	select {}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down Slack service...")
+	nc.Drain()
+	mongoconnection.Close()
 }

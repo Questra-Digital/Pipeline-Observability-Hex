@@ -4,64 +4,59 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	mongoconnection "github.com/QuestraDigital/goServices/Email/mongoConnection"
+	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"gopkg.in/gomail.v2"
-
-	// import dotenv
-
-	_ "github.com/joho/godotenv/autoload"
 )
 
-// check is the notification status is enabled
+func getNATSURL() string {
+	url := os.Getenv("NATS_URL")
+	if url == "" {
+		url = nats.DefaultURL
+	}
+	return url
+}
+
 func isNotificationEnabled() (bool, error) {
-	// connect to MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return false, err
+	client := mongoconnection.GetClient()
+	if client == nil {
+		return false, nil
 	}
-	defer mongoClient.Disconnect(context.TODO())
-	// fetch notification status from MongoDB
-	collection := mongoClient.Database("notification").Collection("email")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	collection := client.Database("notification").Collection("email")
 	var notificationData map[string]string
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&notificationData)
+	err := collection.FindOne(ctx, bson.D{}).Decode(&notificationData)
 	if err != nil {
 		return false, err
 	}
-	notificationStatus := notificationData["status"]
-	if notificationStatus == "on" {
-		return true, nil
-	}
-	return false, nil
+	return notificationData["status"] == "on", nil
 }
 
-// Fetch the recipient email from MongoDB
 func fetchRecipientEmail() (string, error) {
-	// connect to MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return "", err
+	client := mongoconnection.GetClient()
+	if client == nil {
+		return "", nil
 	}
-	defer mongoClient.Disconnect(context.TODO())
-	// fetch email from MongoDB
-
-	collection := mongoClient.Database("admin").Collection("emails")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	collection := client.Database("admin").Collection("emails")
 	var mailData map[string]string
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&mailData)
+	err := collection.FindOne(ctx, bson.D{}).Decode(&mailData)
 	if err != nil {
 		return "", err
 	}
-	recipientEmail := mailData["email"]
-	log.Println("Recipient email:", recipientEmail)
-	return recipientEmail, nil
+	return mailData["email"], nil
 }
 
-// send Email to User
 func sendEmailToUser(messageText string) error {
-	// check if notification is enabled
 	if enabled, err := isNotificationEnabled(); err != nil {
 		log.Println("Error checking notification status:", err)
 		return err
@@ -70,54 +65,47 @@ func sendEmailToUser(messageText string) error {
 		return nil
 	}
 
-	// send email to user
-	log.Printf("Email sent to user: %s", messageText)
-
-	// fetch email credentials from MongoDB
-	mongoClient, err := mongoconnection.ConnectToMongoDB()
-	if err != nil {
-		return err
+	client := mongoconnection.GetClient()
+	if client == nil {
+		return nil
 	}
-	defer mongoClient.Disconnect(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// fetch email credentials from MongoDB
-	collection := mongoClient.Database("notification").Collection("email_notifier")
+	collection := client.Database("notification").Collection("email_notifier")
 	var emailData map[string]string
-	err = collection.FindOne(context.TODO(), bson.D{}).Decode(&emailData)
+	err := collection.FindOne(ctx, bson.D{}).Decode(&emailData)
 	if err != nil {
 		return err
 	}
 
-	// get email credentials
 	senderEmail := emailData["email"]
 	senderPassword := emailData["password"]
-	// SMTP configuration
+
 	smtpServer := os.Getenv("SMTP_SERVER")
-	smtpPortStr := string(os.Getenv("SMTP_PORT"))
+	smtpPortStr := os.Getenv("SMTP_PORT")
 	smtpPort, err := strconv.Atoi(smtpPortStr)
 	if err != nil {
 		log.Println("Error converting SMTP_PORT to int:", err)
 		return err
 	}
-	// get recipient email from mongoDB
+
 	recipientEmail, err := fetchRecipientEmail()
 	if err != nil {
 		log.Println("Error fetching recipient email:", err)
 		return err
 	}
 
-	subject := "Pipeline-Staus"
-	// Create a new message
+	subject := "Pipeline-Status"
+
 	mail := gomail.NewMessage()
 	mail.SetHeader("From", senderEmail)
 	mail.SetHeader("To", recipientEmail)
 	mail.SetHeader("Subject", subject)
 	mail.SetBody("text/plain", messageText)
 
-	// Create a new SMTP client
 	d := gomail.NewDialer(smtpServer, smtpPort, senderEmail, senderPassword)
 
-	// Send the email
 	if err := d.DialAndSend(mail); err != nil {
 		log.Println("Error sending email:", err)
 		return err
@@ -128,14 +116,16 @@ func sendEmailToUser(messageText string) error {
 }
 
 func main() {
-	// Connect to NATS server
-	nc, err := nats.Connect(nats.DefaultURL)
+	_ = godotenv.Load(".env")
+
+	mongoconnection.Init()
+
+	nc, err := nats.Connect(getNATSURL(), nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer nc.Close()
 
-	// Subscribe to a email subject
 	nc.Subscribe("email", func(msg *nats.Msg) {
 		err := sendEmailToUser(string(msg.Data))
 		if err != nil {
@@ -143,6 +133,11 @@ func main() {
 		}
 	})
 
-	// Keep the subscriber running
-	select {}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down Email service...")
+	nc.Drain()
+	mongoconnection.Close()
 }

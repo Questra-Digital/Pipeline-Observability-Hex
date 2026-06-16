@@ -23,7 +23,6 @@ func GetCustomMessage(c *gin.Context) {
 		c.JSON(200, gin.H{"customMessage": "ArgoCD pipeline is out of sync!"})
 		return
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	collection := mongoClient.Database("admin").Collection("custom_messages")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -36,5 +35,9 @@ func GetCustomMessage(c *gin.Context) {
 		c.JSON(200, gin.H{"customMessage": "ArgoCD pipeline is out of sync!"})
 		return
 	}
-	c.JSON(200, gin.H{"customMessage": result["value"].(string)})
+	customMessage, ok := result["value"].(string)
+	if !ok {
+		customMessage = "ArgoCD pipeline is out of sync!"
+	}
+	c.JSON(200, gin.H{"customMessage": customMessage})
 }

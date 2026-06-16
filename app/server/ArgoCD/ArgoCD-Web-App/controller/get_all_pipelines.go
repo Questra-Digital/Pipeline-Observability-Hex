@@ -54,10 +54,8 @@ func parseJSONResponse(resp *http.Response) ([]string, error) {
 func GetAllPipelineNames(userId string) ([]string, error) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		log.Println("Error: ", err)
 		return nil, err
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	filter := bson.M{"userId": userId}
 
@@ -65,19 +63,22 @@ func GetAllPipelineNames(userId string) ([]string, error) {
 	var result bson.M
 	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error fetching ArgoCD URL: ", err)
 		return nil, err
 	}
-	url := result["argocdURL"].(string)
+	url, ok := result["argocdURL"].(string)
+	if !ok || url == "" {
+		return nil, fmt.Errorf("ArgoCD URL not configured")
+	}
 
-	// get the token from the database
 	collection = mongoClient.Database("admin").Collection("argocdToken")
 	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		log.Println("Error fetching ArgoCD Token: ", err)
 		return nil, err
 	}
-	token := result["value"].(string)
+	token, ok := result["value"].(string)
+	if !ok || token == "" {
+		return nil, fmt.Errorf("ArgoCD token not configured")
+	}
 
 	bearer := "Bearer " + token
 

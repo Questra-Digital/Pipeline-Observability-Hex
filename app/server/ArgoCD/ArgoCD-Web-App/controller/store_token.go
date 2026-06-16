@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
@@ -19,21 +18,17 @@ type Token struct {
 func StoreTokenInMongoDB(c *gin.Context, token string, userId string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	collection := mongoClient.Database("admin").Collection("argocdToken")
 
-	// Update the token for the specific user, or insert if it doesn't exist
 	filter := bson.M{"userId": userId}
 	update := bson.M{"$set": bson.M{"value": token}}
 	opts := options.Update().SetUpsert(true)
 
 	_, err = collection.UpdateOne(context.TODO(), filter, update, opts)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return
 	}
 }

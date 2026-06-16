@@ -2,16 +2,14 @@ package controller_test
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-)	
+)
 
-// Mock HTTP server response with valid JSON data
 func setupMockServer(jsonData []byte) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -19,13 +17,8 @@ func setupMockServer(jsonData []byte) *httptest.Server {
 	}))
 }
 
-// Send HTTP GET request to the mock server
 func sendHTTPRequest(url string, bearerToken string) (*http.Response, error) {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer(nil))
 	if err != nil {
@@ -38,7 +31,6 @@ func sendHTTPRequest(url string, bearerToken string) (*http.Response, error) {
 	return client.Do(req)
 }
 
-// Parse JSON response and extract pipeline names
 func parseJSONResponse(resp *http.Response) ([]string, error) {
 	var pipelineNames []string
 
@@ -48,44 +40,93 @@ func parseJSONResponse(resp *http.Response) ([]string, error) {
 		return nil, err
 	}
 
-	for _, pipeline := range responseData["items"].([]interface{}) {
-		pipelineData := pipeline.(map[string]interface{})
-		metadata := pipelineData["metadata"].(map[string]interface{})
-		name := metadata["name"].(string)
+	items, ok := responseData["items"].([]interface{})
+	if !ok {
+		return pipelineNames, nil
+	}
+
+	for _, pipeline := range items {
+		pipelineData, ok := pipeline.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		metadata, ok := pipelineData["metadata"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := metadata["name"].(string)
+		if !ok {
+			continue
+		}
 		pipelineNames = append(pipelineNames, name)
 	}
 
 	return pipelineNames, nil
 }
 
-// TestGetAllPipelineNames_Success tests the GetAllPipelineNames function
 func TestGetAllPipelineNames_Success(t *testing.T) {
-	// Expected pipeline names
 	expectedNames := []string{"fyp-demo-app"}
 
-	// Mock HTTP response with valid JSON data
 	jsonData := []byte(`{ "items": [{"metadata": {"name": "fyp-demo-app"}}] }`)
 	mockServer := setupMockServer(jsonData)
 	defer mockServer.Close()
 
-	// Send HTTP request to the mock server
 	resp, err := sendHTTPRequest(mockServer.URL+"/api/v1/applications", "dummy-token")
 	if err != nil {
 		t.Fatalf("Error sending HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Parse
 	pipelineNames, err := parseJSONResponse(resp)
 	if err != nil {
 		t.Fatalf("Error parsing JSON response: %v", err)
 	}
-	// Log the expected and actual pipeline names
-	t.Logf("Expected pipeline names: %v", expectedNames)
-	t.Logf("Actual pipeline names: %v", pipelineNames)
 
-	// Assert expectations
-	assert.NoError(t, err)
 	assert.Equal(t, expectedNames, pipelineNames)
+}
 
+func TestParseJSONResponse_MalformedData(t *testing.T) {
+	jsonData := []byte(`{ "items": "not-an-array" }`)
+	mockServer := setupMockServer(jsonData)
+	defer mockServer.Close()
+
+	resp, err := sendHTTPRequest(mockServer.URL, "token")
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	names, err := parseJSONResponse(resp)
+	assert.NoError(t, err)
+	assert.Empty(t, names)
+}
+
+func TestParseJSONResponse_EmptyItems(t *testing.T) {
+	jsonData := []byte(`{ "items": [] }`)
+	mockServer := setupMockServer(jsonData)
+	defer mockServer.Close()
+
+	resp, err := sendHTTPRequest(mockServer.URL, "token")
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	names, err := parseJSONResponse(resp)
+	assert.NoError(t, err)
+	assert.Empty(t, names)
+}
+
+func TestGetAllPipelines_NonOKStatus(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer mockServer.Close()
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", mockServer.URL, bytes.NewBuffer(nil))
+	req.Header.Set("Authorization", "Bearer token")
+
+	resp, _ := client.Do(req)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

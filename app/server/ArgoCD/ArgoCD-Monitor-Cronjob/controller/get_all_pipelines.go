@@ -1,4 +1,3 @@
-// pipeline_name.go
 package controller
 
 import (
@@ -7,33 +6,43 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
-// this function parse the Json reponse and returns the availble pipelines
 func parseJSONResponse(resp *http.Response) ([]string, error) {
 	var pipelineNames []string
 
-	// Read and parse the JSON response
 	var responseData map[string]interface{}
 	err := json.NewDecoder(resp.Body).Decode(&responseData)
 	if err != nil {
 		return nil, err
 	}
 
-	// Extract pipeline names from the response
-	for _, pipeline := range responseData["items"].([]interface{}) {
-		pipelineData := pipeline.(map[string]interface{})
-		metadata := pipelineData["metadata"].(map[string]interface{})
-		name := metadata["name"].(string)
+	items, ok := responseData["items"].([]interface{})
+	if !ok {
+		return pipelineNames, nil
+	}
 
-		fmt.Println("Name : ", name)
+	for _, pipeline := range items {
+		pipelineData, ok := pipeline.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		metadata, ok := pipelineData["metadata"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := metadata["name"].(string)
+		if !ok {
+			continue
+		}
+
 		pipelineNames = append(pipelineNames, name)
 	}
 
 	return pipelineNames, nil
 }
 
-// GetAllPipelineData returns a slice of pipeline names or an error if token authentication fails.
 func GetAllPipelineNames(url string, token string) ([]string, error) {
 	bearer := "Bearer " + token
 
@@ -45,8 +54,9 @@ func GetAllPipelineNames(url string, token string) ([]string, error) {
 	req.Header.Set("Authorization", bearer)
 	req.Header.Add("Accept", "application/json")
 
+	skipVerify := os.Getenv("TLS_SKIP_VERIFY") == "true"
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
 	}
 	client := &http.Client{Transport: tr}
 
@@ -60,6 +70,5 @@ func GetAllPipelineNames(url string, token string) ([]string, error) {
 		return nil, fmt.Errorf("ArgoCD API returned status: %d", resp.StatusCode)
 	}
 
-	pipelineNames, err := parseJSONResponse(resp)
-	return pipelineNames, err
+	return parseJSONResponse(resp)
 }

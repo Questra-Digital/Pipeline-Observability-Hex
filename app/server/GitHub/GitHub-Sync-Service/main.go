@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v60/github"
+	"github.com/joho/godotenv"
 	"github.com/QuestraDigital/goServices/GitHub-Sync-Service/notificationClient"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -87,16 +88,20 @@ type GitHubIssue struct {
 const defaultSyncInterval = 120 // 120 seconds to prevent rate limits
 
 func main() {
+	_ = godotenv.Load(".env")
+
 	mongoURL := os.Getenv("MONGO_URL")
 	if mongoURL == "" {
-		mongoURL = "mongodb://mongouser:mongopassword@localhost:27017/admin"
+		mongoURL = "mongodb://localhost:27017/admin"
 	}
 
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURL))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURL))
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(context.TODO())
+	defer client.Disconnect(ctx)
 
 	// Create TTL Index for 14-day data retention
 	ensureTTLIndex(client)
@@ -110,7 +115,9 @@ func main() {
 func ensureTTLIndex(client *mongo.Client) {
 	coll := client.Database("admin").Collection("github_runs")
 	// First, try to drop the old dangerous TTL index on updatedAt (if it exists)
-	_, _ = coll.Indexes().DropOne(context.TODO(), "updatedAt_1")
+	if _, err := coll.Indexes().DropOne(context.TODO(), "updatedAt_1"); err != nil {
+		log.Printf("Info: could not drop old TTL index on updatedAt: %v", err)
+	}
 	
 	// Create a safe TTL index on syncedAt — this is the time WE stored the run,
 	// not when GitHub last touched it. 90 days retention.
@@ -173,7 +180,9 @@ func fetchAllAccounts(client *mongo.Client) []GitHubAccount {
 		return nil
 	}
 	var accounts []GitHubAccount
-	_ = cursor.All(context.TODO(), &accounts)
+	if err := cursor.All(context.TODO(), &accounts); err != nil {
+		log.Printf("[Sync] Error decoding accounts: %v", err)
+	}
 	return accounts
 }
 
@@ -183,12 +192,17 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 	runsColl := db.Collection("github_runs")
 	issuesColl := db.Collection("github_issues")
 
-	cursor, err := reposColl.Find(context.TODO(), bson.M{"accountId": acc.ID, "enabled": true})
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cursor, err := reposColl.Find(ctx, bson.M{"accountId": acc.ID, "enabled": true})
 	if err != nil {
 		return
 	}
 	var repos []Repository
-	_ = cursor.All(context.TODO(), &repos)
+	if err := cursor.All(ctx, &repos); err != nil {
+		log.Printf("[Sync] Error decoding repos for account %s: %v", acc.ID.Hex(), err)
+	}
 
 	if len(repos) == 0 {
 		return
@@ -203,7 +217,7 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 		}
 
 		workflowRuns, _, err := ghClient.Actions.ListRepositoryWorkflowRuns(
-			context.TODO(), owner, repo.Name,
+			ctx, owner, repo.Name,
 			&github.ListWorkflowRunsOptions{ListOptions: github.ListOptions{PerPage: 10}},
 		)
 		if err != nil {
@@ -214,7 +228,7 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 		for _, run := range workflowRuns.WorkflowRuns {
 			// OPTIMIZATION: Check if we already have this run and if it's completed
 			var existingRun WorkflowRun
-			err := runsColl.FindOne(context.TODO(), bson.M{"runId": run.GetID()}).Decode(&existingRun)
+			err := runsColl.FindOne(ctx, bson.M{"runId": run.GetID()}).Decode(&existingRun)
 
 			// Track whether this is a brand-new run we've never seen before.
 			// All automation (tickets, watchdog, webhooks) only fires for new runs
@@ -231,7 +245,10 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 
 			var dbJobs []Job
 			if needsJobUpdate {
-				jobs, _, _ := ghClient.Actions.ListWorkflowJobs(context.TODO(), owner, repo.Name, run.GetID(), nil)
+				jobs, _, jobErr := ghClient.Actions.ListWorkflowJobs(ctx, owner, repo.Name, run.GetID(), nil)
+				if jobErr != nil {
+					log.Printf("[Sync] Error fetching jobs for run %d: %v", run.GetID(), jobErr)
+				}
 				if jobs != nil {
 					for _, j := range jobs.Jobs {
 						var dbSteps []Step
@@ -302,7 +319,9 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 				"$set":         dbRun,
 				"$currentDate": bson.M{"syncedAt": true},
 			}
-			_, _ = runsColl.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
+			if _, err := runsColl.UpdateOne(ctx, filter, update, options.Update().SetUpsert(true)); err != nil {
+				log.Printf("[Sync] Error upserting run %d: %v", run.GetID(), err)
+			}
 
 			// Trigger notification if anomaly detected
 			if anomalyScore > 0 {
@@ -316,7 +335,7 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 			// escalations for old failures when the server restarts.
 			if run.GetConclusion() == "failure" && isNewRun {
 				logToAILog(fmt.Sprintf("CRITICAL: Pipeline Failure detected for Run #%d (%s/%s). Initiating Auto-Ticket creation...", run.GetID(), owner, repo.Name))
-				createGitHubIssue(context.TODO(), ghClient, issuesColl, owner, repo.Name, dbRun)
+				createGitHubIssue(ctx, ghClient, issuesColl, owner, repo.Name, dbRun)
 
 				// --- PR Auto-Comment Agent ---
 				// Post a structured failure summary as a PR comment when the run is on a PR.
@@ -326,15 +345,15 @@ func syncAccount(client *mongo.Client, acc GitHubAccount) {
 						prNum := pr.GetNumber()
 						commentKey := bson.M{"runId": run.GetID(), "prNumber": prNum}
 						var existing bson.M
-						if db.Collection("github_pr_comments").FindOne(context.TODO(), commentKey).Decode(&existing) == mongo.ErrNoDocuments {
-							postPRComment(context.TODO(), ghClient, prCommentsColl, owner, repo.Name, prNum, dbRun)
+						if db.Collection("github_pr_comments").FindOne(ctx, commentKey).Decode(&existing) == mongo.ErrNoDocuments {
+							postPRComment(ctx, ghClient, prCommentsColl, owner, repo.Name, prNum, dbRun)
 						}
 					}
 				}
 
 				// --- Consecutive Failure Watchdog ---
 				// If the same workflow has failed N times in a row, escalate.
-				checkConsecutiveFailures(context.TODO(), db, ghClient, acc, owner, repo.Name, dbRun)
+				checkConsecutiveFailures(ctx, db, ghClient, acc, owner, repo.Name, dbRun)
 
 				// --- Webhook Notification Agent ---
 				// Deliver failure event to all configured user webhooks.
@@ -470,8 +489,11 @@ func postPRComment(ctx context.Context, client *github.Client, coll *mongo.Colle
 		"repo":      owner + "/" + repo,
 		"createdAt": time.Now(),
 	}
-	_, _ = coll.InsertOne(ctx, record)
-	logToAILog(fmt.Sprintf("SUCCESS: [PR-Comment] Posted comment %d on PR #%d for Run #%d", ghComment.GetID(), prNumber, run.RunID))
+	if _, err := coll.InsertOne(ctx, record); err != nil {
+		logToAILog(fmt.Sprintf("ERROR: [PR-Comment] Failed to store comment record: %v", err))
+	} else {
+		logToAILog(fmt.Sprintf("SUCCESS: [PR-Comment] Posted comment %d on PR #%d for Run #%d", ghComment.GetID(), prNumber, run.RunID))
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -497,7 +519,10 @@ func checkConsecutiveFailures(ctx context.Context, db *mongo.Database, client *g
 		return
 	}
 	var recentRuns []WorkflowRun
-	_ = cursor.All(ctx, &recentRuns)
+	if err := cursor.All(ctx, &recentRuns); err != nil {
+		logToAILog(fmt.Sprintf("ERROR: [Watchdog] Failed to decode recent runs: %v", err))
+		return
+	}
 
 	if len(recentRuns) < consecutiveFailureThreshold {
 		return
@@ -560,7 +585,9 @@ func checkConsecutiveFailures(ctx context.Context, db *mongo.Database, client *g
 		CreatedAt:   time.Now(),
 		Status:      "escalated",
 	}
-	_, _ = issuesColl.InsertOne(ctx, dbIssue)
+	if _, err := issuesColl.InsertOne(ctx, dbIssue); err != nil {
+		logToAILog(fmt.Sprintf("ERROR: [Watchdog] Failed to store escalation issue: %v", err))
+	}
 
 	// Also deliver a critical webhook.
 	go deliverWebhooksForUser(db, acc.UserID, &webhookEvent{
@@ -606,7 +633,10 @@ func deliverWebhooksForUser(db *mongo.Database, userID string, event *webhookEve
 		return
 	}
 	var configs []webhookConfig
-	_ = cursor.All(context.TODO(), &configs)
+	if err := cursor.All(context.TODO(), &configs); err != nil {
+		logToAILog(fmt.Sprintf("WEBHOOK: Error decoding webhook configs: %v", err))
+		return
+	}
 
 	for _, cfg := range configs {
 		payload := buildWebhookPayload(cfg.Format, event)
@@ -664,8 +694,10 @@ func buildWebhookPayload(format string, event *webhookEvent) []byte {
 }
 
 func logToAILog(msg string) {
-	// Persistent logging for debugging the automation layer
-	logPath := "/home/mujtaba-rehman/Pipeline-Observability-Hex/app/server/ArgoCD/ArgoCD-Web-App/gemini-ai.log"
+	logPath := os.Getenv("AI_LOG_PATH")
+	if logPath == "" {
+		logPath = "/var/log/vizops/gemini-ai.log"
+	}
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Printf("[Sync-ERROR] Log file unreachable: %v", err)

@@ -3,10 +3,9 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
+	mongoconnection "github.com/QuestraDigital/goServices/ArgoCD-Web-App/mongoConnection"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,21 +19,17 @@ type UserEmailConfig struct {
 func StoreEmailInMongoDB(c *gin.Context, email string, userId string) {
 	mongoClient, err := mongoconnection.ConnectToMongoDB()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return
 	}
-	defer mongoClient.Disconnect(context.TODO())
 
 	collection := mongoClient.Database("admin").Collection("emails")
 
-	// Update for specific user, or insert if not exists
 	filter := bson.M{"userId": userId}
 	update := bson.M{"$set": bson.M{"email": email}}
 	opts := options.Update().SetUpsert(true)
 
 	_, err = collection.UpdateOne(context.TODO(), filter, update, opts)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return
 	}
 }
